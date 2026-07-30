@@ -22,6 +22,22 @@ export interface ResponseMeta {
 }
 
 /**
+ * A static credential or a callback resolved before every attempt. Use a
+ * callback for tokens that expire (OAuth access tokens, STS, Vault).
+ */
+export type AuthValue = string | (() => string | Promise<string>);
+
+/** Passed to onRequest/onResponse hooks. Mutations to headers and url in
+ * onRequest apply to the outgoing request. */
+export interface RequestContext {
+  method: string;
+  url: string;
+  headers: Record<string, string>;
+  /** 0 on the first try, increments per retry. */
+  attempt: number;
+}
+
+/**
  * Every SDK call returns a discriminated result instead of throwing.
  * Narrow on `ok` and the error side is a typed union of the documented
  * error responses for that exact operation.
@@ -88,12 +104,17 @@ export interface CoreRequest {
 
 export interface CoreConfig {
   baseUrl: string;
-  headers: Record<string, string>;
+  headers: Record<string, AuthValue>;
   /** Auth carried as query parameters (apiKey-in-query schemes). */
-  query: Record<string, string>;
+  query: Record<string, AuthValue>;
   fetch: typeof fetch;
   timeoutMs: number;
   maxRetries: number;
+  /** Called before every attempt; mutate context.headers / context.url. */
+  onRequest?: (context: RequestContext) => void | Promise<void>;
+  /** Called after every HTTP response, before parsing and retry decisions.
+   * Clone the response before reading its body. */
+  onResponse?: (response: Response, context: RequestContext) => void | Promise<void>;
 }
 
 const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
@@ -110,7 +131,7 @@ export class HttpCore {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       let response: Response;
       try {
-        response = await this.send(req, timeoutMs);
+        response = await this.send(req, timeoutMs, attempt);
       } catch (cause) {
         lastError = cause;
         if (attempt < maxRetries && retryAllowed && !req.options?.signal?.aborted) {
@@ -156,9 +177,11 @@ export class HttpCore {
     return { ok: false, error };
   }
 
-  private async send(req: CoreRequest, timeoutMs: number): Promise<Response> {
-    const url = this.buildUrl(req);
-    const headers: Record<string, string> = { ...this.config.headers };
+  private async send(req: CoreRequest, timeoutMs: number, attempt: number): Promise<Response> {
+    const headers: Record<string, string> = {};
+    for (const [k, v] of Object.entries(this.config.headers)) {
+      headers[k] = await resolveAuthValue(v);
+    }
     const { body, contentType } = serializeBody(req);
     if (contentType) headers["Content-Type"] = contentType;
     for (const source of [req.headers, req.options?.headers]) {
@@ -167,21 +190,31 @@ export class HttpCore {
       }
     }
 
+    const context: RequestContext = {
+      method: req.method,
+      url: await this.buildUrl(req),
+      headers,
+      attempt,
+    };
+    await this.config.onRequest?.(context);
+
     const signals: AbortSignal[] = [AbortSignal.timeout(timeoutMs)];
     if (req.options?.signal) signals.push(req.options.signal);
 
-    return this.config.fetch(url, {
+    const response = await this.config.fetch(context.url, {
       method: req.method,
-      headers,
+      headers: context.headers,
       body,
       signal: AbortSignal.any(signals),
     });
+    await this.config.onResponse?.(response, context);
+    return response;
   }
 
-  private buildUrl(req: CoreRequest): string {
+  private async buildUrl(req: CoreRequest): Promise<string> {
     const base = this.config.baseUrl.replace(/\/+$/, "");
     const url = new URL(base + req.path);
-    for (const [k, v] of Object.entries({ ...req.query, ...this.config.query })) {
+    for (const [k, v] of Object.entries(req.query ?? {})) {
       if (v === undefined || v === null) continue;
       if (Array.isArray(v)) {
         // top-level arrays repeat the key: expand=a&expand=b
@@ -190,8 +223,23 @@ export class HttpCore {
         appendDeep(url.searchParams, k, v);
       }
     }
+    for (const [k, v] of Object.entries(this.config.query)) {
+      url.searchParams.append(k, await resolveAuthValue(v));
+    }
     return url.toString();
   }
+}
+
+async function resolveAuthValue(value: AuthValue): Promise<string> {
+  return typeof value === "function" ? await value() : value;
+}
+
+/** Wrap a bearer credential (static or callback) as an Authorization value. */
+export function bearerAuth(token: AuthValue): AuthValue {
+  if (typeof token === "function") {
+    return async () => "Bearer " + (await token());
+  }
+  return "Bearer " + token;
 }
 
 /**
