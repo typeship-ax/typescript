@@ -37,16 +37,6 @@ export class ApiResponseError extends ApiError<number, ErrorModel> {
 }
 
 /**
- * No such resource in this account.
- * Raised for HTTP 404 responses.
- */
-export class NotFoundError extends ApiError<404, ErrorModel> {
-  constructor(body: ErrorModel, response: ResponseMeta) {
-    super("No such resource in this account.", 404, body, response);
-  }
-}
-
-/**
  * Missing or invalid API key.
  * Raised for HTTP 401 responses.
  */
@@ -57,21 +47,31 @@ export class UnauthorizedError extends ApiError<401, ErrorModel> {
 }
 
 /**
+ * The account's plan does not include share links.
+ * Raised for HTTP 402 responses.
+ */
+export class PaymentRequiredError extends ApiError<402, ErrorModel> {
+  constructor(body: ErrorModel, response: ResponseMeta) {
+    super("The account's plan does not include share links.", 402, body, response);
+  }
+}
+
+/**
+ * No such resource in this account.
+ * Raised for HTTP 404 responses.
+ */
+export class NotFoundError extends ApiError<404, ErrorModel> {
+  constructor(body: ErrorModel, response: ResponseMeta) {
+    super("No such resource in this account.", 404, body, response);
+  }
+}
+
+/**
  * Invalid name or spec URL.
  * Raised for HTTP 400 responses.
  */
 export class BadRequestError extends ApiError<400, ErrorModel> {
   constructor(body: ErrorModel, response: ResponseMeta) {
     super("Invalid name or spec URL.", 400, body, response);
-  }
-}
-
-/**
- * The account has used its hosted generation allowance.
- * Raised for HTTP 402 responses.
- */
-export class PaymentRequiredError extends ApiError<402, ErrorModel> {
-  constructor(body: ErrorModel, response: ResponseMeta) {
-    super("The account has used its hosted generation allowance.", 402, body, response);
   }
 }
