@@ -4,7 +4,7 @@
 import { HttpCore, type ApiResult, type RequestOptions } from "../core/http";
 import { paginate, PagePromise } from "../core/pagination";
 import { TransportError, UnexpectedApiError, BadRequestError, NotFoundError, PaymentRequiredError, UnauthorizedError, UnprocessableEntityError } from "../errors";
-import type { Generation, Project } from "../types";
+import type { Destination, Generation, Project, Source } from "../types";
 
 export class ProjectsResource {
   constructor(private readonly _core: HttpCore) {}
@@ -89,6 +89,9 @@ export class ProjectsResource {
   async update(projectId: string, body: {
     name?: string;
     spec_url?: string;
+    source?: Source;
+    destination?: Destination | null;
+    auto_regen?: boolean;
     platform?: "sdk" | "cli" | "mcp";
   }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsUpdateError>> {
     return this._core.request<Project, ProjectsUpdateError>({

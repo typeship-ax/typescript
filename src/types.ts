@@ -31,6 +31,9 @@ export interface GenerationMeta {
   paginated_operation_count?: number;
   /** Operations beyond the plan's endpoint allowance, not generated. */
   omitted_operation_count?: number;
+  /** Pull request opened by this regeneration, when one was. */
+  pr_url?: string | null;
+  pr_number?: number | null;
   file_count?: number;
   total_lines?: number;
 }
@@ -41,12 +44,35 @@ export interface GenerationResult {
   meta: GenerationMeta;
 }
 
+/** Where the project's spec lives. */
+export interface Source {
+  kind: "url" | "repo";
+  /** kind url. Fetched server-side for every generation. */
+  url?: string | null;
+  /** kind repo, "owner/name". Watched via the GitHub App. */
+  repo?: string | null;
+  /** Path of the spec file inside the repository. */
+  path?: string | null;
+}
+
+/** Where regeneration pull requests land. */
+export interface Destination {
+  /** Defaults to the source repository when the source is a repo. */
+  repo?: string | null;
+  /** Directory the generated package is written to. */
+  directory?: string | null;
+}
+
 export interface Project {
   id: string;
   object: "project";
   name: string;
-  /** Fetched server-side for every generation. */
-  spec_url: string;
+  /** The source URL when the source kind is url; null otherwise. */
+  spec_url?: string | null;
+  source: Source;
+  destination?: Destination | null;
+  /** Regenerate automatically when the spec changes. */
+  auto_regen: boolean;
   platform: "sdk" | "cli" | "mcp";
   /** Format: date-time */
   created_at: string;
@@ -57,7 +83,7 @@ export interface Generation {
   object: "generation";
   project_id?: string | null;
   status: "succeeded" | "failed";
-  trigger: "manual" | "share" | "webhook";
+  trigger: "manual" | "share" | "webhook" | "poll";
   meta?: GenerationMeta;
   warnings?: string[];
   /** Present on retrieve and create; omitted in lists. */
