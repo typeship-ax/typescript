@@ -38,7 +38,8 @@ export class ProjectsResource {
   async create(body: {
     name: string;
     spec_url: string;
-    targets?: Array<"cli" | "mcp">;
+    /** Default: "sdk" */
+    platform?: "sdk" | "cli" | "mcp";
   }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsCreateError>> {
     return this._core.request<Project, ProjectsCreateError>({
       method: "POST",
@@ -82,6 +83,24 @@ export class ProjectsResource {
   }
 
   /**
+   * Update a project
+   * `PATCH /projects/{project_id}`
+   */
+  async update(projectId: string, body: {
+    name?: string;
+    spec_url?: string;
+    platform?: "sdk" | "cli" | "mcp";
+  }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsUpdateError>> {
+    return this._core.request<Project, ProjectsUpdateError>({
+      method: "PATCH",
+      path: `/projects/${encodeURIComponent(String(projectId))}`,
+      body,
+      errors: { "400": BadRequestError, "401": UnauthorizedError, "404": NotFoundError },
+      options,
+    });
+  }
+
+  /**
    * List a project's generations
    * 
    * Auto-paginates: `for await (const item of …)` walks every page.
@@ -107,7 +126,7 @@ export class ProjectsResource {
   /**
    * Run a hosted generation
    * 
-   * Fetches the project's spec URL, generates with the project's targets,
+   * Fetches the project's spec URL, generates the project's platform,
    * and stores the result in the project's history. Counts toward the
    * account's hosted generation allowance.
    * `POST /projects/{project_id}/generations`
@@ -138,6 +157,9 @@ export type ProjectsGetError = UnauthorizedError | NotFoundError | UnexpectedApi
 
 /** Every error `delete` can produce, as a discriminated union. */
 export type ProjectsDeleteError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError;
+
+/** Every error `update` can produce, as a discriminated union. */
+export type ProjectsUpdateError = BadRequestError | UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError;
 
 export interface ProjectsListGenerationsParams {
   limit?: number;

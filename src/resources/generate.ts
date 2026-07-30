@@ -16,7 +16,11 @@ export class GenerateResource {
    */
   async run(body: {
     spec: SpecInput;
-    targets?: Array<"cli" | "mcp">;
+    /**
+     * Which artifact to generate.
+     * Default: "sdk"
+     */
+    platform?: "sdk" | "cli" | "mcp";
   }, options?: RequestOptions): Promise<ApiResult<GenerationResult, GenerateRunError>> {
     return this._core.request<GenerationResult, GenerateRunError>({
       method: "POST",

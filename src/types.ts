@@ -29,6 +29,8 @@ export interface GenerationMeta {
   operation_count?: number;
   schema_count?: number;
   paginated_operation_count?: number;
+  /** Operations beyond the plan's endpoint allowance, not generated. */
+  omitted_operation_count?: number;
   file_count?: number;
   total_lines?: number;
 }
@@ -45,7 +47,7 @@ export interface Project {
   name: string;
   /** Fetched server-side for every generation. */
   spec_url: string;
-  targets: Array<"cli" | "mcp">;
+  platform: "sdk" | "cli" | "mcp";
   /** Format: date-time */
   created_at: string;
 }
