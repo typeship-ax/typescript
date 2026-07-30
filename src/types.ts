@@ -75,8 +75,10 @@ export interface Share {
 }
 
 export interface ErrorModel {
-  error: {
+  errors: Array<{
     code: "invalid_request" | "unauthorized" | "not_found" | "spec_error" | "fetch_error" | "plan_limit_reached" | "payload_too_large";
     message: string;
-  };
+  }>;
+  /** Also sent as the x-request-id response header. */
+  request_id: string;
 }
