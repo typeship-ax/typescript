@@ -73,6 +73,8 @@ export interface Project {
   destination?: Destination | null;
   /** Regenerate automatically when the spec changes. */
   auto_regen: boolean;
+  /** npm name override for generated output; supports @scope/name. */
+  package_name?: string | null;
   platform: "sdk" | "cli" | "mcp";
   /** Format: date-time */
   created_at: string;

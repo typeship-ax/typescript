@@ -92,6 +92,7 @@ export class ProjectsResource {
     source?: Source;
     destination?: Destination | null;
     auto_regen?: boolean;
+    package_name?: string | null;
     platform?: "sdk" | "cli" | "mcp";
   }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsUpdateError>> {
     return this._core.request<Project, ProjectsUpdateError>({

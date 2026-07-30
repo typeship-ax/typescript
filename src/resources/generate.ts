@@ -21,6 +21,8 @@ export class GenerateResource {
      * Default: "sdk"
      */
     platform?: "sdk" | "cli" | "mcp";
+    /** npm name override for the generated package. */
+    package_name?: string;
   }, options?: RequestOptions): Promise<ApiResult<GenerationResult, GenerateRunError>> {
     return this._core.request<GenerationResult, GenerateRunError>({
       method: "POST",

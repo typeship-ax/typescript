@@ -37,6 +37,16 @@ export interface RequestContext {
   attempt: number;
 }
 
+/** One server-sent event from a text/event-stream response. */
+export interface SseEvent {
+  /** The `event:` field; undefined for unnamed events. */
+  event?: string;
+  /** The `id:` field, when the server sends one. */
+  id?: string;
+  /** Concatenated `data:` lines. Parse as JSON if your API sends JSON. */
+  data: string;
+}
+
 /**
  * Every SDK call returns a discriminated result instead of throwing.
  * Narrow on `ok` and the error side is a typed union of the documented
@@ -99,6 +109,11 @@ export interface CoreRequest {
   errors?: Record<string, ErrorCtor>;
   /** Idempotent requests are retried automatically. */
   idempotent?: boolean;
+  /** Success body is text/event-stream: yield SseEvents instead of parsing. */
+  stream?: boolean;
+  /** Header name auto-filled with one UUID per call (stable across retries)
+   * when the caller doesn't supply a value. */
+  idempotencyKey?: string;
   options?: RequestOptions;
 }
 
@@ -127,11 +142,20 @@ export class HttpCore {
     const timeoutMs = req.options?.timeoutMs ?? this.config.timeoutMs;
     const retryAllowed = req.idempotent === true || req.method === "GET";
 
+    // One key per logical call, reused on every retry — that's the point
+    // of idempotency keys.
+    const autoIdempotencyKey =
+      req.idempotencyKey !== undefined &&
+      req.headers?.[req.idempotencyKey] === undefined &&
+      req.options?.headers?.[req.idempotencyKey] === undefined
+        ? crypto.randomUUID()
+        : undefined;
+
     let lastError: unknown;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       let response: Response;
       try {
-        response = await this.send(req, timeoutMs, attempt);
+        response = await this.send(req, timeoutMs, attempt, autoIdempotencyKey);
       } catch (cause) {
         lastError = cause;
         if (attempt < maxRetries && retryAllowed && !req.options?.signal?.aborted) {
@@ -146,6 +170,9 @@ export class HttpCore {
       }
 
       if (response.ok) {
+        if (req.stream) {
+          return { ok: true, data: sseEvents(response) as T, response: meta(response) };
+        }
         const data = (await parseBody(response, req.method)) as T;
         return { ok: true, data, response: meta(response) };
       }
@@ -177,10 +204,18 @@ export class HttpCore {
     return { ok: false, error };
   }
 
-  private async send(req: CoreRequest, timeoutMs: number, attempt: number): Promise<Response> {
+  private async send(
+    req: CoreRequest,
+    timeoutMs: number,
+    attempt: number,
+    autoIdempotencyKey?: string,
+  ): Promise<Response> {
     const headers: Record<string, string> = {};
     for (const [k, v] of Object.entries(this.config.headers)) {
       headers[k] = await resolveAuthValue(v);
+    }
+    if (req.idempotencyKey && autoIdempotencyKey) {
+      headers[req.idempotencyKey] = autoIdempotencyKey;
     }
     const { body, contentType } = serializeBody(req);
     if (contentType) headers["Content-Type"] = contentType;
@@ -232,6 +267,55 @@ export class HttpCore {
 
 async function resolveAuthValue(value: AuthValue): Promise<string> {
   return typeof value === "function" ? await value() : value;
+}
+
+/** Parse a text/event-stream body into SseEvents, lazily. */
+async function* sseEvents(response: Response): AsyncGenerator<SseEvent, void, undefined> {
+  if (!response.body) return;
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let dataLines: string[] = [];
+  let eventName: string | undefined;
+  let eventId: string | undefined;
+
+  const flush = (): SseEvent | undefined => {
+    if (dataLines.length === 0) return undefined;
+    const event: SseEvent = { data: dataLines.join("\n") };
+    if (eventName !== undefined) event.event = eventName;
+    if (eventId !== undefined) event.id = eventId;
+    dataLines = [];
+    eventName = undefined;
+    return event;
+  };
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let newline: number;
+      while ((newline = buffer.search(/\r?\n/)) !== -1) {
+        const line = buffer.slice(0, newline);
+        buffer = buffer.slice(newline + (buffer[newline] === "\r" ? 2 : 1));
+        if (line === "") {
+          const event = flush();
+          if (event) yield event;
+        } else if (line.startsWith("data:")) {
+          dataLines.push(line.slice(5).replace(/^ /, ""));
+        } else if (line.startsWith("event:")) {
+          eventName = line.slice(6).replace(/^ /, "");
+        } else if (line.startsWith("id:")) {
+          eventId = line.slice(3).replace(/^ /, "");
+        }
+        // comments (":") and "retry:" are intentionally ignored
+      }
+    }
+    const last = flush();
+    if (last) yield last;
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 /** Wrap a bearer credential (static or callback) as an Authorization value. */
