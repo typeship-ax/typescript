@@ -90,7 +90,7 @@ export interface Generation {
   object: "generation";
   project_id?: string | null;
   status: "succeeded" | "failed";
-  trigger: "manual" | "share" | "webhook" | "poll";
+  trigger: "manual" | "share" | "webhook" | "poll" | "preview";
   meta?: GenerationMeta;
   warnings?: string[];
   /** Present on retrieve and create; omitted in lists. */
