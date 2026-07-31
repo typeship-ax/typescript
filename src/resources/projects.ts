@@ -94,6 +94,8 @@ export class ProjectsResource {
     auto_regen?: boolean;
     package_name?: string | null;
     spec_patches?: SpecPatch[];
+    /** Serve this project as a hosted remote MCP endpoint. */
+    mcp_enabled?: boolean;
     platform?: "sdk" | "cli" | "mcp";
   }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsUpdateError>> {
     return this._core.request<Project, ProjectsUpdateError>({

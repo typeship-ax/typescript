@@ -102,6 +102,8 @@ export interface Project {
   /** npm name override for generated output; supports @scope/name. */
   package_name?: string | null;
   spec_patches?: SpecPatch[];
+  /** Path of the hosted MCP endpoint when enabled. */
+  mcp_url?: string | null;
   platform: "sdk" | "cli" | "mcp";
   /** Format: date-time */
   created_at: string;
