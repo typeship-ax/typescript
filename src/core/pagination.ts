@@ -144,17 +144,30 @@ export function paginate<Item, E>(
   req: CoreRequest,
   config: PageConfig,
 ): PagePromise<Item, E> {
-  const fetchPage: FetchPage<Item, E> = async (query) => {
-    const result = await core.request<unknown, E>({ ...req, query });
+  const isGraphql = req.graphqlField !== undefined;
+  const fetchPage: FetchPage<Item, E> = async (params) => {
+    const nextReq = isGraphql
+      ? {
+          ...req,
+          body: {
+            ...(req.body as Record<string, unknown>),
+            variables: { ...((req.body as { variables?: Record<string, unknown> })?.variables ?? {}), ...params },
+          },
+        }
+      : { ...req, query: params };
+    const result = await core.request<unknown, E>(nextReq);
     if (!result.ok) return result;
-    const page = new Page<Item, E>(fetchPage, config, query, result.data, result.response);
+    const page = new Page<Item, E>(fetchPage, config, params, result.data, result.response);
     return { ok: true, data: page, response: result.response };
   };
-  const initialQuery: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(req.query ?? {})) {
-    if (v !== undefined) initialQuery[k] = v;
+  const initial: Record<string, unknown> = {};
+  const seed = isGraphql
+    ? ((req.body as { variables?: Record<string, unknown> })?.variables ?? {})
+    : (req.query ?? {});
+  for (const [k, v] of Object.entries(seed)) {
+    if (v !== undefined) initial[k] = v;
   }
-  return new PagePromise<Item, E>(fetchPage(initialQuery));
+  return new PagePromise<Item, E>(fetchPage(initial));
 }
 
 function getPath(body: unknown, path: string): unknown {

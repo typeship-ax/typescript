@@ -12,7 +12,7 @@ const SERVER_NAME = "typeship-mcp";
 const SERVER_VERSION = "1.0.0";
 const PROTOCOL_VERSION = "2025-03-26";
 const DEFAULT_BASE_URL = "https://typeship.dev/api/v1";
-const AUTH_SCALARS = [{"option":"bearerToken","flag":"token","env":"TYPESHIP_TOKEN"}] as const;
+const AUTH_SCALARS: { option: string; flag: string; env: string }[] = [{"option":"bearerToken","flag":"token","env":"TYPESHIP_TOKEN"}];
 const BASIC: { envUser: string; envPass: string } | null = null;
 
 function makeClient(): TypeshipClient {
@@ -62,7 +62,15 @@ function toolDefinitions(): unknown[] {
     description:
       (op.summary ? op.summary + " — " : "") + op.httpMethod + " " + op.path +
       (op.paginated ? " (paginated: returns one page plus hasMore)" : ""),
-    inputSchema: op.inputSchema,
+    inputSchema: op.select
+      ? {
+          ...op.inputSchema,
+          properties: {
+            ...(op.inputSchema.properties as Record<string, unknown>),
+            select: { type: "string", description: 'GraphQL selection set override, e.g. "{ id name }"' },
+          },
+        }
+      : op.inputSchema,
   }));
 }
 
@@ -75,7 +83,12 @@ async function callTool(op: OpSpec, args: Record<string, unknown>): Promise<{ te
   if (missing.length > 0) {
     return { text: "Missing required argument(s): " + missing.join(", "), isError: true };
   }
-  const callArgs = buildArgs(op, values, op.bodyStyle === "data" ? args.body : undefined);
+  const callArgs = buildArgs(
+    op,
+    values,
+    op.bodyStyle === "data" ? args.body : undefined,
+    typeof args.select === "string" ? args.select : undefined,
+  );
   const target = (client as unknown as Record<string, Record<string, (...a: unknown[]) => unknown>>)[op.resource]!;
   try {
     const result = await (target[op.method]!(...callArgs) as Promise<{ ok: boolean; data?: unknown; error?: unknown }>);

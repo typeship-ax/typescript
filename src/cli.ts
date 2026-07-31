@@ -8,7 +8,7 @@ import { OPS, buildArgs, findOp, missingRequired, type OpSpec, type ParamSpec } 
 
 const BIN = "typeship";
 const DEFAULT_BASE_URL = "https://typeship.dev/api/v1";
-const AUTH_SCALARS = [{"option":"bearerToken","flag":"token","env":"TYPESHIP_TOKEN"}] as const;
+const AUTH_SCALARS: { option: string; flag: string; env: string }[] = [{"option":"bearerToken","flag":"token","env":"TYPESHIP_TOKEN"}];
 const BASIC: { envUser: string; envPass: string } | null = null;
 const EXCLUDED_OPS = 0;
 
@@ -132,6 +132,7 @@ function printOp(op: OpSpec): void {
     }
   }
   if (op.hasBody) lines.push("  --data '<json>'" + " ".repeat(15) + "raw JSON body" + (op.bodyStyle === "fields" ? " (merged under field flags)" : ""));
+  if (op.select) lines.push("  --select '<selection>'" + " ".repeat(9) + "GraphQL selection set override, e.g. '{ id name }'");
   if (op.paginated) lines.push("  --all" + " ".repeat(25) + "stream every item from every page (NDJSON)");
   process.stdout.write(lines.join("\n") + "\n");
 }
@@ -210,7 +211,7 @@ async function main(): Promise<void> {
     try { dataBody = JSON.parse(dataRaw); } catch (e) { fail(2, "--data is not valid JSON: " + (e as Error).message); }
   }
 
-  const RESERVED_FLAGS = new Set(["data", "all", "base-url", "username", "password", ...AUTH_SCALARS.map((a) => a.flag)]);
+  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "username", "password", ...AUTH_SCALARS.map((a) => a.flag)]);
   for (const spec of op.params) {
     if (spec.kind === "path") continue;
     const raw = parsed.flags.get(spec.flag);
@@ -227,7 +228,8 @@ async function main(): Promise<void> {
   if (missing.length > 0) fail(2, "Missing required: " + missing.map((m) => "--" + (op.params.find((p) => p.name === m)?.flag ?? m)).join(", "));
 
   const client = makeClient(parsed.flags);
-  const args = buildArgs(op, values, dataBody);
+  const selectValue = typeof parsed.flags.get("select") === "string" ? (parsed.flags.get("select") as string) : undefined;
+  const args = buildArgs(op, values, dataBody, selectValue);
   const target = (client as unknown as Record<string, Record<string, (...a: unknown[]) => unknown>>)[op.resource]!;
   const callResult = target[op.method]!(...args);
 

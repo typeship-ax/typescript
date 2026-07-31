@@ -3,9 +3,13 @@
 
 /** The spec to generate from. Provide exactly one of url or inline. */
 export interface SpecInput {
-  /** Publicly reachable URL of the spec. Fetched server-side. */
+  /**
+   * Publicly reachable URL of an OpenAPI document, a GraphQL SDL
+   * file, or a GraphQL endpoint (introspected automatically).
+   * Fetched server-side.
+   */
   url?: string;
-  /** Raw spec text, JSON or YAML. Up to 10MB. */
+  /** Raw spec text (OpenAPI JSON/YAML or GraphQL SDL). Up to 10MB. */
   inline?: string;
 }
 
@@ -18,6 +22,7 @@ export interface GeneratedFile {
 export interface GenerationMeta {
   title: string;
   version: string;
+  spec_format?: "openapi" | "graphql";
   /** Detected spec version, "2.0", "3.0", or "3.1". */
   oas_version: string;
   /** True when the input was Swagger 2.0 and was converted. */

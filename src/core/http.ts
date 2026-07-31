@@ -85,6 +85,21 @@ export class UnexpectedApiError extends ApiError<number, unknown> {
   }
 }
 
+/** A 200 response whose GraphQL payload carried errors. */
+export class GraphQLRequestError extends Error {
+  /** The raw errors array from the GraphQL response. */
+  readonly errors: { message?: string; path?: unknown[]; extensions?: unknown }[];
+  readonly response: ResponseMeta;
+
+  constructor(errors: unknown[], response: ResponseMeta) {
+    const first = (errors[0] as { message?: string } | undefined)?.message;
+    super(first ?? "GraphQL request returned errors");
+    this.name = "GraphQLRequestError";
+    this.errors = errors as GraphQLRequestError["errors"];
+    this.response = response;
+  }
+}
+
 /** The request never produced an HTTP response (network failure, timeout, abort). */
 export class TransportError extends Error {
   override readonly cause?: unknown;
@@ -114,6 +129,9 @@ export interface CoreRequest {
   /** Header name auto-filled with one UUID per call (stable across retries)
    * when the caller doesn't supply a value. */
   idempotencyKey?: string;
+  /** GraphQL: unwrap body.data[field] and turn body.errors into a
+   * GraphQLRequestError. */
+  graphqlField?: string;
   options?: RequestOptions;
 }
 
@@ -174,6 +192,14 @@ export class HttpCore {
           return { ok: true, data: sseEvents(response) as T, response: meta(response) };
         }
         const data = (await parseBody(response, req.method)) as T;
+        if (req.graphqlField) {
+          const payload = data as { data?: Record<string, unknown>; errors?: unknown[] } | undefined;
+          const responseMeta = meta(response);
+          if (Array.isArray(payload?.errors) && payload.errors.length > 0) {
+            return { ok: false, error: new GraphQLRequestError(payload.errors, responseMeta) as unknown as E, response: responseMeta };
+          }
+          return { ok: true, data: payload?.data?.[req.graphqlField] as T, response: responseMeta };
+        }
         return { ok: true, data, response: meta(response) };
       }
 
