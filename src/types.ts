@@ -60,6 +60,22 @@ export interface Source {
   path?: string | null;
 }
 
+/**
+ * A fix applied to the spec before generation. Targets are JSON
+ * Pointers into the document. A patch whose target no longer exists is
+ * skipped and reported as a warning on the generation, never silently.
+ */
+export interface SpecPatch {
+  op: "set" | "remove" | "rename";
+  /** JSON Pointer, e.g. /components/schemas/Account/properties/id/type */
+  path: string;
+  /** set only; the replacement value. */
+  value?: unknown;
+  /** rename only; the new key name. */
+  to?: string | null;
+  reason?: string | null;
+}
+
 /** Where regeneration pull requests land. */
 export interface Destination {
   /** Defaults to the source repository when the source is a repo. */
@@ -80,6 +96,7 @@ export interface Project {
   auto_regen: boolean;
   /** npm name override for generated output; supports @scope/name. */
   package_name?: string | null;
+  spec_patches?: SpecPatch[];
   platform: "sdk" | "cli" | "mcp";
   /** Format: date-time */
   created_at: string;

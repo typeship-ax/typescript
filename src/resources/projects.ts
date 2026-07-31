@@ -4,7 +4,7 @@
 import { HttpCore, type ApiResult, type RequestOptions } from "../core/http";
 import { paginate, PagePromise } from "../core/pagination";
 import { TransportError, UnexpectedApiError, BadRequestError, NotFoundError, PaymentRequiredError, UnauthorizedError, UnprocessableEntityError } from "../errors";
-import type { Destination, Generation, Project, Source } from "../types";
+import type { Destination, Generation, Project, Source, SpecPatch } from "../types";
 
 export class ProjectsResource {
   constructor(private readonly _core: HttpCore) {}
@@ -93,6 +93,7 @@ export class ProjectsResource {
     destination?: Destination | null;
     auto_regen?: boolean;
     package_name?: string | null;
+    spec_patches?: SpecPatch[];
     platform?: "sdk" | "cli" | "mcp";
   }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsUpdateError>> {
     return this._core.request<Project, ProjectsUpdateError>({
