@@ -66,8 +66,13 @@ export interface Source {
  * skipped and reported as a warning on the generation, never silently.
  */
 export interface SpecPatch {
-  op: "set" | "remove" | "rename";
-  /** JSON Pointer, e.g. /components/schemas/Account/properties/id/type */
+  op: "set" | "append" | "remove" | "rename";
+  /**
+   * JSON-Pointer-style path. Pattern segments enable bulk fixes:
+   * * (any child), ** (any depth), [key=value] (filter), e.g.
+   * /paths/**\/parameters/[name=account_id]/schema/type. Renaming a
+   * schema under /components/schemas also rewrites its $refs.
+   */
   path: string;
   /** set only; the replacement value. */
   value?: unknown;
