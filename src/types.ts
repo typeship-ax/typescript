@@ -127,6 +127,8 @@ export interface CliConfig {
   whoami_operation?: string | null;
   /** OAuth client id baked into the generated CLI for device-flow login. Without it, login prompts for a pasted credential. */
   oauth_client_id?: string | null;
+  /** Opt in to a once-a-day registry check that prints an upgrade hint. Off by default; generated code phones nobody unless this is enabled. */
+  update_notice?: boolean;
 }
 
 export interface Generation {

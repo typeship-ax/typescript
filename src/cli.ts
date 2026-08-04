@@ -5,6 +5,7 @@
 // Prints raw JSON to stdout; errors as JSON on stderr.
 // Exit codes: 0 success, 1 API/transport error, 2 usage error.
 
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -22,6 +23,8 @@ const API_VERSION = "1.0.0";
 const WHOAMI: { resource: string; method: string } | null = {"resource":"account","method":"whoami"};
 const ENVIRONMENTS: Record<string, string> = {};
 const HAS_MCP = true;
+const PKG_NAME = "typeship-sdk";
+const UPDATE_NOTICE = false;
 const OAUTH_TOKEN_URL: string | null = null;
 const OAUTH_CLIENT_ID: string | null = null;
 
@@ -31,6 +34,13 @@ interface Parsed {
   help: boolean;
 }
 
+/** Global flags that never take a value, so they don't swallow the next
+ * positional (`--non-interactive accounts list`). */
+const GLOBAL_BOOLEAN_FLAGS = new Set([
+  "all", "version", "with-token", "check", "non-interactive",
+  "claude", "cursor", "claude-desktop",
+]);
+
 function parseArgv(argv: string[]): Parsed {
   const positionals: string[] = [];
   const flags = new Map<string, string | boolean>();
@@ -38,10 +48,13 @@ function parseArgv(argv: string[]): Parsed {
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
     if (arg === "--help" || arg === "-h") { help = true; continue; }
+    if (arg === "-v") { flags.set("version", true); continue; }
     if (arg.startsWith("--")) {
       const eq = arg.indexOf("=");
       if (eq !== -1) {
         flags.set(arg.slice(2, eq), arg.slice(eq + 1));
+      } else if (GLOBAL_BOOLEAN_FLAGS.has(arg.slice(2))) {
+        flags.set(arg.slice(2), true);
       } else {
         const next = argv[i + 1];
         if (next !== undefined && !next.startsWith("--")) {
@@ -56,6 +69,39 @@ function parseArgv(argv: string[]): Parsed {
     }
   }
   return { positionals, flags, help };
+}
+
+function nonInteractive(parsed: Parsed): boolean {
+  return parsed.flags.get("non-interactive") === true || process.env["TYPESHIP_NON_INTERACTIVE"] === "1";
+}
+
+// ---------------------------------------------------------------------------
+// color — human surfaces only (help, stderr hints); JSON is never colored
+// ---------------------------------------------------------------------------
+
+let COLOR_OUT = false;
+let COLOR_ERR = false;
+
+/** --color on|off|auto (Stripe-style; explicit beats NO_COLOR beats TTY). */
+function colorEnabled(stream: { isTTY?: boolean }, parsed: Parsed): boolean {
+  const flag = parsed.flags.get("color");
+  if (flag === "off" || flag === "never") return false;
+  if (flag === "on" || flag === "always") return true;
+  if (flag !== undefined && flag !== true && flag !== "auto") {
+    fail(2, "--color expects on, off, or auto");
+  }
+  if (process.env.NO_COLOR !== undefined && process.env.NO_COLOR !== "") return false;
+  return stream.isTTY === true && process.env.TERM !== "dumb";
+}
+
+const ANSI = { bold: "1", dim: "2", cyan: "36", yellow: "33", green: "32" } as const;
+
+function paintOut(code: keyof typeof ANSI, text: string): string {
+  return COLOR_OUT ? "\x1b[" + ANSI[code] + "m" + text + "\x1b[0m" : text;
+}
+
+function paintErr(code: keyof typeof ANSI, text: string): string {
+  return COLOR_ERR ? "\x1b[" + ANSI[code] + "m" + text + "\x1b[0m" : text;
 }
 
 function out(value: unknown): void {
@@ -192,7 +238,7 @@ async function deviceLogin(clientId: string): Promise<void> {
     fail(1, "Device authorization failed (HTTP " + start.status + ").", start.body);
   }
   const uri = startBody!.verification_uri_complete ?? startBody!.verification_uri;
-  process.stderr.write("Open " + uri + " and enter code: " + startBody!.user_code + "\n");
+  process.stderr.write("Open " + paintErr("cyan", String(uri)) + " and enter code: " + paintErr("bold", String(startBody!.user_code)) + "\n");
   let intervalMs = (startBody!.interval ?? 5) * 1000;
   const deadline = Date.now() + (startBody!.expires_in ?? 900) * 1000;
   while (Date.now() < deadline) {
@@ -212,7 +258,7 @@ async function deviceLogin(clientId: string): Promise<void> {
           expiresAt: tokenBody.expires_in ? Date.now() + tokenBody.expires_in * 1000 : undefined,
         },
       });
-      process.stderr.write("Logged in.\n");
+      process.stderr.write(paintErr("green", "Logged in.") + "\n");
       out({ ok: true, method: "device", credentials: credsPath() });
       await flushExit(0);
     }
@@ -302,12 +348,12 @@ async function cmdLogin(parsed: Parsed): Promise<void> {
 
   const clientId = (typeof parsed.flags.get("client-id") === "string" ? parsed.flags.get("client-id") as string : undefined)
     ?? process.env["TYPESHIP_CLIENT_ID"] ?? OAUTH_CLIENT_ID ?? undefined;
-  if (OAUTH_TOKEN_URL && clientId !== undefined) {
+  if (OAUTH_TOKEN_URL && clientId !== undefined && !nonInteractive(parsed)) {
     await deviceLogin(clientId);
   }
 
-  if (!process.stdin.isTTY) {
-    fail(2, "No TTY. Pass the credential as a flag (see '" + BIN + " login --help') or pipe it with --with-token.");
+  if (nonInteractive(parsed) || !process.stdin.isTTY) {
+    fail(2, "Non-interactive: pass the credential as a flag (see '" + BIN + " login --help') or pipe it with --with-token.");
   }
   const first = AUTH_SCALARS[0];
   if (!first) fail(2, "This API declares no credential the CLI can prompt for. See '" + BIN + " login --help'.");
@@ -539,9 +585,107 @@ async function cmdMcp(parsed: Parsed): Promise<void> {
   await flushExit(0);
 }
 
+// ---------------------------------------------------------------------------
+// upgrade — explicit self-update via the npm registry
+// ---------------------------------------------------------------------------
+
+function semverLess(a: string, b: string): boolean {
+  const pa = a.split(/[.+-]/).map(Number);
+  const pb = b.split(/[.+-]/).map(Number);
+  for (let i = 0; i < 3; i++) {
+    const x = pa[i] ?? 0;
+    const y = pb[i] ?? 0;
+    if (x !== y) return x < y;
+  }
+  return false;
+}
+
+function registryBase(): string {
+  return (process.env.npm_config_registry ?? "https://registry.npmjs.org").replace(/\/+$/, "");
+}
+
+async function latestVersion(timeoutMs: number): Promise<string | null> {
+  try {
+    const response = await fetch(registryBase() + "/" + PKG_NAME, {
+      headers: { Accept: "application/vnd.npm.install-v1+json" },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!response.ok) return null;
+    const doc = await response.json() as { "dist-tags"?: { latest?: string } };
+    return doc["dist-tags"]?.latest ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function cmdUpgrade(parsed: Parsed): Promise<void> {
+  if (parsed.help) {
+    const lines = [
+      BIN + " upgrade — update this CLI from the npm registry",
+      "",
+      "  " + BIN + " upgrade            install the latest published version (npm install -g)",
+      "  " + BIN + " upgrade --check    report current vs latest without installing",
+      "",
+      "Registry: " + registryBase() + " (honors npm_config_registry).",
+    ];
+    process.stdout.write(lines.join("\n") + "\n");
+    await flushExit(0);
+  }
+  const latest = await latestVersion(5000);
+  if (latest === null) {
+    fail(1, PKG_NAME + " is not on the registry (" + registryBase() + "). This package updates by regeneration from its API spec; get the latest from the API provider.");
+  }
+  const outdated = semverLess(VERSION, latest!);
+  if (parsed.flags.get("check") === true) {
+    out({ current: VERSION, latest, outdated, registry: registryBase() });
+    await flushExit(0);
+  }
+  if (!outdated) {
+    out({ ok: true, current: VERSION, latest, message: "Already up to date." });
+    await flushExit(0);
+  }
+  process.stderr.write("Upgrading " + PKG_NAME + " " + VERSION + " -> " + latest + "\n");
+  const install = spawnSync("npm", ["install", "-g", PKG_NAME + "@" + latest], { stdio: ["ignore", "inherit", "inherit"] });
+  if (install.status !== 0) {
+    fail(1, "npm install failed (exit " + String(install.status) + "). Try: npm install -g " + PKG_NAME + "@latest");
+  }
+  out({ ok: true, upgraded: { from: VERSION, to: latest } });
+  await flushExit(0);
+}
+
+/** Opt-in (console setting) once-a-day upgrade hint. Off by default:
+ * generated code phones nobody unless the project owner chose this. The
+ * notice reads the previous run's cached answer, so commands never wait
+ * on the registry; the cache refreshes at most once a day. */
+async function maybeUpdateNotice(commandWord: string | undefined, quiet: boolean): Promise<void> {
+  if (!UPDATE_NOTICE || quiet) return;
+  if (commandWord === undefined || ["upgrade", "version", "help", "login", "logout"].includes(commandWord)) return;
+  const cacheFile = join(configDir(), "update-check.json");
+  let cache: { checkedAt?: number; latest?: string } = {};
+  try {
+    cache = JSON.parse(readFileSync(cacheFile, "utf8")) as typeof cache;
+  } catch { /* no cache yet */ }
+  if ((cache.checkedAt ?? 0) < Date.now() - 24 * 60 * 60 * 1000) {
+    const latest = await latestVersion(1500);
+    if (latest !== null) {
+      cache = { checkedAt: Date.now(), latest };
+      mkdirSync(configDir(), { recursive: true, mode: 0o700 });
+      writeFileSync(cacheFile, JSON.stringify(cache) + "\n");
+    }
+  }
+  if (cache.latest !== undefined && semverLess(VERSION, cache.latest)) {
+    process.stderr.write(paintErr("yellow", "A newer " + BIN + " is available: " + VERSION + " -> " + cache.latest + ". Run '" + BIN + " upgrade'.") + "\n");
+  }
+}
+
 function usageLine(op: OpSpec): string {
   const paths = op.params.filter((p) => p.kind === "path").map((p) => "<" + p.name + ">").join(" ");
   return BIN + " " + op.command[0] + " " + op.command[1] + (paths ? " " + paths : "");
+}
+
+/** Pad to a column, then paint — escape codes must not count toward width. */
+function padPaint(code: keyof typeof ANSI, text: string, width: number): string {
+  return paintOut(code, text) + " ".repeat(Math.max(1, width - text.length));
 }
 
 function printRoot(): void {
@@ -552,16 +696,16 @@ function printRoot(): void {
     byResource.set(op.command[0], list);
   }
   const lines: string[] = [];
-  lines.push(BIN + " — " + "typeship" + " (v" + "1.0.0" + ")");
+  lines.push(paintOut("bold", BIN) + " — " + "typeship" + " (v" + "1.0.0" + ")");
   lines.push("");
-  lines.push("Usage: " + BIN + " <resource> <command> [args] [--flags]");
+  lines.push(paintOut("bold", "Usage:") + " " + BIN + " <resource> <command> [args] [--flags]");
   lines.push("");
-  lines.push("Resources:");
+  lines.push(paintOut("bold", "Resources:"));
   for (const [resource, list] of byResource) {
-    lines.push("  " + resource.padEnd(24) + list.map((o) => o.command[1]).join(", "));
+    lines.push("  " + padPaint("cyan", resource, 24) + list.map((o) => o.command[1]).join(", "));
   }
   lines.push("");
-  lines.push("Global flags: --version, --base-url, --data '<json>', --all (paginated lists)" +
+  lines.push(paintOut("bold", "Global flags:") + " -v/--version, -h/--help, --non-interactive, --color on|off|auto, --base-url, --data '<json>', --all (paginated lists)" +
     (AUTH_SCALARS.length > 0 ? ", " + AUTH_SCALARS.map((a) => "--" + a.flag).join(", ") : ""));
   lines.push("Auth env vars: " + [
     ...AUTH_SCALARS.map((a) => a.env),
@@ -569,7 +713,7 @@ function printRoot(): void {
     "TYPESHIP_BASE_URL",
   ].join(", "));
   lines.push("Account: " + BIN + " login | logout | whoami  (stored at " + credsPath() + ")");
-  lines.push("Setup: " + BIN + " config (defaults)" + (HAS_MCP ? " | " + BIN + " mcp (agent clients)" : ""));
+  lines.push("Setup: " + BIN + " config (defaults)" + (HAS_MCP ? " | " + BIN + " mcp (agent clients)" : "") + " | " + BIN + " upgrade");
   if (EXCLUDED_OPS > 0) {
     lines.push("");
     lines.push("Note: " + EXCLUDED_OPS + " operation(s) with binary/multipart bodies are SDK-only.");
@@ -590,19 +734,19 @@ function printResource(resource: string): void {
 
 function printOp(op: OpSpec): void {
   const lines: string[] = [];
-  lines.push(usageLine(op));
+  lines.push(paintOut("bold", usageLine(op)));
   if (op.summary) lines.push(op.summary);
   lines.push(op.httpMethod + " " + op.path);
   lines.push("");
   const rows = op.params.filter((p) => p.kind !== "path");
   if (rows.length > 0) {
-    lines.push("Flags:");
+    lines.push(paintOut("bold", "Flags:"));
     for (const p of rows) {
       let type: string = p.type;
       if (p.enum) type = p.enum.join("|");
       lines.push(
-        "  --" + p.flag.padEnd(28) + type.padEnd(18) +
-        (p.required ? "(required) " : "") + (p.description ?? "").split("\n")[0]!.slice(0, 80),
+        "  " + padPaint("cyan", "--" + p.flag, 30) + type.padEnd(18) +
+        (p.required ? paintOut("yellow", "(required)") + " " : "") + (p.description ?? "").split("\n")[0]!.slice(0, 80),
       );
     }
   }
@@ -677,7 +821,11 @@ async function main(): Promise<void> {
     await flushExit(0);
   }
   const [resourceCmd, methodCmd] = parsed.positionals;
+  COLOR_OUT = colorEnabled(process.stdout, parsed);
+  COLOR_ERR = colorEnabled(process.stderr, parsed);
+  await maybeUpdateNotice(resourceCmd, nonInteractive(parsed));
 
+  if (resourceCmd === "upgrade") { await cmdUpgrade(parsed); }
   if (resourceCmd === "config") { await cmdConfig(parsed); }
   if (resourceCmd === "mcp") { await cmdMcp(parsed); }
   if (resourceCmd === "login") { await cmdLogin(parsed); }
@@ -720,7 +868,7 @@ async function main(): Promise<void> {
     try { dataBody = JSON.parse(dataRaw); } catch (e) { fail(2, "--data is not valid JSON: " + (e as Error).message); }
   }
 
-  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "username", "password", "with-token", "client-id", "version", "url", "claude", "cursor", "claude-desktop", ...AUTH_SCALARS.map((a) => a.flag)]);
+  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "username", "password", "with-token", "client-id", "version", "url", "claude", "cursor", "claude-desktop", "non-interactive", "check", "color", ...AUTH_SCALARS.map((a) => a.flag)]);
   for (const spec of op.params) {
     if (spec.kind === "path") continue;
     const raw = parsed.flags.get(spec.flag);
