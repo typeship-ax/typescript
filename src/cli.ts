@@ -6,7 +6,7 @@
 // Exit codes: 0 success, 1 API/transport error, 2 usage error.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,6 +25,8 @@ const ENVIRONMENTS: Record<string, string> = {};
 const HAS_MCP = true;
 const PKG_NAME = "typeship-sdk";
 const UPDATE_NOTICE = false;
+const API_DESCRIPTION: string | null = "Generate a zero-dependency TypeScript SDK, a CLI, and an MCP server from\nan OpenAPI spec. Generation and shares need no authentication. Projects\nand hosted generations require an API key, created in the console and\nsent as `Authorization: Bearer tsk_...`.\n";
+const DOCS_URL_DEFAULT: string | null = "https://typeship.dev";
 const OAUTH_TOKEN_URL: string | null = null;
 const OAUTH_CLIENT_ID: string | null = null;
 
@@ -38,7 +40,7 @@ interface Parsed {
  * positional (`--non-interactive accounts list`). */
 const GLOBAL_BOOLEAN_FLAGS = new Set([
   "all", "version", "with-token", "check", "non-interactive",
-  "claude", "cursor", "claude-desktop",
+  "claude", "cursor", "claude-desktop", "web",
 ]);
 
 function parseArgv(argv: string[]): Parsed {
@@ -398,6 +400,7 @@ async function cmdWhoami(parsed: Parsed): Promise<void> {
 interface CliConfigFile {
   baseUrl?: string;
   environment?: string;
+  docsUrl?: string;
 }
 
 function configFilePath(): string {
@@ -417,7 +420,11 @@ function writeConfig(config: CliConfigFile): void {
   writeFileSync(configFilePath(), JSON.stringify(config, null, 2) + "\n");
 }
 
-const CONFIG_KEYS = ["base-url", "environment"];
+const CONFIG_KEYS = ["base-url", "environment", "docs-url"];
+
+function configGet(config: CliConfigFile, key: string): string | undefined {
+  return key === "base-url" ? config.baseUrl : key === "environment" ? config.environment : config.docsUrl;
+}
 
 async function cmdConfig(parsed: Parsed): Promise<void> {
   const sub = parsed.positionals[1];
@@ -428,12 +435,13 @@ async function cmdConfig(parsed: Parsed): Promise<void> {
       BIN + " config — stored defaults at " + configFilePath(),
       "",
       "  " + BIN + " config list",
-      "  " + BIN + " config get  <base-url|environment>",
+      "  " + BIN + " config get  <" + CONFIG_KEYS.join("|") + ">",
       "  " + BIN + " config set  base-url <url>",
       ...(Object.keys(ENVIRONMENTS).length > 0
         ? ["  " + BIN + " config set  environment <" + Object.keys(ENVIRONMENTS).join("|") + ">"]
         : []),
-      "  " + BIN + " config unset <base-url|environment>",
+      "  " + BIN + " config set  docs-url <url>       docs site for '" + BIN + " docs'",
+      "  " + BIN + " config unset <" + CONFIG_KEYS.join("|") + ">",
       "  " + BIN + " config path",
       "",
       "Base URL resolution: --base-url > env var > config base-url > config environment > spec default.",
@@ -446,6 +454,7 @@ async function cmdConfig(parsed: Parsed): Promise<void> {
     out({
       base_url: config.baseUrl ?? null,
       environment: config.environment ?? null,
+      docs_url: config.docsUrl ?? DOCS_URL_DEFAULT,
       environments: Object.keys(ENVIRONMENTS),
       file: existsSync(configFilePath()) ? configFilePath() : null,
     });
@@ -461,24 +470,26 @@ async function cmdConfig(parsed: Parsed): Promise<void> {
     }
     const config = readConfig();
     if (sub === "get") {
-      out({ [key.replace(/-/g, "_")]: (key === "base-url" ? config.baseUrl : config.environment) ?? null });
+      out({ [key.replace(/-/g, "_")]: configGet(config, key) ?? null });
       await flushExit(0);
     }
     if (sub === "unset") {
       if (key === "base-url") delete config.baseUrl;
-      else delete config.environment;
+      else if (key === "environment") delete config.environment;
+      else delete config.docsUrl;
       writeConfig(config);
       out({ ok: true });
       await flushExit(0);
     }
     if (value === undefined) fail(2, "config set " + key + " expects a value");
-    if (key === "base-url") {
+    if (key === "base-url" || key === "docs-url") {
       try {
         new URL(value!);
       } catch {
-        fail(2, "base-url must be a valid URL");
+        fail(2, key + " must be a valid URL");
       }
-      config.baseUrl = value;
+      if (key === "base-url") config.baseUrl = value;
+      else config.docsUrl = value;
     } else {
       if (!(value! in ENVIRONMENTS)) {
         fail(2, Object.keys(ENVIRONMENTS).length > 0
@@ -653,6 +664,266 @@ async function cmdUpgrade(parsed: Parsed): Promise<void> {
   await flushExit(0);
 }
 
+// ---------------------------------------------------------------------------
+// completion — shell completion scripts built from the op table
+// ---------------------------------------------------------------------------
+
+const TOP_WORDS = ["login", "logout", "whoami", "config", "mcp", "upgrade", "docs", "completion", "help", "version"];
+
+function completionScript(): string {
+  const fn = "_" + BIN.replace(/-/g, "_") + "_complete";
+  const resources = [...new Set(OPS.map((o) => o.command[0]))];
+  const globalFlags = "--help --version --non-interactive --color --base-url --data --all" +
+    AUTH_SCALARS.map((a) => " --" + a.flag).join("");
+  const lines: string[] = [];
+  lines.push(fn + "() {");
+  lines.push('  local cur="${COMP_WORDS[COMP_CWORD]}"');
+  lines.push('  local first="${COMP_WORDS[1]}"');
+  lines.push('  local second="${COMP_WORDS[2]}"');
+  lines.push('  if [ "$COMP_CWORD" -eq 1 ]; then');
+  lines.push('    COMPREPLY=($(compgen -W "' + [...TOP_WORDS, ...resources].join(" ") + '" -- "$cur")); return');
+  lines.push("  fi");
+  lines.push('  if [ "$COMP_CWORD" -eq 2 ]; then');
+  lines.push('    case "$first" in');
+  for (const resource of resources) {
+    const cmds = OPS.filter((o) => o.command[0] === resource).map((o) => o.command[1]).join(" ");
+    lines.push("      " + resource + ') COMPREPLY=($(compgen -W "' + cmds + '" -- "$cur")); return ;;');
+  }
+  lines.push('      config) COMPREPLY=($(compgen -W "list get set unset path" -- "$cur")); return ;;');
+  lines.push('      completion) COMPREPLY=($(compgen -W "bash zsh" -- "$cur")); return ;;');
+  lines.push('      docs) COMPREPLY=($(compgen -W "search read ' + resources.join(" ") + '" -- "$cur")); return ;;');
+  lines.push("    esac");
+  lines.push("  fi");
+  lines.push('  case "$first $second" in');
+  for (const op of OPS) {
+    const flags = op.params.filter((p) => p.kind !== "path").map((p) => "--" + p.flag).join(" ");
+    lines.push('    "' + op.command[0] + " " + op.command[1] + '") COMPREPLY=($(compgen -W "' + (flags ? flags + " " : "") + globalFlags + '" -- "$cur")); return ;;');
+  }
+  lines.push("  esac");
+  lines.push('  COMPREPLY=($(compgen -W "' + globalFlags + '" -- "$cur"))');
+  lines.push("}");
+  lines.push("complete -F " + fn + " " + BIN);
+  return lines.join("\n");
+}
+
+async function cmdCompletion(parsed: Parsed): Promise<void> {
+  const shell = parsed.positionals[1];
+  if (parsed.help || shell === undefined) {
+    const lines = [
+      BIN + " completion <bash|zsh> — print a shell completion script",
+      "",
+      '  bash: add to ~/.bashrc:   eval "$(' + BIN + ' completion bash)"',
+      '  zsh:  add to ~/.zshrc:    eval "$(' + BIN + ' completion zsh)"',
+    ];
+    process.stdout.write(lines.join("\n") + "\n");
+    await flushExit(parsed.help ? 0 : 2);
+  }
+  if (shell !== "bash" && shell !== "zsh") fail(2, "completion expects bash or zsh");
+  const script = shell === "zsh"
+    ? "autoload -U +X bashcompinit && bashcompinit\n" + completionScript()
+    : completionScript();
+  process.stdout.write(script + "\n");
+  await flushExit(0);
+}
+
+// ---------------------------------------------------------------------------
+// docs — spec reference + the docs site's prose (llms.txt convention)
+// ---------------------------------------------------------------------------
+
+function docsSiteUrl(): string | null {
+  return readConfig().docsUrl ?? DOCS_URL_DEFAULT;
+}
+
+/** Fetch llms.txt / llms-full.txt / a prose page from the docs site,
+ * with a 1h cache in the config dir. Explicit command = explicit fetch;
+ * nothing here runs unless the user asked for docs. */
+async function fetchDocs(pathOrFile: string): Promise<string | null> {
+  const base = docsSiteUrl();
+  const url = /^https?:\/\//.test(pathOrFile)
+    ? pathOrFile
+    : base === null
+      ? null
+      : base.replace(/\/+$/, "") + "/" + pathOrFile.replace(/^\/+/, "");
+  if (url === null) return null;
+  const cacheFile = join(configDir(), "docs-cache", url.replace(/[^a-zA-Z0-9.]+/g, "_").slice(-120));
+  try {
+    const stat = statSync(cacheFile);
+    if (Date.now() - stat.mtimeMs < 60 * 60 * 1000) return readFileSync(cacheFile, "utf8");
+  } catch { /* not cached */ }
+  try {
+    const response = await fetch(url, {
+      headers: { Accept: "text/markdown, text/plain, */*" },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) return null;
+    const text = await response.text();
+    mkdirSync(join(configDir(), "docs-cache"), { recursive: true, mode: 0o700 });
+    writeFileSync(cacheFile, text);
+    return text;
+  } catch {
+    try {
+      return readFileSync(cacheFile, "utf8");
+    } catch {
+      return null;
+    }
+  }
+}
+
+function referenceFor(op: OpSpec): string {
+  const lines: string[] = [];
+  lines.push(paintOut("bold", usageLine(op)));
+  if (op.summary) lines.push(op.summary);
+  lines.push(op.httpMethod + " " + op.path + (op.paginated ? "  (paginated: --all streams every item)" : ""));
+  if (op.description) lines.push("", op.description.trim());
+  const groups: [string, ParamSpec[]][] = [
+    ["Path arguments", op.params.filter((p) => p.kind === "path")],
+    ["Flags", op.params.filter((p) => p.kind !== "path")],
+  ];
+  for (const [label, params] of groups) {
+    if (params.length === 0) continue;
+    lines.push("", paintOut("bold", label + ":"));
+    for (const p of params) {
+      const name = p.kind === "path" ? "<" + p.name + ">" : "--" + p.flag;
+      const type = p.enum ? p.enum.join("|") : p.type;
+      lines.push("  " + padPaint("cyan", name, 30) + type + (p.required ? " " + paintOut("yellow", "(required)") : ""));
+      if (p.description) {
+        for (const descLine of p.description.trim().split("\n")) lines.push("      " + descLine);
+      }
+    }
+  }
+  return lines.join("\n");
+}
+
+function openInBrowser(url: string): void {
+  const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open";
+  const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
+  spawnSync(opener, args, { stdio: "ignore" });
+}
+
+async function cmdDocs(parsed: Parsed): Promise<void> {
+  if (parsed.help) {
+    const lines = [
+      BIN + " docs — API reference from the spec, plus the docs site's guides",
+      "",
+      "  " + BIN + " docs                          overview",
+      "  " + BIN + " docs <resource> <command>     full operation reference",
+      "  " + BIN + " docs search <term>            search reference and guides",
+      "  " + BIN + " docs read <page>              print a docs-site page in the terminal",
+      "  " + BIN + " docs --web                    open the docs site in a browser",
+      "",
+      "Guides come from the docs site's llms.txt (set with '" + BIN + " config set docs-url <url>').",
+    ];
+    process.stdout.write(lines.join("\n") + "\n");
+    await flushExit(0);
+  }
+
+  if (parsed.flags.get("web") === true) {
+    const base = docsSiteUrl();
+    if (base === null) fail(2, "No docs site configured. Run '" + BIN + " config set docs-url <url>'.");
+    openInBrowser(base!);
+    out({ ok: true, opened: base });
+    await flushExit(0);
+  }
+
+  const sub = parsed.positionals[1];
+
+  if (sub === "search") {
+    const term = parsed.positionals.slice(2).join(" ").toLowerCase();
+    if (!term) fail(2, "docs search expects a term");
+    const lines: string[] = [];
+    const refMatches = OPS.filter((op) =>
+      (op.command.join(" ") + " " + op.path + " " + (op.summary ?? "") + " " + (op.description ?? "") + " " +
+        op.params.map((p) => p.flag).join(" ")).toLowerCase().includes(term));
+    if (refMatches.length > 0) {
+      lines.push(paintOut("bold", "Reference:"));
+      for (const op of refMatches.slice(0, 15)) {
+        lines.push("  " + padPaint("cyan", op.command.join(" "), 34) + (op.summary ?? op.httpMethod + " " + op.path));
+      }
+    }
+    const prose = await fetchDocs("llms-full.txt");
+    if (prose !== null) {
+      let heading = "";
+      const proseMatches: string[] = [];
+      for (const line of prose.split("\n")) {
+        if (/^#{1,3} /.test(line)) heading = line.replace(/^#+ /, "").trim();
+        else if (line.toLowerCase().includes(term) && proseMatches.length < 15) {
+          proseMatches.push("  " + padPaint("cyan", heading.slice(0, 32), 34) + line.trim().slice(0, 100));
+        }
+      }
+      if (proseMatches.length > 0) {
+        lines.push(...(lines.length > 0 ? [""] : []), paintOut("bold", "Guides:"));
+        lines.push(...proseMatches);
+      }
+    } else if (docsSiteUrl() === null) {
+      lines.push(...(lines.length > 0 ? [""] : []), "(no docs site configured for guide search: '" + BIN + " config set docs-url <url>')");
+    }
+    if (lines.length === 0) lines.push("No matches for: " + term);
+    process.stdout.write(lines.join("\n") + "\n");
+    await flushExit(0);
+  }
+
+  if (sub === "read") {
+    const page = parsed.positionals[2];
+    if (page === undefined) fail(2, "docs read expects a page path or URL");
+    let target = page!;
+    if (!/^https?:\/\//.test(target)) {
+      const index = await fetchDocs("llms.txt");
+      const linked = index?.match(/\((https?:[^)]+)\)/g)?.map((m) => m.slice(1, -1)) ?? [];
+      const hit = linked.find((u) => u.toLowerCase().includes(target.toLowerCase()));
+      if (hit !== undefined) target = hit;
+    }
+    const text = await fetchDocs(target);
+    if (text === null) {
+      fail(1, docsSiteUrl() === null
+        ? "No docs site configured. Run '" + BIN + " config set docs-url <url>'."
+        : "Couldn't fetch that page. Run '" + BIN + " docs' to see the index.");
+    }
+    process.stdout.write(text! + (text!.endsWith("\n") ? "" : "\n"));
+    await flushExit(0);
+  }
+
+  if (sub !== undefined) {
+    const op = findOp(sub!, parsed.positionals[2] ?? "");
+    if (!op) {
+      const list = OPS.filter((o) => o.command[0] === sub);
+      if (list.length === 0) fail(2, "Unknown docs topic: " + sub + ". Run '" + BIN + " docs' for the overview.");
+      const lines = [paintOut("bold", "Commands for " + sub + ":"), ""];
+      for (const resourceOp of list) {
+        lines.push("  " + padPaint("cyan", resourceOp.command.join(" "), 34) + (resourceOp.summary ?? ""));
+      }
+      process.stdout.write(lines.join("\n") + "\n");
+      await flushExit(0);
+    }
+    process.stdout.write(referenceFor(op!) + "\n");
+    await flushExit(0);
+  }
+
+  const lines: string[] = [];
+  lines.push(paintOut("bold", "typeship") + " (v" + API_VERSION + ")");
+  if (API_DESCRIPTION) lines.push("", API_DESCRIPTION.trim());
+  lines.push("", paintOut("bold", "Reference:") + " " + BIN + " docs <resource> <command>");
+  const byResource = new Map<string, number>();
+  for (const op of OPS) byResource.set(op.command[0], (byResource.get(op.command[0]) ?? 0) + 1);
+  for (const [resource, count] of byResource) {
+    lines.push("  " + padPaint("cyan", resource, 24) + count + " command" + (count === 1 ? "" : "s"));
+  }
+  const base = docsSiteUrl();
+  lines.push("", paintOut("bold", "Guides:") + " " + (base !== null
+    ? base + "  (" + BIN + " docs search <term>, " + BIN + " docs read <page>, " + BIN + " docs --web)"
+    : "no docs site configured — '" + BIN + " config set docs-url <url>'"));
+  if (base !== null) {
+    const index = await fetchDocs("llms.txt");
+    if (index === null) {
+      lines.push("  (the docs site doesn't publish llms.txt; only --web is available)");
+    } else {
+      const titles = [...index.matchAll(/^- \[([^\]]+)\]/gm)].map((m) => m[1]).slice(0, 12);
+      for (const title of titles) lines.push("  " + title);
+    }
+  }
+  process.stdout.write(lines.join("\n") + "\n");
+  await flushExit(0);
+}
+
 /** Opt-in (console setting) once-a-day upgrade hint. Off by default:
  * generated code phones nobody unless the project owner chose this. The
  * notice reads the previous run's cached answer, so commands never wait
@@ -713,7 +984,8 @@ function printRoot(): void {
     "TYPESHIP_BASE_URL",
   ].join(", "));
   lines.push("Account: " + BIN + " login | logout | whoami  (stored at " + credsPath() + ")");
-  lines.push("Setup: " + BIN + " config (defaults)" + (HAS_MCP ? " | " + BIN + " mcp (agent clients)" : "") + " | " + BIN + " upgrade");
+  lines.push("Setup: " + BIN + " config (defaults)" + (HAS_MCP ? " | " + BIN + " mcp (agent clients)" : "") + " | " + BIN + " upgrade | " + BIN + " completion <shell>");
+  lines.push("Docs: " + BIN + " docs [<resource> <command> | search <term> | read <page> | --web]");
   if (EXCLUDED_OPS > 0) {
     lines.push("");
     lines.push("Note: " + EXCLUDED_OPS + " operation(s) with binary/multipart bodies are SDK-only.");
@@ -826,6 +1098,8 @@ async function main(): Promise<void> {
   await maybeUpdateNotice(resourceCmd, nonInteractive(parsed));
 
   if (resourceCmd === "upgrade") { await cmdUpgrade(parsed); }
+  if (resourceCmd === "docs") { await cmdDocs(parsed); }
+  if (resourceCmd === "completion") { await cmdCompletion(parsed); }
   if (resourceCmd === "config") { await cmdConfig(parsed); }
   if (resourceCmd === "mcp") { await cmdMcp(parsed); }
   if (resourceCmd === "login") { await cmdLogin(parsed); }
@@ -868,7 +1142,7 @@ async function main(): Promise<void> {
     try { dataBody = JSON.parse(dataRaw); } catch (e) { fail(2, "--data is not valid JSON: " + (e as Error).message); }
   }
 
-  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "username", "password", "with-token", "client-id", "version", "url", "claude", "cursor", "claude-desktop", "non-interactive", "check", "color", ...AUTH_SCALARS.map((a) => a.flag)]);
+  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "username", "password", "with-token", "client-id", "version", "url", "claude", "cursor", "claude-desktop", "non-interactive", "check", "color", "web", ...AUTH_SCALARS.map((a) => a.flag)]);
   for (const spec of op.params) {
     if (spec.kind === "path") continue;
     const raw = parsed.flags.get(spec.flag);

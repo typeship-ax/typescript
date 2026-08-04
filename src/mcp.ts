@@ -24,6 +24,7 @@ const DEFAULT_BASE_URL = "https://typeship.dev/api/v1";
 const AUTH_SCALARS: { option: string; flag: string; env: string }[] = [{"option":"bearerToken","flag":"token","env":"TYPESHIP_TOKEN"}];
 const BASIC: { envUser: string; envPass: string } | null = null;
 const ENVIRONMENTS: Record<string, string> = {};
+const DOCS_URL_DEFAULT: string | null = "https://typeship.dev";
 /** Authorization server for OAuth discovery (RFC 9728), from the spec. */
 const OAUTH_ISSUER: string | null = null;
 
@@ -81,21 +82,128 @@ interface JsonRpcRequest {
 }
 
 function toolDefinitions(): unknown[] {
-  return OPS.map((op) => ({
-    name: op.tool,
-    description:
-      (op.summary ? op.summary + " — " : "") + op.httpMethod + " " + op.path +
-      (op.paginated ? " (paginated: returns one page plus hasMore)" : ""),
-    inputSchema: op.select
-      ? {
-          ...op.inputSchema,
-          properties: {
-            ...(op.inputSchema.properties as Record<string, unknown>),
-            select: { type: "string", description: 'GraphQL selection set override, e.g. "{ id name }"' },
-          },
-        }
-      : op.inputSchema,
-  }));
+  return [
+    ...OPS.map((op) => ({
+      name: op.tool,
+      description:
+        (op.summary ? op.summary + " — " : "") + op.httpMethod + " " + op.path +
+        (op.paginated ? " (paginated: returns one page plus hasMore)" : ""),
+      inputSchema: op.select
+        ? {
+            ...op.inputSchema,
+            properties: {
+              ...(op.inputSchema.properties as Record<string, unknown>),
+              select: { type: "string", description: 'GraphQL selection set override, e.g. "{ id name }"' },
+            },
+          }
+        : op.inputSchema,
+    })),
+    {
+      name: "search_docs",
+      description: "Search this API's reference (operations, parameters) and, when a docs site is configured, its guides.",
+      inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] },
+    },
+    {
+      name: "read_docs",
+      description: "Read a documentation page: an operation reference (e.g. \"accounts.createAccount\") or a docs-site guide page by name or URL.",
+      inputSchema: { type: "object", properties: { page: { type: "string" } }, required: ["page"] },
+    },
+  ];
+}
+
+// ---- docs tools: spec reference + docs-site prose (llms.txt) ---------------
+
+function docsSiteUrl(): string | null {
+  const config = readJson<{ docsUrl?: string }>("config.json");
+  return config?.docsUrl ?? DOCS_URL_DEFAULT;
+}
+
+async function fetchDocs(pathOrFile: string): Promise<string | null> {
+  const base = docsSiteUrl();
+  const url = /^https?:\/\//.test(pathOrFile)
+    ? pathOrFile
+    : base === null
+      ? null
+      : base.replace(/\/+$/, "") + "/" + pathOrFile.replace(/^\/+/, "");
+  if (url === null) return null;
+  try {
+    const response = await fetch(url, {
+      headers: { Accept: "text/markdown, text/plain, */*" },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) return null;
+    return await response.text();
+  } catch {
+    return null;
+  }
+}
+
+function referenceText(op: OpSpec): string {
+  const lines = [
+    op.tool + " — " + op.httpMethod + " " + op.path + (op.paginated ? " (paginated)" : ""),
+    ...(op.summary ? [op.summary] : []),
+    ...(op.description ? ["", op.description.trim()] : []),
+  ];
+  if (op.params.length > 0) {
+    lines.push("", "Arguments:");
+    for (const p of op.params) {
+      lines.push(
+        "  " + p.name + " (" + (p.enum ? p.enum.join("|") : p.type) + (p.required ? ", required" : "") + ")" +
+        (p.description ? ": " + p.description.trim().split("\n")[0] : ""),
+      );
+    }
+  }
+  return lines.join("\n");
+}
+
+async function docsSearch(query: string): Promise<string> {
+  const term = query.toLowerCase();
+  const sections: string[] = [];
+  const refMatches = OPS.filter((op) =>
+    (op.tool + " " + op.path + " " + (op.summary ?? "") + " " + (op.description ?? "") + " " +
+      op.params.map((p) => p.name).join(" ")).toLowerCase().includes(term));
+  if (refMatches.length > 0) {
+    sections.push("Reference matches:\n" + refMatches.slice(0, 15).map((op) =>
+      "- " + op.tool + ": " + (op.summary ?? op.httpMethod + " " + op.path)).join("\n"));
+  }
+  const prose = await fetchDocs("llms-full.txt");
+  if (prose !== null) {
+    let heading = "";
+    const proseMatches: string[] = [];
+    for (const line of prose.split("\n")) {
+      if (/^#{1,3} /.test(line)) heading = line.replace(/^#+ /, "").trim();
+      else if (line.toLowerCase().includes(term) && proseMatches.length < 15) {
+        proseMatches.push("- [" + heading + "] " + line.trim().slice(0, 160));
+      }
+    }
+    if (proseMatches.length > 0) sections.push("Guide matches:\n" + proseMatches.join("\n"));
+  }
+  if (sections.length === 0) {
+    return "No matches for: " + query + (docsSiteUrl() === null ? " (no docs site configured; only the API reference was searched)" : "");
+  }
+  return sections.join("\n\n");
+}
+
+async function docsRead(page: string): Promise<{ text: string; isError: boolean }> {
+  const opMatch = OPS.find((op) => op.tool === page || op.tool.toLowerCase() === page.toLowerCase().replace(/\./g, "_"));
+  if (opMatch) return { text: referenceText(opMatch), isError: false };
+  let target = page;
+  if (!/^https?:\/\//.test(target)) {
+    const index = await fetchDocs("llms.txt");
+    const linked = index?.match(/\((https?:[^)]+)\)/g)?.map((m) => m.slice(1, -1)) ?? [];
+    const hit = linked.find((u) => u.toLowerCase().includes(target.toLowerCase()));
+    if (hit !== undefined) target = hit;
+  }
+  const text = await fetchDocs(target);
+  if (text === null) {
+    return {
+      text: docsSiteUrl() === null
+        ? "No docs site is configured for this server, and no operation matches \"" + page + "\"."
+        : "Couldn't fetch \"" + page + "\". Use search_docs to find pages.",
+      isError: true,
+    };
+  }
+  return { text, isError: false };
 }
 
 async function callTool(
@@ -161,6 +269,16 @@ async function handleRpc(
       return reply({ tools: toolDefinitions() });
     case "tools/call": {
       const name = request.params?.name;
+      if (name === "search_docs" || name === "read_docs") {
+        const docArgs = (request.params?.arguments ?? {}) as { query?: unknown; page?: unknown };
+        if (name === "search_docs") {
+          if (typeof docArgs.query !== "string") return replyError(-32602, "search_docs requires a query string");
+          return reply({ content: [{ type: "text", text: await docsSearch(docArgs.query) }], isError: false });
+        }
+        if (typeof docArgs.page !== "string") return replyError(-32602, "read_docs requires a page string");
+        const docResult = await docsRead(docArgs.page);
+        return reply({ content: [{ type: "text", text: docResult.text }], isError: docResult.isError });
+      }
       const op = OPS.find((o) => o.tool === name);
       if (!op) return replyError(-32602, "Unknown tool: " + String(name));
       const args = (request.params?.arguments ?? {}) as Record<string, unknown>;

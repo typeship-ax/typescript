@@ -129,6 +129,8 @@ export interface CliConfig {
   oauth_client_id?: string | null;
   /** Opt in to a once-a-day registry check that prints an upgrade hint. Off by default; generated code phones nobody unless this is enabled. */
   update_notice?: boolean;
+  /** Docs site base URL for the generated CLI's docs command and the MCP server's docs tools. Guides are read from the site's llms.txt. Defaults to the spec's externalDocs URL. */
+  docs_url?: string | null;
 }
 
 export interface Generation {
