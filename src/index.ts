@@ -3,6 +3,7 @@
 
 import { HttpCore, type AuthValue, type RequestContext, bearerAuth } from "./core/http";
 import { GenerateResource } from "./resources/generate";
+import { AccountResource } from "./resources/account";
 import { SharesResource } from "./resources/shares";
 import { ProjectsResource } from "./resources/projects";
 import { GenerationsResource } from "./resources/generations";
@@ -36,6 +37,7 @@ export interface ClientOptions {
  */
 export class TypeshipClient {
   readonly generate: GenerateResource;
+  readonly account: AccountResource;
   readonly shares: SharesResource;
   readonly projects: ProjectsResource;
   readonly generations: GenerationsResource;
@@ -55,6 +57,7 @@ export class TypeshipClient {
       onResponse: options.onResponse,
     });
     this.generate = new GenerateResource(core);
+    this.account = new AccountResource(core);
     this.shares = new SharesResource(core);
     this.projects = new ProjectsResource(core);
     this.generations = new GenerationsResource(core);
@@ -72,6 +75,7 @@ export {
 } from "./core/http";
 export { Page, PagePromise } from "./core/pagination";
 export * from "./resources/generate";
+export * from "./resources/account";
 export * from "./resources/shares";
 export * from "./resources/projects";
 export * from "./resources/generations";

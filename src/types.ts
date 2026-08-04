@@ -102,11 +102,31 @@ export interface Project {
   /** npm name override for generated output; supports @scope/name. */
   package_name?: string | null;
   spec_patches?: SpecPatch[];
+  cli_config?: CliConfig | null;
   /** Path of the hosted MCP endpoint when enabled. */
   mcp_url?: string | null;
   platform: "sdk" | "cli" | "mcp";
   /** Format: date-time */
   created_at: string;
+}
+
+export interface User {
+  id: string;
+  object: "user";
+  name: string;
+  /** Format: email */
+  email: string;
+  plan: "free" | "starter" | "pro";
+  /** Format: date-time */
+  created_at: string;
+}
+
+/** Behavior of the generated CLI for this project. */
+export interface CliConfig {
+  /** resource.method of a zero-argument GET that the generated CLI's whoami command calls. Overrides auto-detection; a value that matches nothing is reported as a generation warning. */
+  whoami_operation?: string | null;
+  /** OAuth client id baked into the generated CLI for device-flow login. Without it, login prompts for a pasted credential. */
+  oauth_client_id?: string | null;
 }
 
 export interface Generation {

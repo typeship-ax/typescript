@@ -4,7 +4,7 @@
 import { HttpCore, type ApiResult, type RequestOptions } from "../core/http";
 import { paginate, PagePromise } from "../core/pagination";
 import { TransportError, UnexpectedApiError, BadRequestError, NotFoundError, PaymentRequiredError, UnauthorizedError, UnprocessableEntityError } from "../errors";
-import type { Destination, Generation, Project, Source, SpecPatch } from "../types";
+import type { CliConfig, Destination, Generation, Project, Source, SpecPatch } from "../types";
 
 export class ProjectsResource {
   constructor(private readonly _core: HttpCore) {}
@@ -96,6 +96,7 @@ export class ProjectsResource {
     spec_patches?: SpecPatch[];
     /** Serve this project as a hosted remote MCP endpoint. */
     mcp_enabled?: boolean;
+    cli_config?: CliConfig | null;
     platform?: "sdk" | "cli" | "mcp";
   }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsUpdateError>> {
     return this._core.request<Project, ProjectsUpdateError>({
