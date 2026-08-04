@@ -7,7 +7,8 @@
 
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { TypeshipClient } from "./index";
 import { OPS, buildArgs, findOp, missingRequired, type OpSpec, type ParamSpec } from "./ops";
 
@@ -16,7 +17,11 @@ const DEFAULT_BASE_URL = "https://typeship.dev/api/v1";
 const AUTH_SCALARS: { option: string; flag: string; env: string }[] = [{"option":"bearerToken","flag":"token","env":"TYPESHIP_TOKEN"}];
 const BASIC: { envUser: string; envPass: string } | null = null;
 const EXCLUDED_OPS = 0;
+const VERSION = "1.0.0";
+const API_VERSION = "1.0.0";
 const WHOAMI: { resource: string; method: string } | null = {"resource":"account","method":"whoami"};
+const ENVIRONMENTS: Record<string, string> = {};
+const HAS_MCP = true;
 const OAUTH_TOKEN_URL: string | null = null;
 const OAUTH_CLIENT_ID: string | null = null;
 
@@ -340,6 +345,200 @@ async function cmdWhoami(parsed: Parsed): Promise<void> {
   await flushExit(source === "none" ? 1 : 0);
 }
 
+// ---------------------------------------------------------------------------
+// config — stored defaults (base URL / named environment)
+// ---------------------------------------------------------------------------
+
+interface CliConfigFile {
+  baseUrl?: string;
+  environment?: string;
+}
+
+function configFilePath(): string {
+  return join(configDir(), "config.json");
+}
+
+function readConfig(): CliConfigFile {
+  try {
+    return JSON.parse(readFileSync(configFilePath(), "utf8")) as CliConfigFile;
+  } catch {
+    return {};
+  }
+}
+
+function writeConfig(config: CliConfigFile): void {
+  mkdirSync(configDir(), { recursive: true, mode: 0o700 });
+  writeFileSync(configFilePath(), JSON.stringify(config, null, 2) + "\n");
+}
+
+const CONFIG_KEYS = ["base-url", "environment"];
+
+async function cmdConfig(parsed: Parsed): Promise<void> {
+  const sub = parsed.positionals[1];
+  const key = parsed.positionals[2];
+  const value = parsed.positionals[3];
+  if (parsed.help) {
+    const lines = [
+      BIN + " config — stored defaults at " + configFilePath(),
+      "",
+      "  " + BIN + " config list",
+      "  " + BIN + " config get  <base-url|environment>",
+      "  " + BIN + " config set  base-url <url>",
+      ...(Object.keys(ENVIRONMENTS).length > 0
+        ? ["  " + BIN + " config set  environment <" + Object.keys(ENVIRONMENTS).join("|") + ">"]
+        : []),
+      "  " + BIN + " config unset <base-url|environment>",
+      "  " + BIN + " config path",
+      "",
+      "Base URL resolution: --base-url > env var > config base-url > config environment > spec default.",
+    ];
+    process.stdout.write(lines.join("\n") + "\n");
+    await flushExit(0);
+  }
+  if (sub === undefined || sub === "list") {
+    const config = readConfig();
+    out({
+      base_url: config.baseUrl ?? null,
+      environment: config.environment ?? null,
+      environments: Object.keys(ENVIRONMENTS),
+      file: existsSync(configFilePath()) ? configFilePath() : null,
+    });
+    await flushExit(0);
+  }
+  if (sub === "path") {
+    process.stdout.write(configFilePath() + "\n");
+    await flushExit(0);
+  }
+  if (sub === "get" || sub === "set" || sub === "unset") {
+    if (key === undefined || !CONFIG_KEYS.includes(key)) {
+      fail(2, "config " + sub + " expects one of: " + CONFIG_KEYS.join(", "));
+    }
+    const config = readConfig();
+    if (sub === "get") {
+      out({ [key.replace(/-/g, "_")]: (key === "base-url" ? config.baseUrl : config.environment) ?? null });
+      await flushExit(0);
+    }
+    if (sub === "unset") {
+      if (key === "base-url") delete config.baseUrl;
+      else delete config.environment;
+      writeConfig(config);
+      out({ ok: true });
+      await flushExit(0);
+    }
+    if (value === undefined) fail(2, "config set " + key + " expects a value");
+    if (key === "base-url") {
+      try {
+        new URL(value!);
+      } catch {
+        fail(2, "base-url must be a valid URL");
+      }
+      config.baseUrl = value;
+    } else {
+      if (!(value! in ENVIRONMENTS)) {
+        fail(2, Object.keys(ENVIRONMENTS).length > 0
+          ? "environment must be one of: " + Object.keys(ENVIRONMENTS).join(", ")
+          : "The spec declares no named environments; use 'config set base-url' instead.");
+      }
+      config.environment = value;
+    }
+    writeConfig(config);
+    out({ ok: true, [key.replace(/-/g, "_")]: value });
+    await flushExit(0);
+  }
+  fail(2, "Unknown config command: " + String(sub) + ". Use list, get, set, unset, or path.");
+}
+
+// ---------------------------------------------------------------------------
+// mcp — wire the sibling MCP server into agent clients
+// ---------------------------------------------------------------------------
+
+function mcpServerPath(): { path: string; warning: string | null } {
+  const self = fileURLToPath(import.meta.url);
+  let path = self.replace(/cli\.(js|mjs|cjs)$/, "mcp.$1");
+  let warning: string | null = null;
+  if (self.endsWith(".ts")) {
+    path = self.replace(/([\\/])src([\\/])cli\.ts$/, "$1dist$2mcp.js");
+    if (!existsSync(path)) {
+      warning = "Build the package first (npm install && npm run build) so " + path + " exists.";
+    }
+  }
+  return { path, warning };
+}
+
+function claudeDesktopConfigPath(): string {
+  if (process.platform === "darwin") {
+    return join(homedir(), "Library", "Application Support", "Claude", "claude_desktop_config.json");
+  }
+  if (process.platform === "win32") {
+    return join(process.env.APPDATA ?? join(homedir(), "AppData", "Roaming"), "Claude", "claude_desktop_config.json");
+  }
+  return join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "Claude", "claude_desktop_config.json");
+}
+
+async function cmdMcp(parsed: Parsed): Promise<void> {
+  if (parsed.help) {
+    const lines = [
+      BIN + " mcp — connect this API's MCP server to agent clients",
+      "",
+      "  " + BIN + " mcp                          print the server entry JSON",
+      "  " + BIN + " mcp --claude                 write ./.mcp.json (Claude Code)",
+      "  " + BIN + " mcp --cursor                 write ./.cursor/mcp.json",
+      "  " + BIN + " mcp --claude-desktop         write the Claude Desktop config",
+      "  " + BIN + " mcp --url <https://...>      use a remote MCP endpoint instead of the local server",
+      "",
+      "The local server reads credentials saved by '" + BIN + " login', or the same auth env vars as the CLI.",
+    ];
+    process.stdout.write(lines.join("\n") + "\n");
+    await flushExit(0);
+  }
+  const url = typeof parsed.flags.get("url") === "string" ? parsed.flags.get("url") as string : undefined;
+  const warnings: string[] = [];
+  let entry: Record<string, unknown>;
+  if (url) {
+    try {
+      new URL(url);
+    } catch {
+      fail(2, "--url must be a valid URL");
+    }
+    entry = { type: "http", url };
+  } else {
+    if (!HAS_MCP) {
+      fail(2, "This package was generated without the MCP server target. Regenerate with it, or pass --url for a remote endpoint.");
+    }
+    const server = mcpServerPath();
+    if (server.warning) warnings.push(server.warning);
+    entry = { command: "node", args: [server.path] };
+  }
+
+  const targets: string[] = [];
+  if (parsed.flags.get("claude") === true) targets.push(join(process.cwd(), ".mcp.json"));
+  if (parsed.flags.get("cursor") === true) targets.push(join(process.cwd(), ".cursor", "mcp.json"));
+  if (parsed.flags.get("claude-desktop") === true) targets.push(claudeDesktopConfigPath());
+
+  if (targets.length === 0) {
+    out({
+      server: BIN,
+      entry,
+      ...(warnings.length > 0 ? { warnings } : {}),
+      note: "Pass --claude, --cursor, or --claude-desktop to write the client config, or merge the entry under mcpServers." + (url ? "" : " The server reads credentials saved by '" + BIN + " login'."),
+    });
+    await flushExit(0);
+  }
+  const written: string[] = [];
+  for (const file of targets) {
+    let doc: { mcpServers?: Record<string, unknown> } = {};
+    try {
+      doc = JSON.parse(readFileSync(file, "utf8")) as typeof doc;
+    } catch { /* absent or invalid: start fresh */ }
+    doc.mcpServers = { ...(doc.mcpServers ?? {}), [BIN]: entry };
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify(doc, null, 2) + "\n");
+    written.push(file);
+  }
+  out({ ok: true, server: BIN, written, entry, ...(warnings.length > 0 ? { warnings } : {}) });
+  await flushExit(0);
+}
+
 function usageLine(op: OpSpec): string {
   const paths = op.params.filter((p) => p.kind === "path").map((p) => "<" + p.name + ">").join(" ");
   return BIN + " " + op.command[0] + " " + op.command[1] + (paths ? " " + paths : "");
@@ -362,7 +561,7 @@ function printRoot(): void {
     lines.push("  " + resource.padEnd(24) + list.map((o) => o.command[1]).join(", "));
   }
   lines.push("");
-  lines.push("Global flags: --base-url, --data '<json>', --all (paginated lists)" +
+  lines.push("Global flags: --version, --base-url, --data '<json>', --all (paginated lists)" +
     (AUTH_SCALARS.length > 0 ? ", " + AUTH_SCALARS.map((a) => "--" + a.flag).join(", ") : ""));
   lines.push("Auth env vars: " + [
     ...AUTH_SCALARS.map((a) => a.env),
@@ -370,6 +569,7 @@ function printRoot(): void {
     "TYPESHIP_BASE_URL",
   ].join(", "));
   lines.push("Account: " + BIN + " login | logout | whoami  (stored at " + credsPath() + ")");
+  lines.push("Setup: " + BIN + " config (defaults)" + (HAS_MCP ? " | " + BIN + " mcp (agent clients)" : ""));
   if (EXCLUDED_OPS > 0) {
     lines.push("");
     lines.push("Note: " + EXCLUDED_OPS + " operation(s) with binary/multipart bodies are SDK-only.");
@@ -440,10 +640,14 @@ function coerce(spec: ParamSpec, raw: string | boolean): unknown {
 
 async function makeClient(flags: Map<string, string | boolean>): Promise<TypeshipClient> {
   const stored = readCreds();
+  const config = readConfig();
   const options: Record<string, unknown> = {};
   const baseUrl = (typeof flags.get("base-url") === "string" ? flags.get("base-url") as string : undefined)
-    ?? process.env["TYPESHIP_BASE_URL"] ?? DEFAULT_BASE_URL ?? undefined;
-  if (baseUrl === undefined) fail(2, "No base URL. Pass --base-url or set TYPESHIP_BASE_URL.");
+    ?? process.env["TYPESHIP_BASE_URL"]
+    ?? config.baseUrl
+    ?? (config.environment !== undefined ? ENVIRONMENTS[config.environment] : undefined)
+    ?? DEFAULT_BASE_URL ?? undefined;
+  if (baseUrl === undefined) fail(2, "No base URL. Pass --base-url, set TYPESHIP_BASE_URL, or run '" + BIN + " config set base-url <url>'.");
   options.baseUrl = baseUrl;
   for (const a of AUTH_SCALARS) {
     const v = (typeof flags.get(a.flag) === "string" ? flags.get(a.flag) as string : undefined)
@@ -468,8 +672,14 @@ async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const parsed = parseArgv(argv);
   if (parsed.positionals[0] === "help") { parsed.positionals.shift(); parsed.help = true; }
+  if (parsed.flags.has("version") || parsed.positionals[0] === "version") {
+    process.stdout.write(BIN + " " + VERSION + " (" + "typeship" + " " + API_VERSION + ", generated by typeship)\n");
+    await flushExit(0);
+  }
   const [resourceCmd, methodCmd] = parsed.positionals;
 
+  if (resourceCmd === "config") { await cmdConfig(parsed); }
+  if (resourceCmd === "mcp") { await cmdMcp(parsed); }
   if (resourceCmd === "login") { await cmdLogin(parsed); }
   if (resourceCmd === "logout") {
     if (parsed.help) { process.stdout.write(BIN + " logout — remove " + credsPath() + "\n"); await flushExit(0); }
@@ -510,7 +720,7 @@ async function main(): Promise<void> {
     try { dataBody = JSON.parse(dataRaw); } catch (e) { fail(2, "--data is not valid JSON: " + (e as Error).message); }
   }
 
-  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "username", "password", "with-token", "client-id", ...AUTH_SCALARS.map((a) => a.flag)]);
+  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "username", "password", "with-token", "client-id", "version", "url", "claude", "cursor", "claude-desktop", ...AUTH_SCALARS.map((a) => a.flag)]);
   for (const spec of op.params) {
     if (spec.kind === "path") continue;
     const raw = parsed.flags.get(spec.flag);

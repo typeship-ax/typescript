@@ -5,37 +5,68 @@
 //   node mcp.js --http     Streamable HTTP on PORT (default 3000)
 // handleHttp() is exported for serverless/worker runtimes.
 // In HTTP mode an incoming Authorization header is forwarded to the
-// upstream API (per-request passthrough); stdio uses environment auth.
+// upstream API (per-request passthrough); stdio resolves auth from the
+// environment, then from credentials/config saved by the CLI's `login`
+// and `config` commands (same files, so one login covers both bins).
 
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { TypeshipClient } from "./index";
 import { OPS, buildArgs, missingRequired, type OpSpec } from "./ops";
 
+const BIN = "typeship";
 const SERVER_NAME = "typeship-mcp";
 const SERVER_VERSION = "1.0.0";
 const PROTOCOL_VERSION = "2025-03-26";
 const DEFAULT_BASE_URL = "https://typeship.dev/api/v1";
 const AUTH_SCALARS: { option: string; flag: string; env: string }[] = [{"option":"bearerToken","flag":"token","env":"TYPESHIP_TOKEN"}];
 const BASIC: { envUser: string; envPass: string } | null = null;
+const ENVIRONMENTS: Record<string, string> = {};
 /** Authorization server for OAuth discovery (RFC 9728), from the spec. */
 const OAUTH_ISSUER: string | null = null;
 
+function configDir(): string {
+  return join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), BIN);
+}
+
+function readJson<T>(file: string): T | null {
+  try {
+    return JSON.parse(readFileSync(join(configDir(), file), "utf8")) as T;
+  } catch {
+    return null;
+  }
+}
+
 function makeClient(): TypeshipClient {
+  const stored = readJson<{
+    scalars?: Record<string, string>;
+    basic?: { username: string; password: string };
+    oauth?: { accessToken: string };
+  }>("credentials.json");
+  const config = readJson<{ baseUrl?: string; environment?: string }>("config.json");
   const options: Record<string, unknown> = {};
-  const baseUrl = process.env["TYPESHIP_BASE_URL"] ?? DEFAULT_BASE_URL ?? undefined;
+  const baseUrl = process.env["TYPESHIP_BASE_URL"]
+    ?? config?.baseUrl
+    ?? (config?.environment !== undefined ? ENVIRONMENTS[config.environment] : undefined)
+    ?? DEFAULT_BASE_URL ?? undefined;
   if (baseUrl === undefined) {
     process.stderr.write("No base URL: set TYPESHIP_BASE_URL in the MCP server env.\n");
     process.exit(1);
   }
   options.baseUrl = baseUrl;
   for (const a of AUTH_SCALARS) {
-    const v = process.env[a.env];
+    const v = process.env[a.env] ?? stored?.scalars?.[a.option];
     if (v !== undefined) options[a.option] = v;
   }
   if (BASIC) {
-    const username = process.env[BASIC.envUser];
-    const password = process.env[BASIC.envPass];
+    const username = process.env[BASIC.envUser] ?? stored?.basic?.username;
+    const password = process.env[BASIC.envPass] ?? stored?.basic?.password;
     if (username !== undefined && password !== undefined) options.basicAuth = { username, password };
+  }
+  if (options.bearerToken === undefined && stored?.oauth?.accessToken !== undefined) {
+    options.bearerToken = stored.oauth.accessToken;
   }
   return new TypeshipClient(options as never);
 }
