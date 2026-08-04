@@ -148,6 +148,10 @@ export interface CoreConfig {
   /** Called after every HTTP response, before parsing and retry decisions.
    * Clone the response before reading its body. */
   onResponse?: (response: Response, context: RequestContext) => void | Promise<void>;
+  /** Called once per failed call — after retries are exhausted, with the
+   * typed error about to be returned. Observability only; the error is
+   * returned unchanged. */
+  onError?: (error: unknown, request: { method: string; path: string }) => void | Promise<void>;
 }
 
 const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
@@ -184,6 +188,7 @@ export class HttpCore {
           cause instanceof Error ? cause.message : "Request failed before a response was received",
           cause,
         ) as unknown as E;
+        await this.config.onError?.(error, { method: req.method, path: req.path });
         return { ok: false, error };
       }
 
@@ -196,7 +201,9 @@ export class HttpCore {
           const payload = data as { data?: Record<string, unknown>; errors?: unknown[] } | undefined;
           const responseMeta = meta(response);
           if (Array.isArray(payload?.errors) && payload.errors.length > 0) {
-            return { ok: false, error: new GraphQLRequestError(payload.errors, responseMeta) as unknown as E, response: responseMeta };
+            const gqlError = new GraphQLRequestError(payload.errors, responseMeta) as unknown as E;
+            await this.config.onError?.(gqlError, { method: req.method, path: req.path });
+            return { ok: false, error: gqlError, response: responseMeta };
           }
           return { ok: true, data: payload?.data?.[req.graphqlField] as T, response: responseMeta };
         }
@@ -222,11 +229,13 @@ export class HttpCore {
       const error = (Ctor
         ? new Ctor(body, responseMeta)
         : new UnexpectedApiError(response.status, body, responseMeta)) as unknown as E;
+      await this.config.onError?.(error, { method: req.method, path: req.path });
       return { ok: false, error, response: responseMeta };
     }
 
     // Unreachable, but keeps the compiler honest.
     const error = new TransportError("Request failed", lastError) as unknown as E;
+    await this.config.onError?.(error, { method: req.method, path: req.path });
     return { ok: false, error };
   }
 
@@ -350,6 +359,69 @@ export function bearerAuth(token: AuthValue): AuthValue {
     return async () => "Bearer " + (await token());
   }
   return "Bearer " + token;
+}
+
+export interface ClientCredentialsConfig {
+  clientId: string;
+  clientSecret: string;
+  tokenUrl: string;
+  scopes?: string[];
+  /** How credentials reach the token endpoint. Default "post"
+   * (client_secret_post, form fields); "basic" sends an Authorization
+   * header (client_secret_basic). */
+  authMethod?: "post" | "basic";
+  fetchImpl?: typeof fetch;
+}
+
+/**
+ * OAuth2 client-credentials token source: fetches from the token URL,
+ * caches until expiry (60s early refresh), and shares one in-flight
+ * request across concurrent callers. Returned function plugs in as an
+ * Authorization AuthValue, resolved before every attempt.
+ */
+export function oauthClientCredentials(config: ClientCredentialsConfig): () => Promise<string> {
+  let token: string | undefined;
+  let expiresAt = 0;
+  let inflight: Promise<string> | undefined;
+  const fetchImpl = config.fetchImpl ?? fetch;
+
+  async function fetchToken(): Promise<string> {
+    const params = new URLSearchParams({ grant_type: "client_credentials" });
+    if (config.scopes !== undefined && config.scopes.length > 0) {
+      params.set("scope", config.scopes.join(" "));
+    }
+    const headers: Record<string, string> = {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    };
+    if (config.authMethod === "basic") {
+      headers["Authorization"] = "Basic " + toBase64(config.clientId + ":" + config.clientSecret);
+    } else {
+      params.set("client_id", config.clientId);
+      params.set("client_secret", config.clientSecret);
+    }
+    const response = await fetchImpl(config.tokenUrl, { method: "POST", headers, body: params.toString() });
+    const body = (await response.json().catch(() => null)) as
+      | { access_token?: string; expires_in?: number; error?: string }
+      | null;
+    if (!response.ok || typeof body?.access_token !== "string") {
+      throw new TransportError(
+        "OAuth token request failed (HTTP " + response.status + (body?.error ? ": " + body.error : "") + ")",
+        body,
+      );
+    }
+    token = body.access_token;
+    expiresAt = body.expires_in !== undefined
+      ? Date.now() + body.expires_in * 1000 - 60_000
+      : Number.MAX_SAFE_INTEGER;
+    return token;
+  }
+
+  return async () => {
+    if (token !== undefined && Date.now() < expiresAt) return "Bearer " + token;
+    inflight ??= fetchToken().finally(() => { inflight = undefined; });
+    return "Bearer " + (await inflight);
+  };
 }
 
 /**

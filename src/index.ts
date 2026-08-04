@@ -8,6 +8,10 @@ import { SharesResource } from "./resources/shares";
 import { ProjectsResource } from "./resources/projects";
 import { GenerationsResource } from "./resources/generations";
 
+/** This package's version, also sent as the `User-Agent`. */
+export const VERSION = "1.0.0";
+const USER_AGENT = "typeship-sdk/1.0.0 (typeship)";
+
 export interface ClientOptions {
   /** Override the server URL. Default: `https://typeship.dev/api/v1` */
   baseUrl?: string;
@@ -25,6 +29,8 @@ export interface ClientOptions {
   onRequest?: (context: RequestContext) => void | Promise<void>;
   /** Called after every HTTP response, before parsing and retries. Clone the response before reading its body. */
   onResponse?: (response: Response, context: RequestContext) => void | Promise<void>;
+  /** Called once per failed call, after retries, with the typed error about to be returned. Observability only. */
+  onError?: (error: unknown, request: { method: string; path: string }) => void | Promise<void>;
 }
 
 /**
@@ -43,7 +49,9 @@ export class TypeshipClient {
   readonly generations: GenerationsResource;
 
   constructor(options: ClientOptions = {}) {
-    const headers: Record<string, AuthValue> = { ...options.defaultHeaders };
+    // Identifies this package to the API (ignored by browsers, which
+    // control their own User-Agent); override via defaultHeaders.
+    const headers: Record<string, AuthValue> = { "User-Agent": USER_AGENT, ...options.defaultHeaders };
     const query: Record<string, AuthValue> = {};
     if (options.bearerToken !== undefined) headers["Authorization"] = bearerAuth(options.bearerToken);
     const core = new HttpCore({
@@ -55,6 +63,7 @@ export class TypeshipClient {
       maxRetries: options.maxRetries ?? 2,
       onRequest: options.onRequest,
       onResponse: options.onResponse,
+      onError: options.onError,
     });
     this.generate = new GenerateResource(core);
     this.account = new AccountResource(core);
