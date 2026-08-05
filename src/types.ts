@@ -105,6 +105,8 @@ export interface Project {
   cli_config?: CliConfig | null;
   /** Path of the hosted MCP endpoint when enabled. */
   mcp_url?: string | null;
+  /** Whether the webhook relay is enabled, letting the generated CLI's webhooks listen command mint relay sessions. */
+  relay_enabled?: boolean;
   platform: "sdk" | "cli" | "mcp";
   /** Format: date-time */
   created_at: string;

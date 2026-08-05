@@ -27,6 +27,7 @@ const PKG_NAME = "typeship-sdk";
 const UPDATE_NOTICE = false;
 const API_DESCRIPTION: string | null = "Generate a zero-dependency TypeScript SDK, a CLI, and an MCP server from\nan OpenAPI spec. Generation and shares need no authentication. Projects\nand hosted generations require an API key, created in the console and\nsent as `Authorization: Bearer tsk_...`.\n";
 const DOCS_URL_DEFAULT: string | null = "https://typeship.dev";
+const RELAY: { mintUrl: string; project: string } | null = null;
 const OAUTH_TOKEN_URL: string | null = null;
 const OAUTH_CLIENT_ID: string | null = null;
 
@@ -924,6 +925,129 @@ async function cmdDocs(parsed: Parsed): Promise<void> {
   await flushExit(0);
 }
 
+// ---------------------------------------------------------------------------
+// webhooks listen — forward relayed events to a local handler
+// ---------------------------------------------------------------------------
+
+interface RelayedEvent {
+  seq: number;
+  method: string;
+  headers: Record<string, string>;
+  content_type: string | null;
+  body: string;
+}
+
+function eventTypeOf(body: string): string | null {
+  try {
+    const parsed = JSON.parse(body) as Record<string, unknown>;
+    for (const key of ["type", "event", "event_type", "eventType", "name"]) {
+      if (typeof parsed[key] === "string") return parsed[key] as string;
+    }
+  } catch { /* not JSON */ }
+  return null;
+}
+
+async function cmdWebhooks(parsed: Parsed): Promise<void> {
+  const sub = parsed.positionals[1];
+  if (parsed.help || sub === undefined) {
+    const lines = [
+      BIN + " webhooks listen — forward this API's webhook events to a local handler",
+      "",
+      "  " + BIN + " webhooks listen --forward-to localhost:3000/webhooks",
+      "  " + BIN + " webhooks listen --forward-to localhost:3000/hooks --events account.created,account.updated",
+      "",
+      "Each run mints a private relay URL to point the API's webhook settings",
+      "at. Events replay locally with their original headers, so signature",
+      "verification keeps working. No tunnels, no exposed ports.",
+    ];
+    process.stdout.write(lines.join("\n") + "\n");
+    await flushExit(parsed.help ? 0 : 2);
+  }
+  if (sub !== "listen") fail(2, "Unknown webhooks command: " + String(sub) + ". Try '" + BIN + " webhooks listen'.");
+  if (!RELAY) {
+    fail(2, "The webhook relay isn't enabled for this package. The API provider can enable it in their typeship console; the next regeneration bakes it in.");
+  }
+  const forwardRaw = parsed.flags.get("forward-to");
+  if (typeof forwardRaw !== "string") {
+    fail(2, "webhooks listen requires --forward-to <url>, e.g. --forward-to localhost:3000/webhooks");
+  }
+  const forwardTo = /^https?:\/\//.test(forwardRaw as string) ? forwardRaw as string : "http://" + (forwardRaw as string);
+  const eventsRaw = parsed.flags.get("events");
+  const eventsFilter = typeof eventsRaw === "string"
+    ? eventsRaw.split(",").map((s) => s.trim()).filter(Boolean)
+    : null;
+
+  interface MintedSession {
+    session_id?: string;
+    ingest_url?: string;
+    poll_url?: string;
+    errors?: { message?: string }[];
+  }
+  let minted: MintedSession | null = null;
+  try {
+    const response = await fetch(RELAY!.mintUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ project: RELAY!.project }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    minted = await response.json().catch(() => null) as MintedSession | null;
+    if (!response.ok || typeof minted?.ingest_url !== "string" || typeof minted.poll_url !== "string") {
+      const detail = minted?.errors?.[0]?.message ?? "HTTP " + response.status;
+      fail(1, "Couldn't start a relay session: " + detail);
+    }
+  } catch (e) {
+    if (e instanceof ExitPending) throw e;
+    fail(1, "Couldn't reach the relay: " + (e as Error).message);
+  }
+
+  process.stderr.write(paintErr("green", "Ready!") + " Forwarding relayed events to " + forwardTo + "\n");
+  process.stderr.write("Point this API's webhook endpoint at: " + paintErr("cyan", minted!.ingest_url!) + " (^C to quit)\n");
+
+  let cursor = 0;
+  let pollFailures = 0;
+  for (;;) {
+    let payload: { events: RelayedEvent[]; next: number };
+    try {
+      const response = await fetch(minted!.poll_url! + "?after=" + cursor + "&wait=1", {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (response.status === 404) fail(1, "The relay session expired. Run '" + BIN + " webhooks listen' again.");
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      payload = await response.json() as typeof payload;
+      pollFailures = 0;
+    } catch (e) {
+      if (e instanceof ExitPending) throw e;
+      pollFailures++;
+      if (pollFailures > 5) fail(1, "Lost the relay: " + (e as Error).message);
+      await new Promise((resolve) => setTimeout(resolve, 2000 * pollFailures));
+      continue;
+    }
+    for (const event of payload.events) {
+      cursor = event.seq;
+      const type = eventTypeOf(event.body);
+      if (eventsFilter !== null && (type === null || !eventsFilter.includes(type))) continue;
+      const started = Date.now();
+      try {
+        const forwarded = await fetch(forwardTo, {
+          method: event.method,
+          headers: event.headers,
+          body: event.method === "GET" ? undefined : event.body,
+          signal: AbortSignal.timeout(30_000),
+        });
+        process.stderr.write(
+          (forwarded.ok ? paintErr("green", String(forwarded.status)) : paintErr("yellow", String(forwarded.status))) +
+          "  " + (type ?? event.method) + " [" + event.seq + "] (" + (Date.now() - started) + "ms)\n",
+        );
+      } catch (e) {
+        process.stderr.write(paintErr("yellow", "unreachable") + "  " + (type ?? event.method) + " [" + event.seq + "]: " + (e as Error).message + "\n");
+      }
+    }
+    if (payload.next > cursor) cursor = payload.next;
+  }
+}
+
 /** Opt-in (console setting) once-a-day upgrade hint. Off by default:
  * generated code phones nobody unless the project owner chose this. The
  * notice reads the previous run's cached answer, so commands never wait
@@ -986,6 +1110,7 @@ function printRoot(): void {
   lines.push("Account: " + BIN + " login | logout | whoami  (stored at " + credsPath() + ")");
   lines.push("Setup: " + BIN + " config (defaults)" + (HAS_MCP ? " | " + BIN + " mcp (agent clients)" : "") + " | " + BIN + " upgrade | " + BIN + " completion <shell>");
   lines.push("Docs: " + BIN + " docs [<resource> <command> | search <term> | read <page> | --web]");
+  if (RELAY) lines.push("Webhooks: " + BIN + " webhooks listen --forward-to <url>  (local event forwarding)");
   if (EXCLUDED_OPS > 0) {
     lines.push("");
     lines.push("Note: " + EXCLUDED_OPS + " operation(s) with binary/multipart bodies are SDK-only.");
@@ -1098,6 +1223,7 @@ async function main(): Promise<void> {
   await maybeUpdateNotice(resourceCmd, nonInteractive(parsed));
 
   if (resourceCmd === "upgrade") { await cmdUpgrade(parsed); }
+  if (resourceCmd === "webhooks") { await cmdWebhooks(parsed); }
   if (resourceCmd === "docs") { await cmdDocs(parsed); }
   if (resourceCmd === "completion") { await cmdCompletion(parsed); }
   if (resourceCmd === "config") { await cmdConfig(parsed); }
@@ -1142,7 +1268,7 @@ async function main(): Promise<void> {
     try { dataBody = JSON.parse(dataRaw); } catch (e) { fail(2, "--data is not valid JSON: " + (e as Error).message); }
   }
 
-  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "username", "password", "with-token", "client-id", "version", "url", "claude", "cursor", "claude-desktop", "non-interactive", "check", "color", "web", ...AUTH_SCALARS.map((a) => a.flag)]);
+  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "username", "password", "with-token", "client-id", "version", "url", "claude", "cursor", "claude-desktop", "non-interactive", "check", "color", "web", "forward-to", "events", ...AUTH_SCALARS.map((a) => a.flag)]);
   for (const spec of op.params) {
     if (spec.kind === "path") continue;
     const raw = parsed.flags.get(spec.flag);

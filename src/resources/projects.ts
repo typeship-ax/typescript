@@ -96,6 +96,8 @@ export class ProjectsResource {
     spec_patches?: SpecPatch[];
     /** Serve this project as a hosted remote MCP endpoint. */
     mcp_enabled?: boolean;
+    /** Enable the webhook relay so the generated CLI's webhooks listen command works for this API's users. */
+    relay_enabled?: boolean;
     cli_config?: CliConfig | null;
     platform?: "sdk" | "cli" | "mcp";
   }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsUpdateError>> {
