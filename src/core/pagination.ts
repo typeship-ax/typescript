@@ -10,7 +10,7 @@ import {
   type ApiResult,
   type CoreRequest,
   type ResponseMeta,
-} from "./http";
+} from "./http.js";
 
 export interface PageConfig {
   style: "cursor" | "cursorFromLastId" | "page" | "offset";

@@ -10,8 +10,8 @@ import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } 
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { TypeshipClient, formatDebugEvent, type DebugEvent } from "./index";
-import { OPS, buildArgs, findOp, missingRequired, type OpSpec, type ParamSpec } from "./ops";
+import { TypeshipClient, formatDebugEvent, type DebugEvent } from "./index.js";
+import { OPS, buildArgs, findOp, missingRequired, type OpSpec, type ParamSpec } from "./ops.js";
 
 const BIN = "typeship";
 const DEFAULT_BASE_URL = "https://typeship.dev/api/v1";

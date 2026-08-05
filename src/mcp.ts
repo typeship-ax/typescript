@@ -13,8 +13,8 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
-import { TypeshipClient, formatDebugEvent, type DebugEvent } from "./index";
-import { OPS, buildArgs, missingRequired, type OpSpec } from "./ops";
+import { TypeshipClient, formatDebugEvent, type DebugEvent } from "./index.js";
+import { OPS, buildArgs, missingRequired, type OpSpec } from "./ops.js";
 
 const BIN = "typeship";
 const SERVER_NAME = "typeship-mcp";
