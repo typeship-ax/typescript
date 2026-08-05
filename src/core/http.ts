@@ -152,6 +152,23 @@ export interface CoreConfig {
    * typed error about to be returned. Observability only; the error is
    * returned unchanged. */
   onError?: (error: unknown, request: { method: string; path: string }) => void | Promise<void>;
+  /** One structured event per attempt. Never includes headers or bodies,
+   * so nothing secret can reach logs through it. */
+  debug?: (event: DebugEvent) => void;
+}
+
+/** What the debug sink receives: one event per HTTP attempt. */
+export interface DebugEvent {
+  method: string;
+  path: string;
+  /** absent when the attempt failed before a response arrived */
+  status?: number;
+  durationMs: number;
+  /** 1-based; >1 means this was a retry */
+  attempt: number;
+  requestId?: string;
+  /** transport failure message, when there was no response */
+  error?: string;
 }
 
 const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
@@ -176,10 +193,26 @@ export class HttpCore {
     let lastError: unknown;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       let response: Response;
+      const attemptStarted = Date.now();
       try {
         response = await this.send(req, timeoutMs, attempt, autoIdempotencyKey);
+        this.config.debug?.({
+          method: req.method,
+          path: req.path,
+          status: response.status,
+          durationMs: Date.now() - attemptStarted,
+          attempt: attempt + 1,
+          requestId: response.headers.get("x-request-id") ?? response.headers.get("request-id") ?? undefined,
+        });
       } catch (cause) {
         lastError = cause;
+        this.config.debug?.({
+          method: req.method,
+          path: req.path,
+          durationMs: Date.now() - attemptStarted,
+          attempt: attempt + 1,
+          error: cause instanceof Error ? cause.message : String(cause),
+        });
         if (attempt < maxRetries && retryAllowed && !req.options?.signal?.aborted) {
           await sleep(backoff(attempt));
           continue;
@@ -351,6 +384,16 @@ async function* sseEvents(response: Response): AsyncGenerator<SseEvent, void, un
   } finally {
     reader.releaseLock();
   }
+}
+
+/** Default rendering for debug events (the boolean debug:true sink). */
+export function formatDebugEvent(name: string, event: DebugEvent): string {
+  return name + " " + event.method + " " + event.path +
+    " -> " + (event.status !== undefined ? String(event.status) : "error") +
+    " (" + event.durationMs + "ms)" +
+    (event.attempt > 1 ? " attempt " + event.attempt : "") +
+    (event.requestId !== undefined ? " " + event.requestId : "") +
+    (event.error !== undefined ? ": " + event.error : "");
 }
 
 /** Wrap a bearer credential (static or callback) as an Authorization value. */
