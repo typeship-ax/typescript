@@ -129,6 +129,10 @@ export interface CliConfig {
   whoami_operation?: string | null;
   /** OAuth client id baked into the generated CLI for device-flow login. Without it, login prompts for a pasted credential. */
   oauth_client_id?: string | null;
+  /** Scopes requested during device-flow login. Include offline_access if the authorization server gates refresh tokens behind it. */
+  oauth_scopes?: string[];
+  /** Audience sent with the device-authorization request, for authorization servers that require one to issue API-valid access tokens. */
+  oauth_audience?: string | null;
   /** Opt in to a once-a-day registry check that prints an upgrade hint. Off by default; generated code phones nobody unless this is enabled. */
   update_notice?: boolean;
   /** Docs site base URL for the generated CLI's docs command and the MCP server's docs tools. Guides are read from the site's llms.txt. Defaults to the spec's externalDocs URL. */

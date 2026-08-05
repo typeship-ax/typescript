@@ -30,6 +30,8 @@ const DOCS_URL_DEFAULT: string | null = "https://typeship.dev";
 const RELAY: { mintUrl: string; project: string } | null = null;
 const OAUTH_TOKEN_URL: string | null = null;
 const OAUTH_CLIENT_ID: string | null = null;
+const OAUTH_SCOPES: string[] = [];
+const OAUTH_TOKEN_PARAMS: Record<string, string> = {};
 
 interface Parsed {
   positionals: string[];
@@ -235,7 +237,11 @@ async function deviceLogin(clientId: string): Promise<void> {
   if (!deviceEndpoint) {
     fail(1, "The authorization server does not advertise a device flow. Run '" + BIN + " login' with a pasted credential instead.");
   }
-  const start = await oauthForm(deviceEndpoint!, { client_id: clientId });
+  const start = await oauthForm(deviceEndpoint!, {
+    client_id: clientId,
+    ...(OAUTH_SCOPES.length > 0 ? { scope: OAUTH_SCOPES.join(" ") } : {}),
+    ...OAUTH_TOKEN_PARAMS,
+  });
   const startBody = start.body as { device_code?: string; user_code?: string; verification_uri?: string; verification_uri_complete?: string; interval?: number; expires_in?: number } | null;
   if (start.status !== 200 || !startBody?.device_code) {
     fail(1, "Device authorization failed (HTTP " + start.status + ").", start.body);

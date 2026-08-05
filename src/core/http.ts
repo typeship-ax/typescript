@@ -366,6 +366,9 @@ export interface ClientCredentialsConfig {
   clientSecret: string;
   tokenUrl: string;
   scopes?: string[];
+  /** Extra token-request parameters, e.g. the "audience" some
+   * authorization servers require for API-valid access tokens. */
+  tokenParams?: Record<string, string>;
   /** How credentials reach the token endpoint. Default "post"
    * (client_secret_post, form fields); "basic" sends an Authorization
    * header (client_secret_basic). */
@@ -389,6 +392,9 @@ export function oauthClientCredentials(config: ClientCredentialsConfig): () => P
     const params = new URLSearchParams({ grant_type: "client_credentials" });
     if (config.scopes !== undefined && config.scopes.length > 0) {
       params.set("scope", config.scopes.join(" "));
+    }
+    for (const [key, value] of Object.entries(config.tokenParams ?? {})) {
+      params.set(key, value);
     }
     const headers: Record<string, string> = {
       "Content-Type": "application/x-www-form-urlencoded",
