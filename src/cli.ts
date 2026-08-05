@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { TypeshipClient, formatDebugEvent, type DebugEvent } from "./index.js";
 import { GLOBALS, OPS, buildArgs, findOp, missingRequired, type OpSpec, type ParamSpec } from "./ops.js";
 
+
 const BIN = "typeship";
 const DEFAULT_BASE_URL = "https://typeship.dev/api/v1";
 const AUTH_SCALARS: { option: string; flag: string; env: string }[] = [{"option":"bearerToken","flag":"token","env":"TYPESHIP_TOKEN"}];
@@ -954,23 +955,31 @@ function eventTypeOf(body: string): string | null {
   return null;
 }
 
+async function cmdWebhooksFake(parsed: Parsed): Promise<void> {
+  void parsed;
+  fail(2, "This API's spec declares no webhooks, so there is nothing to fake.");
+}
+
 async function cmdWebhooks(parsed: Parsed): Promise<void> {
   const sub = parsed.positionals[1];
   if (parsed.help || sub === undefined) {
     const lines = [
-      BIN + " webhooks listen — forward this API's webhook events to a local handler",
+      BIN + " webhooks — work with this API's webhook events",
       "",
       "  " + BIN + " webhooks listen --forward-to localhost:3000/webhooks",
       "  " + BIN + " webhooks listen --forward-to localhost:3000/hooks --events account.created,account.updated",
+      "  " + BIN + " webhooks fake [<event>] [--key whsec_...] [--forward-to <url>]",
       "",
-      "Each run mints a private relay URL to point the API's webhook settings",
-      "at. Events replay locally with their original headers, so signature",
+      "listen mints a private relay URL to point the API's webhook settings",
+      "at; events replay locally with their original headers, so signature",
       "verification keeps working. No tunnels, no exposed ports.",
+      "fake sends (or prints) a signed sample event for local handler testing.",
     ];
     process.stdout.write(lines.join("\n") + "\n");
     await flushExit(parsed.help ? 0 : 2);
   }
-  if (sub !== "listen") fail(2, "Unknown webhooks command: " + String(sub) + ". Try '" + BIN + " webhooks listen'.");
+  if (sub === "fake") { await cmdWebhooksFake(parsed); }
+  if (sub !== "listen") fail(2, "Unknown webhooks command: " + String(sub) + ". Try '" + BIN + " webhooks listen' or '" + BIN + " webhooks fake'.");
   if (!RELAY) {
     fail(2, "The webhook relay isn't enabled for this package. The API provider can enable it in their typeship console; the next regeneration bakes it in.");
   }
@@ -1349,7 +1358,7 @@ async function main(): Promise<void> {
     try { dataBody = JSON.parse(dataRaw); } catch (e) { fail(2, "--data is not valid JSON: " + (e as Error).message); }
   }
 
-  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "username", "password", "with-token", "client-id", "version", "url", "claude", "cursor", "claude-desktop", "non-interactive", "check", "color", "web", "forward-to", "events", "debug", "validate", ...AUTH_SCALARS.map((a) => a.flag), ...GLOBALS.map((g) => g.flag)]);
+  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "username", "password", "with-token", "client-id", "version", "url", "claude", "cursor", "claude-desktop", "non-interactive", "check", "color", "web", "forward-to", "events", "debug", "validate", "key", ...AUTH_SCALARS.map((a) => a.flag), ...GLOBALS.map((g) => g.flag)]);
   for (const spec of op.params) {
     if (spec.kind === "path") continue;
     const raw = parsed.flags.get(spec.flag);

@@ -3,6 +3,7 @@
 
 import { HttpCore, formatDebugEvent, type AuthValue, type DebugEvent, type RequestContext, bearerAuth } from "./core/http.js";
 import { DEFS, SCHEMAS } from "./schemas.js";
+
 import { GenerateResource } from "./resources/generate.js";
 import { GenerationsResource } from "./resources/generations.js";
 import { AccountResource } from "./resources/account.js";
@@ -109,6 +110,7 @@ export {
   type ResponseMeta,
 } from "./core/http.js";
 export { Page, PagePromise } from "./core/pagination.js";
+
 export * from "./resources/generate.js";
 export * from "./resources/generations.js";
 export * from "./resources/account.js";
