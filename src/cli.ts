@@ -11,7 +11,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { TypeshipClient, formatDebugEvent, type DebugEvent } from "./index.js";
-import { OPS, buildArgs, findOp, missingRequired, type OpSpec, type ParamSpec } from "./ops.js";
+import { GLOBALS, OPS, buildArgs, findOp, missingRequired, type OpSpec, type ParamSpec } from "./ops.js";
 
 const BIN = "typeship";
 const DEFAULT_BASE_URL = "https://typeship.dev/api/v1";
@@ -1245,6 +1245,11 @@ async function makeClient(flags: Map<string, string | boolean>): Promise<Typeshi
     options.debug = (event: DebugEvent) => process.stderr.write(paintErr("dim", formatDebugEvent(BIN, event)) + "\n");
   }
   if (flags.get("validate") === true) options.validate = true;
+  for (const g of GLOBALS) {
+    const flagValue = flags.get(g.flag);
+    const value = typeof flagValue === "string" ? flagValue : process.env["TYPESHIP_" + g.envSuffix];
+    if (value !== undefined) options[g.option] = value;
+  }
   return new TypeshipClient(options as never);
 }
 
@@ -1344,7 +1349,7 @@ async function main(): Promise<void> {
     try { dataBody = JSON.parse(dataRaw); } catch (e) { fail(2, "--data is not valid JSON: " + (e as Error).message); }
   }
 
-  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "username", "password", "with-token", "client-id", "version", "url", "claude", "cursor", "claude-desktop", "non-interactive", "check", "color", "web", "forward-to", "events", "debug", "validate", ...AUTH_SCALARS.map((a) => a.flag)]);
+  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "username", "password", "with-token", "client-id", "version", "url", "claude", "cursor", "claude-desktop", "non-interactive", "check", "color", "web", "forward-to", "events", "debug", "validate", ...AUTH_SCALARS.map((a) => a.flag), ...GLOBALS.map((g) => g.flag)]);
   for (const spec of op.params) {
     if (spec.kind === "path") continue;
     const raw = parsed.flags.get(spec.flag);

@@ -145,6 +145,43 @@ export interface CliConfig {
   mcp_tool_mode?: "auto" | "operations" | "meta";
 }
 
+/** Generation-time customization. Plain configuration — typeship never requires vendor extensions inside the spec itself. */
+export interface Customization {
+  /** Wire names of query/header parameters that become settable once on the generated client and auto-apply to every operation that accepts them; per-call values win. Names that match nothing are reported as generation warnings. */
+  globals?: string[];
+  retries?: RetryTuning;
+  /** Per-operation pagination control, keyed by operationId or "METHOD /path". Unmatched keys are reported as generation warnings. */
+  pagination?: Record<string, PaginationRule | boolean>;
+}
+
+/** Retry behavior. Top-level fields adjust every operation; operations maps operationId or "METHOD /path" keys to per-operation overrides. */
+export interface RetryTuning {
+  max_retries?: number;
+  /** Replaces the default retryable set (408, 429, 500, 502, 503, 504). */
+  statuses?: number[];
+  initial_delay_ms?: number;
+  max_delay_ms?: number;
+  /** Also retry non-idempotent methods (POST/PATCH). */
+  retry_non_idempotent?: boolean;
+  /** Shorthand for max_retries 0. */
+  disabled?: boolean;
+  operations?: Record<string, RetryTuning>;
+}
+
+export interface PaginationRule {
+  /** Default: "cursor" */
+  style?: "cursor" | "cursorFromLastId" | "page" | "offset";
+  /** Response field holding the item array. */
+  items_field: string;
+  cursor_param?: string;
+  next_cursor_field?: string;
+  has_more_field?: string;
+  id_field?: string;
+  page_param?: string;
+  offset_param?: string;
+  limit_param?: string;
+}
+
 export interface FileStub {
   path: string;
   bytes: number;

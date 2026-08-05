@@ -13,7 +13,7 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { TypeshipClient, formatDebugEvent, type DebugEvent } from "./index.js";
-import { OPS, buildArgs, missingRequired, type OpSpec } from "./ops.js";
+import { GLOBALS, OPS, buildArgs, missingRequired, type OpSpec } from "./ops.js";
 
 const BIN = "typeship";
 const SERVER_NAME = "typeship-mcp";
@@ -70,6 +70,10 @@ function makeClient(): TypeshipClient {
   }
   if (options.bearerToken === undefined && stored?.oauth?.accessToken !== undefined) {
     options.bearerToken = stored.oauth.accessToken;
+  }
+  for (const g of GLOBALS) {
+    const value = process.env["TYPESHIP_" + g.envSuffix];
+    if (value !== undefined) options[g.option] = value;
   }
   if (process.env["TYPESHIP_DEBUG"] === "1") {
     options.debug = (event: DebugEvent) => process.stderr.write(formatDebugEvent(BIN + "-mcp", event) + "\n");

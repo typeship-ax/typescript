@@ -267,7 +267,21 @@ export interface CoreRequest {
   graphqlField?: string;
   /** Key into the schemas table for optional runtime validation. */
   schemaKey?: string;
+  /** Operation-level retry policy (x-typeship-retries), merged over the
+   * client-level policy; per-call options.maxRetries still wins. */
+  retry?: RetryPolicy;
   options?: RequestOptions;
+}
+
+/** Tunable retry behavior (x-typeship-retries; defaults preserved when unset). */
+export interface RetryPolicy {
+  maxRetries?: number;
+  /** Replaces the default retryable set (408, 429, 500, 502, 503, 504). */
+  statuses?: number[];
+  initialDelayMs?: number;
+  maxDelayMs?: number;
+  /** Also retry non-idempotent methods (POST/PATCH). */
+  retryNonIdempotent?: boolean;
 }
 
 export interface CoreConfig {
@@ -296,6 +310,10 @@ export interface CoreConfig {
   validate?: { requests: boolean; responses: boolean; mode: "throw" | "warn" };
   /** Per-operation schema table, keyed "resource.method" (see schemas.ts). */
   schemas?: Record<string, { req?: unknown; res?: unknown }>;
+  /** Root-level retry policy (x-typeship-retries at the document root). */
+  retry?: RetryPolicy;
+  /** Client-level values for x-typeship-globals parameters, by wire name. */
+  globals?: Record<string, unknown>;
 }
 
 /** What the debug sink receives: one event per HTTP attempt. */
@@ -317,10 +335,17 @@ const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
 export class HttpCore {
   constructor(readonly config: CoreConfig) {}
 
+  /** The client-level value for an x-typeship-globals parameter. */
+  globalValue(name: string): unknown {
+    return this.config.globals?.[name];
+  }
+
   async request<T, E>(req: CoreRequest): Promise<ApiResult<T, E>> {
-    const maxRetries = req.options?.maxRetries ?? this.config.maxRetries;
+    const policy: RetryPolicy = { ...this.config.retry, ...req.retry };
+    const maxRetries = req.options?.maxRetries ?? policy.maxRetries ?? this.config.maxRetries;
     const timeoutMs = req.options?.timeoutMs ?? this.config.timeoutMs;
-    const retryAllowed = req.idempotent === true || req.method === "GET";
+    const retryAllowed = req.idempotent === true || req.method === "GET" || policy.retryNonIdempotent === true;
+    const retryableStatuses = policy.statuses ? new Set(policy.statuses) : RETRYABLE_STATUSES;
 
     // One key per logical call, reused on every retry — that's the point
     // of idempotency keys.
@@ -372,7 +397,7 @@ export class HttpCore {
           error: cause instanceof Error ? cause.message : String(cause),
         });
         if (attempt < maxRetries && retryAllowed && !req.options?.signal?.aborted) {
-          await sleep(backoff(attempt));
+          await sleep(backoff(attempt, policy));
           continue;
         }
         const error = new TransportError(
@@ -428,10 +453,10 @@ export class HttpCore {
       // 429 is safe to retry regardless of idempotency; other retryable
       // statuses only when the verb is idempotent.
       const retryableStatus =
-        RETRYABLE_STATUSES.has(response.status) &&
+        retryableStatuses.has(response.status) &&
         (retryAllowed || response.status === 429);
       if (attempt < maxRetries && retryableStatus) {
-        await sleep(retryAfterMs(response) ?? backoff(attempt));
+        await sleep(retryAfterMs(response) ?? backoff(attempt, policy));
         continue;
       }
 
@@ -769,9 +794,11 @@ function retryAfterMs(response: Response): number | undefined {
   return undefined;
 }
 
-/** Exponential backoff with full jitter, capped at 10s. */
-function backoff(attempt: number): number {
-  const cap = Math.min(300 * 2 ** attempt, 10_000);
+/** Exponential backoff with full jitter, capped at 10s by default. */
+function backoff(attempt: number, policy?: RetryPolicy): number {
+  const initial = policy?.initialDelayMs ?? 300;
+  const max = policy?.maxDelayMs ?? 10_000;
+  const cap = Math.min(initial * 2 ** attempt, max);
   return Math.random() * cap;
 }
 
