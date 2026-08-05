@@ -229,7 +229,17 @@ export class HttpCore {
         if (req.stream) {
           return { ok: true, data: sseEvents(response) as T, response: meta(response) };
         }
-        const data = (await parseBody(response, req.method)) as T;
+        let data: T;
+        try {
+          data = (await parseBody(response, req.method)) as T;
+        } catch (cause) {
+          const error = new TransportError(
+            "The response body read was aborted before completing",
+            cause,
+          ) as unknown as E;
+          await this.config.onError?.(error, { method: req.method, path: req.path });
+          return { ok: false, error, response: meta(response) };
+        }
         if (req.graphqlField) {
           const payload = data as { data?: Record<string, unknown>; errors?: unknown[] } | undefined;
           const responseMeta = meta(response);
@@ -253,7 +263,12 @@ export class HttpCore {
         continue;
       }
 
-      const body = await parseBody(response, req.method);
+      let body: unknown;
+      try {
+        body = await parseBody(response, req.method);
+      } catch {
+        body = undefined; // error responses keep their status even if the body read aborts
+      }
       const responseMeta = meta(response);
       const Ctor =
         req.errors?.[String(response.status)] ??
@@ -301,17 +316,38 @@ export class HttpCore {
     };
     await this.config.onRequest?.(context);
 
-    const signals: AbortSignal[] = [AbortSignal.timeout(timeoutMs)];
+    // Streaming responses are exempt from the attempt timeout once headers
+    // arrive (an event stream may stay open far longer than timeoutMs);
+    // everything else keeps the timeout armed through the body read, so a
+    // stalled body aborts instead of hanging.
+    const signals: AbortSignal[] = [];
+    let clearStreamTimeout: (() => void) | undefined;
+    if (req.stream) {
+      const headersTimeout = new AbortController();
+      const timer = setTimeout(
+        () => headersTimeout.abort(new DOMException("Timed out waiting for response headers", "TimeoutError")),
+        timeoutMs,
+      );
+      (timer as { unref?: () => void }).unref?.();
+      clearStreamTimeout = () => clearTimeout(timer);
+      signals.push(headersTimeout.signal);
+    } else {
+      signals.push(AbortSignal.timeout(timeoutMs));
+    }
     if (req.options?.signal) signals.push(req.options.signal);
 
-    const response = await this.config.fetch(context.url, {
-      method: req.method,
-      headers: context.headers,
-      body,
-      signal: AbortSignal.any(signals),
-    });
-    await this.config.onResponse?.(response, context);
-    return response;
+    try {
+      const response = await this.config.fetch(context.url, {
+        method: req.method,
+        headers: context.headers,
+        body,
+        signal: AbortSignal.any(signals),
+      });
+      await this.config.onResponse?.(response, context);
+      return response;
+    } finally {
+      clearStreamTimeout?.();
+    }
   }
 
   private async buildUrl(req: CoreRequest): Promise<string> {
@@ -363,9 +399,10 @@ async function* sseEvents(response: Response): AsyncGenerator<SseEvent, void, un
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
       let newline: number;
-      while ((newline = buffer.search(/\r?\n/)) !== -1) {
-        const line = buffer.slice(0, newline);
-        buffer = buffer.slice(newline + (buffer[newline] === "\r" ? 2 : 1));
+      while ((newline = buffer.indexOf("\n")) !== -1) {
+        const hasCr = newline > 0 && buffer[newline - 1] === "\r";
+        const line = buffer.slice(0, hasCr ? newline - 1 : newline);
+        buffer = buffer.slice(newline + 1);
         if (line === "") {
           const event = flush();
           if (event) yield event;
@@ -531,7 +568,10 @@ async function parseBody(response: Response, method: string): Promise<unknown> {
     if (contentType.startsWith("text/")) return await response.text();
     if (response.body === null) return undefined;
     return await response.blob();
-  } catch {
+  } catch (cause) {
+    // A timed-out or aborted body read is a transport failure, not an
+    // empty body — surface it instead of faking success.
+    if (cause instanceof Error && (cause.name === "AbortError" || cause.name === "TimeoutError")) throw cause;
     return undefined;
   }
 }
