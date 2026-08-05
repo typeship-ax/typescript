@@ -12,7 +12,6 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { createInterface } from "node:readline";
 import { TypeshipClient, formatDebugEvent, type DebugEvent } from "./index.js";
 import { OPS, buildArgs, missingRequired, type OpSpec } from "./ops.js";
 
@@ -78,7 +77,10 @@ function makeClient(): TypeshipClient {
   return new TypeshipClient(options as never);
 }
 
-const client = makeClient();
+let clientInstance: TypeshipClient | undefined;
+function getClient(): TypeshipClient {
+  return (clientInstance ??= makeClient());
+}
 
 interface JsonRpcRequest {
   jsonrpc: "2.0";
@@ -262,7 +264,7 @@ async function callTool(
   if (authHeader) {
     callArgs.push({ headers: { Authorization: authHeader } });
   }
-  const target = (client as unknown as Record<string, Record<string, (...a: unknown[]) => unknown>>)[op.resource]!;
+  const target = (getClient() as unknown as Record<string, Record<string, (...a: unknown[]) => unknown>>)[op.resource]!;
   try {
     const result = await (target[op.method]!(...callArgs) as Promise<{ ok: boolean; data?: unknown; error?: unknown }>);
     if (result.ok) {
@@ -427,7 +429,10 @@ function startHttp(port: number): void {
   });
 }
 
-function startStdio(): void {
+async function startStdio(): Promise<void> {
+  // dynamic: node:readline doesn't exist in worker runtimes, and workers
+  // never take the stdio path
+  const { createInterface } = await import("node:readline");
   const rl = createInterface({ input: process.stdin });
   rl.on("line", (line) => {
     const trimmed = line.trim();
@@ -459,6 +464,6 @@ if (invokedDirectly) {
     const port = Number(process.argv[httpFlag + 1]) || Number(process.env.PORT) || 3000;
     startHttp(port);
   } else {
-    startStdio();
+    void startStdio();
   }
 }
