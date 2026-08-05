@@ -100,6 +100,25 @@ export class GraphQLRequestError extends Error {
   }
 }
 
+/**
+ * "fetch failed" alone is useless in a bug report; surface the request line
+ * and the deepest cause message (getaddrinfo ENOTFOUND, ECONNREFUSED, ...)
+ * the platform buried in the error chain.
+ */
+function transportFailureMessage(method: string, url: string, cause: unknown): string {
+  let detail = cause instanceof Error ? cause.message : String(cause ?? "request failed");
+  let node: unknown = cause;
+  for (let depth = 0; depth < 5 && node instanceof Error; depth++) {
+    node = Array.isArray((node as Error & { errors?: unknown[] }).errors)
+      ? (node as Error & { errors?: unknown[] }).errors![0]
+      : (node as Error & { cause?: unknown }).cause;
+    if (node instanceof Error && node.message && !detail.includes(node.message)) {
+      detail += ": " + node.message;
+    }
+  }
+  return method + " " + url + " failed: " + detail;
+}
+
 /** The request never produced an HTTP response (network failure, timeout, abort). */
 export class TransportError extends Error {
   override readonly cause?: unknown;
@@ -218,7 +237,7 @@ export class HttpCore {
           continue;
         }
         const error = new TransportError(
-          cause instanceof Error ? cause.message : "Request failed before a response was received",
+          transportFailureMessage(req.method, this.config.baseUrl.replace(/\/+$/, "") + req.path, cause),
           cause,
         ) as unknown as E;
         await this.config.onError?.(error, { method: req.method, path: req.path });

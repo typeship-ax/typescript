@@ -19,6 +19,8 @@ export interface OpSpec {
   resource: string;
   method: string;
   command: [string, string];
+  /** Full kebab method name, still routable, when command[1] was shortened. */
+  commandAlias?: string;
   tool: string;
   httpMethod: string;
   path: string;
@@ -56,7 +58,7 @@ export const OPS: OpSpec[] = [
 ];
 
 export function findOp(resource: string, method: string): OpSpec | undefined {
-  return OPS.find((op) => op.command[0] === resource && op.command[1] === method);
+  return OPS.find((op) => op.command[0] === resource && (op.command[1] === method || op.commandAlias === method));
 }
 
 export function missingRequired(op: OpSpec, values: Record<string, unknown>): string[] {

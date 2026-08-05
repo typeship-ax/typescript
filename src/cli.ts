@@ -1247,6 +1247,33 @@ async function makeClient(flags: Map<string, string | boolean>): Promise<Typeshi
   return new TypeshipClient(options as never);
 }
 
+function editDistance(a: string, b: string): number {
+  const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let diag = prev[0]!;
+    prev[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const next = Math.min(prev[j]! + 1, prev[j - 1]! + 1, diag + (a[i - 1] === b[j - 1] ? 0 : 1));
+      diag = prev[j]!;
+      prev[j] = next;
+    }
+  }
+  return prev[b.length]!;
+}
+
+/** Closest candidate within edit distance 2, for did-you-mean hints. */
+function didYouMean(input: string, candidates: Iterable<string>): string | undefined {
+  let best: string | undefined;
+  let bestDistance = 3;
+  for (const candidate of candidates) {
+    const d = editDistance(input.toLowerCase(), candidate.toLowerCase());
+    if (d < bestDistance) { bestDistance = d; best = candidate; }
+  }
+  return best;
+}
+
+const BUILTIN_COMMANDS = ["login", "logout", "whoami", "config", "mcp", "docs", "upgrade", "feedback", "completion", "webhooks", "help", "version"];
+
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const parsed = parseArgv(argv);
@@ -1283,13 +1310,22 @@ async function main(): Promise<void> {
   }
 
   if (!resourceCmd) { printRoot(); await flushExit(parsed.help ? 0 : 2); }
-  if (!methodCmd) {
-    if (OPS.some((o) => o.command[0] === resourceCmd)) { printResource(resourceCmd); await flushExit(parsed.help ? 0 : 2); }
-    fail(2, "Unknown resource: " + resourceCmd + ". Run '" + BIN + "' for the list.");
+  const resourceExists = OPS.some((o) => o.command[0] === resourceCmd);
+  if (!resourceExists) {
+    const suggestion = didYouMean(resourceCmd, [...new Set(OPS.map((o) => o.command[0])), ...BUILTIN_COMMANDS]);
+    fail(2, "Unknown command: " + resourceCmd + "."
+      + (suggestion ? " Did you mean '" + BIN + " " + suggestion + "'?" : "")
+      + " Run '" + BIN + " --help' for commands.");
   }
+  if (!methodCmd) { printResource(resourceCmd); await flushExit(parsed.help ? 0 : 2); }
 
   const op = findOp(resourceCmd, methodCmd);
-  if (!op) fail(2, "Unknown command: " + resourceCmd + " " + methodCmd + ". Run '" + BIN + " " + resourceCmd + "' for the list.");
+  if (!op) {
+    const suggestion = didYouMean(methodCmd, OPS.filter((o) => o.command[0] === resourceCmd).map((o) => o.command[1]));
+    fail(2, "Unknown command: " + resourceCmd + " " + methodCmd + "."
+      + (suggestion ? " Did you mean '" + BIN + " " + resourceCmd + " " + suggestion + "'?" : "")
+      + " Run '" + BIN + " " + resourceCmd + "' for the list.");
+  }
   if (parsed.help) { printOp(op); await flushExit(0); }
 
   const pathSpecs = op.params.filter((p) => p.kind === "path");
@@ -1315,7 +1351,12 @@ async function main(): Promise<void> {
   }
   for (const key of parsed.flags.keys()) {
     if (RESERVED_FLAGS.has(key)) continue;
-    if (!op.params.some((p) => p.flag === key)) fail(2, "Unknown flag --" + key + ". Run with --help for flags.");
+    if (!op.params.some((p) => p.flag === key)) {
+      const suggestion = didYouMean(key, [...op.params.filter((p) => p.kind !== "path").map((p) => p.flag), ...RESERVED_FLAGS]);
+      fail(2, "Unknown flag --" + key + "."
+        + (suggestion ? " Did you mean --" + suggestion + "?" : "")
+        + " Run with --help for flags.");
+    }
   }
 
   const missing = missingRequired(op, values).filter((name) =>
@@ -1354,7 +1395,11 @@ async function main(): Promise<void> {
 }
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.name + ": " + error.message : String(error);
+  const base = error instanceof Error ? error.name + ": " + error.message : String(error);
+  if (error instanceof Error && error.name === "TransportError") {
+    return base + " — check the base URL (--base-url, TYPESHIP_BASE_URL, or '" + BIN + " config base-url') and your network";
+  }
+  return base;
 }
 
 function serializeError(error: unknown): unknown {
