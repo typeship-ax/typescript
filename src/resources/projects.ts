@@ -4,7 +4,15 @@
 import { HttpCore, type ApiResult, type RequestOptions } from "../core/http.js";
 import { paginate, PagePromise } from "../core/pagination.js";
 import { TransportError, UnexpectedApiError, ValidationError, BadRequestError, NotFoundError, PaymentRequiredError, UnauthorizedError, UnprocessableEntityError } from "../errors.js";
-import type { CliConfig, Destination, Generation, Project, Source, SpecPatch } from "../types.js";
+import type {
+  CliConfig,
+  Customization,
+  Destination,
+  Generation,
+  Project,
+  Source,
+  SpecPatch,
+} from "../types.js";
 
 export class ProjectsResource {
   constructor(private readonly _core: HttpCore) {}
@@ -105,6 +113,7 @@ export class ProjectsResource {
     /** Serve an always-current AGENTS.md for this API at a stable hosted URL. */
     agent_enabled?: boolean;
     cli_config?: CliConfig | null;
+    customization?: Customization | null;
     platform?: "sdk" | "cli" | "mcp" | "agent";
   }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsUpdateError>> {
     return this._core.request<Project, ProjectsUpdateError>({

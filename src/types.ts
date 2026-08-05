@@ -103,6 +103,7 @@ export interface Project {
   package_name?: string | null;
   spec_patches?: SpecPatch[];
   cli_config?: CliConfig | null;
+  customization?: Customization | null;
   /** Path of the hosted MCP endpoint when enabled. */
   mcp_url?: string | null;
   /** Whether the webhook relay is enabled, letting the generated CLI's webhooks listen command mint relay sessions. */
