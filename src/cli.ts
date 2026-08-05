@@ -44,7 +44,7 @@ interface Parsed {
  * positional (`--non-interactive accounts list`). */
 const GLOBAL_BOOLEAN_FLAGS = new Set([
   "all", "version", "with-token", "check", "non-interactive",
-  "claude", "cursor", "claude-desktop", "web", "debug",
+  "claude", "cursor", "claude-desktop", "web", "debug", "validate",
 ]);
 
 function parseArgv(argv: string[]): Parsed {
@@ -1134,7 +1134,7 @@ function printRoot(): void {
     lines.push("  " + padPaint("cyan", resource, 24) + list.map((o) => o.command[1]).join(", "));
   }
   lines.push("");
-  lines.push(paintOut("bold", "Global flags:") + " -v/--version, -h/--help, --debug, --non-interactive, --color on|off|auto, --base-url, --data '<json>', --all (paginated lists)" +
+  lines.push(paintOut("bold", "Global flags:") + " -v/--version, -h/--help, --debug, --non-interactive, --color on|off|auto, --base-url, --data '<json>', --all (paginated lists), --validate (schema-check bodies)" +
     (AUTH_SCALARS.length > 0 ? ", " + AUTH_SCALARS.map((a) => "--" + a.flag).join(", ") : ""));
   lines.push("Auth env vars: " + [
     ...AUTH_SCALARS.map((a) => a.env),
@@ -1244,6 +1244,7 @@ async function makeClient(flags: Map<string, string | boolean>): Promise<Typeshi
   if (flags.get("debug") === true || process.env["TYPESHIP_DEBUG"] === "1") {
     options.debug = (event: DebugEvent) => process.stderr.write(paintErr("dim", formatDebugEvent(BIN, event)) + "\n");
   }
+  if (flags.get("validate") === true) options.validate = true;
   return new TypeshipClient(options as never);
 }
 
@@ -1343,7 +1344,7 @@ async function main(): Promise<void> {
     try { dataBody = JSON.parse(dataRaw); } catch (e) { fail(2, "--data is not valid JSON: " + (e as Error).message); }
   }
 
-  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "username", "password", "with-token", "client-id", "version", "url", "claude", "cursor", "claude-desktop", "non-interactive", "check", "color", "web", "forward-to", "events", "debug", ...AUTH_SCALARS.map((a) => a.flag)]);
+  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "username", "password", "with-token", "client-id", "version", "url", "claude", "cursor", "claude-desktop", "non-interactive", "check", "color", "web", "forward-to", "events", "debug", "validate", ...AUTH_SCALARS.map((a) => a.flag)]);
   for (const spec of op.params) {
     if (spec.kind === "path") continue;
     const raw = parsed.flags.get(spec.flag);
@@ -1403,6 +1404,9 @@ function errorMessage(error: unknown): string {
 }
 
 function serializeError(error: unknown): unknown {
+  if (error && typeof error === "object" && "violations" in error) {
+    return { violations: (error as { violations: unknown }).violations };
+  }
   if (error && typeof error === "object" && "status" in error) {
     const e = error as { status: number; body?: unknown };
     return { status: e.status, body: e.body };

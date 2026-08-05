@@ -4,7 +4,7 @@
 import { ApiError, type ResponseMeta } from "./core/http.js";
 import type { ErrorModel } from "./types.js";
 
-export { ApiError, GraphQLRequestError, TransportError, UnexpectedApiError, unwrap } from "./core/http.js";
+export { ApiError, GraphQLRequestError, TransportError, UnexpectedApiError, ValidationError, type Violation, unwrap } from "./core/http.js";
 
 /**
  * Spec exceeds the 10MB limit.

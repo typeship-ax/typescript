@@ -3,7 +3,7 @@
 
 import { HttpCore, type ApiResult, type RequestOptions } from "../core/http.js";
 import { paginate, PagePromise } from "../core/pagination.js";
-import { TransportError, UnexpectedApiError, BadRequestError, NotFoundError, PaymentRequiredError, UnauthorizedError, UnprocessableEntityError } from "../errors.js";
+import { TransportError, UnexpectedApiError, ValidationError, BadRequestError, NotFoundError, PaymentRequiredError, UnauthorizedError, UnprocessableEntityError } from "../errors.js";
 import type { CliConfig, Destination, Generation, Project, Source, SpecPatch } from "../types.js";
 
 export class ProjectsResource {
@@ -21,6 +21,7 @@ export class ProjectsResource {
       query: { limit: params?.limit, cursor: params?.cursor },
       errors: { "401": UnauthorizedError },
       idempotent: true,
+      schemaKey: "projects.list",
       options,
     }, {
       style: "cursor",
@@ -46,6 +47,7 @@ export class ProjectsResource {
       path: "/projects",
       body,
       errors: { "400": BadRequestError, "401": UnauthorizedError },
+      schemaKey: "projects.create",
       options,
     });
   }
@@ -60,6 +62,7 @@ export class ProjectsResource {
       path: `/projects/${encodeURIComponent(String(projectId))}`,
       errors: { "401": UnauthorizedError, "404": NotFoundError },
       idempotent: true,
+      schemaKey: "projects.get",
       options,
     });
   }
@@ -78,6 +81,7 @@ export class ProjectsResource {
       path: `/projects/${encodeURIComponent(String(projectId))}`,
       errors: { "401": UnauthorizedError, "404": NotFoundError },
       idempotent: true,
+      schemaKey: "projects.delete",
       options,
     });
   }
@@ -108,6 +112,7 @@ export class ProjectsResource {
       path: `/projects/${encodeURIComponent(String(projectId))}`,
       body,
       errors: { "400": BadRequestError, "401": UnauthorizedError, "404": NotFoundError },
+      schemaKey: "projects.update",
       options,
     });
   }
@@ -125,6 +130,7 @@ export class ProjectsResource {
       query: { limit: params?.limit, cursor: params?.cursor },
       errors: { "401": UnauthorizedError, "404": NotFoundError },
       idempotent: true,
+      schemaKey: "projects.listGenerations",
       options,
     }, {
       style: "cursor",
@@ -148,6 +154,7 @@ export class ProjectsResource {
       method: "POST",
       path: `/projects/${encodeURIComponent(String(projectId))}/generations`,
       errors: { "401": UnauthorizedError, "402": PaymentRequiredError, "404": NotFoundError, "422": UnprocessableEntityError },
+      schemaKey: "projects.generate",
       options,
     });
   }
@@ -159,19 +166,19 @@ export interface ProjectsListParams {
 }
 
 /** Every error `list` can produce, as a discriminated union. */
-export type ProjectsListError = UnauthorizedError | UnexpectedApiError | TransportError;
+export type ProjectsListError = UnauthorizedError | UnexpectedApiError | TransportError | ValidationError;
 
 /** Every error `create` can produce, as a discriminated union. */
-export type ProjectsCreateError = BadRequestError | UnauthorizedError | UnexpectedApiError | TransportError;
+export type ProjectsCreateError = BadRequestError | UnauthorizedError | UnexpectedApiError | TransportError | ValidationError;
 
 /** Every error `get` can produce, as a discriminated union. */
-export type ProjectsGetError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError;
+export type ProjectsGetError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
 
 /** Every error `delete` can produce, as a discriminated union. */
-export type ProjectsDeleteError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError;
+export type ProjectsDeleteError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
 
 /** Every error `update` can produce, as a discriminated union. */
-export type ProjectsUpdateError = BadRequestError | UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError;
+export type ProjectsUpdateError = BadRequestError | UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
 
 export interface ProjectsListGenerationsParams {
   limit?: number;
@@ -179,8 +186,8 @@ export interface ProjectsListGenerationsParams {
 }
 
 /** Every error `listGenerations` can produce, as a discriminated union. */
-export type ProjectsListGenerationsError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError;
+export type ProjectsListGenerationsError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
 
 /** Every error `generate` can produce, as a discriminated union. */
-export type ProjectsGenerateError = UnauthorizedError | PaymentRequiredError | NotFoundError | UnprocessableEntityError | UnexpectedApiError | TransportError;
+export type ProjectsGenerateError = UnauthorizedError | PaymentRequiredError | NotFoundError | UnprocessableEntityError | UnexpectedApiError | TransportError | ValidationError;
 

@@ -100,6 +100,120 @@ export class GraphQLRequestError extends Error {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Optional runtime validation — zero-dependency, schema table in schemas.ts
+// ---------------------------------------------------------------------------
+
+export interface Violation { path: string; message: string }
+
+/** Request or response data did not match the spec's schema (opt-in via the
+ * client's validate option). Never thrown: returned as the error side of
+ * ApiResult, like every other failure. */
+export class ValidationError extends Error {
+  readonly direction: "request" | "response";
+  readonly violations: Violation[];
+  constructor(direction: "request" | "response", violations: Violation[]) {
+    const shown = violations.slice(0, 3).map((v) => v.path + " " + v.message).join("; ");
+    super(direction + " body failed schema validation: " + shown
+      + (violations.length > 3 ? " (+" + (violations.length - 3) + " more)" : ""));
+    this.name = "ValidationError";
+    this.direction = direction;
+    this.violations = violations;
+  }
+}
+
+function jsonType(value: unknown): string {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "array";
+  return typeof value;
+}
+
+function typeMatches(value: unknown, t: string): boolean {
+  if (t === "integer") return typeof value === "number" && Number.isInteger(value);
+  return jsonType(value) === t;
+}
+
+const MAX_VIOLATIONS = 50;
+
+/**
+ * Validates against the depth-capped JSON Schema subset emitted in
+ * schemas.ts. Constraints outside the subset (formats, multipleOf, not, ...)
+ * are ignored: validation can miss drift but never false-alarms.
+ */
+export function validateAgainstSchema(value: unknown, schema: unknown, path: string, out: Violation[]): void {
+  if (out.length >= MAX_VIOLATIONS) return;
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) return;
+  const s = schema as Record<string, any>;
+
+  if (Array.isArray(s.allOf)) for (const sub of s.allOf) validateAgainstSchema(value, sub, path, out);
+  const variants = s.anyOf ?? s.oneOf;
+  if (Array.isArray(variants) && variants.length > 0) {
+    const matched = variants.some((sub: unknown) => {
+      const scratch: Violation[] = [];
+      validateAgainstSchema(value, sub, path, scratch);
+      return scratch.length === 0;
+    });
+    if (!matched) out.push({ path, message: "matches none of the allowed variants" });
+  }
+
+  if (s.type !== undefined) {
+    const allowed: string[] = Array.isArray(s.type) ? s.type : [s.type];
+    if (s.nullable === true && !allowed.includes("null")) allowed.push("null");
+    if (!allowed.some((t) => typeMatches(value, t))) {
+      out.push({ path, message: "expected " + allowed.join(" | ") + ", got " + jsonType(value) });
+      return; // remaining constraints assume the right type
+    }
+  }
+  if (value === null) return;
+
+  if (Array.isArray(s.enum) && !s.enum.some((e: unknown) => JSON.stringify(e) === JSON.stringify(value))) {
+    out.push({ path, message: "not one of the allowed enum values" });
+  }
+  if (s.const !== undefined && JSON.stringify(s.const) !== JSON.stringify(value)) {
+    out.push({ path, message: "does not equal the required constant" });
+  }
+  if (typeof value === "number") {
+    if (typeof s.minimum === "number" && value < s.minimum) out.push({ path, message: "below minimum " + s.minimum });
+    if (typeof s.maximum === "number" && value > s.maximum) out.push({ path, message: "above maximum " + s.maximum });
+  }
+  if (typeof value === "string") {
+    if (typeof s.minLength === "number" && value.length < s.minLength) out.push({ path, message: "shorter than minLength " + s.minLength });
+    if (typeof s.maxLength === "number" && value.length > s.maxLength) out.push({ path, message: "longer than maxLength " + s.maxLength });
+    if (typeof s.pattern === "string") {
+      try {
+        if (!new RegExp(s.pattern).test(value)) out.push({ path, message: "does not match pattern" });
+      } catch { /* invalid pattern in the spec: skip, never false-alarm */ }
+    }
+  }
+  if (Array.isArray(value)) {
+    if (typeof s.minItems === "number" && value.length < s.minItems) out.push({ path, message: "fewer than minItems " + s.minItems });
+    if (typeof s.maxItems === "number" && value.length > s.maxItems) out.push({ path, message: "more than maxItems " + s.maxItems });
+    if (s.items) {
+      for (let i = 0; i < value.length && out.length < MAX_VIOLATIONS; i++) {
+        validateAgainstSchema(value[i], s.items, path + "[" + i + "]", out);
+      }
+    }
+  }
+  if (jsonType(value) === "object") {
+    const obj = value as Record<string, unknown>;
+    if (Array.isArray(s.required)) {
+      for (const key of s.required) {
+        if (obj[key as string] === undefined) out.push({ path, message: "missing required property " + JSON.stringify(key) });
+      }
+    }
+    if (s.properties && typeof s.properties === "object") {
+      for (const [key, sub] of Object.entries(s.properties)) {
+        if (obj[key] !== undefined) validateAgainstSchema(obj[key], sub, path + "." + key, out);
+      }
+      if (s.additionalProperties === false) {
+        for (const key of Object.keys(obj)) {
+          if (!(key in (s.properties as object))) out.push({ path, message: "unexpected property " + JSON.stringify(key) });
+        }
+      }
+    }
+  }
+}
+
 /**
  * "fetch failed" alone is useless in a bug report; surface the request line
  * and the deepest cause message (getaddrinfo ENOTFOUND, ECONNREFUSED, ...)
@@ -151,6 +265,8 @@ export interface CoreRequest {
   /** GraphQL: unwrap body.data[field] and turn body.errors into a
    * GraphQLRequestError. */
   graphqlField?: string;
+  /** Key into the schemas table for optional runtime validation. */
+  schemaKey?: string;
   options?: RequestOptions;
 }
 
@@ -174,6 +290,12 @@ export interface CoreConfig {
   /** One structured event per attempt. Never includes headers or bodies,
    * so nothing secret can reach logs through it. */
   debug?: (event: DebugEvent) => void;
+  /** Opt-in runtime validation of JSON request/response bodies against the
+   * spec's schemas. Zero-dependency: the validator lives in this file and
+   * the schema table in schemas.ts. */
+  validate?: { requests: boolean; responses: boolean; mode: "throw" | "warn" };
+  /** Per-operation schema table, keyed "resource.method" (see schemas.ts). */
+  schemas?: Record<string, { req?: unknown; res?: unknown }>;
 }
 
 /** What the debug sink receives: one event per HTTP attempt. */
@@ -208,6 +330,23 @@ export class HttpCore {
       req.options?.headers?.[req.idempotencyKey] === undefined
         ? crypto.randomUUID()
         : undefined;
+
+    const opSchemas = this.config.validate && req.schemaKey ? this.config.schemas?.[req.schemaKey] : undefined;
+    if (opSchemas?.req && this.config.validate!.requests
+        && req.body !== undefined && (req.bodyKind ?? "json") === "json") {
+      const violations: Violation[] = [];
+      validateAgainstSchema(req.body, opSchemas.req, "body", violations);
+      if (violations.length > 0) {
+        const validationError = new ValidationError("request", violations);
+        if (this.config.validate!.mode === "warn") {
+          console.warn(req.method + " " + req.path + ": " + validationError.message);
+        } else {
+          const error = validationError as unknown as E;
+          await this.config.onError?.(error, { method: req.method, path: req.path });
+          return { ok: false, error };
+        }
+      }
+    }
 
     let lastError: unknown;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -258,6 +397,20 @@ export class HttpCore {
           ) as unknown as E;
           await this.config.onError?.(error, { method: req.method, path: req.path });
           return { ok: false, error, response: meta(response) };
+        }
+        if (opSchemas?.res && this.config.validate!.responses && data !== undefined) {
+          const violations: Violation[] = [];
+          validateAgainstSchema(data, opSchemas.res, "response", violations);
+          if (violations.length > 0) {
+            const validationError = new ValidationError("response", violations);
+            if (this.config.validate!.mode === "warn") {
+              console.warn(req.method + " " + req.path + ": " + validationError.message);
+            } else {
+              const error = validationError as unknown as E;
+              await this.config.onError?.(error, { method: req.method, path: req.path });
+              return { ok: false, error, response: meta(response) };
+            }
+          }
         }
         if (req.graphqlField) {
           const payload = data as { data?: Record<string, unknown>; errors?: unknown[] } | undefined;
