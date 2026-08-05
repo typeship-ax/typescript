@@ -140,17 +140,24 @@ const MAX_VIOLATIONS = 50;
  * schemas.ts. Constraints outside the subset (formats, multipleOf, not, ...)
  * are ignored: validation can miss drift but never false-alarms.
  */
-export function validateAgainstSchema(value: unknown, schema: unknown, path: string, out: Violation[]): void {
+export function validateAgainstSchema(value: unknown, schema: unknown, path: string, out: Violation[], defs?: Record<string, unknown>): void {
   if (out.length >= MAX_VIOLATIONS) return;
   if (!schema || typeof schema !== "object" || Array.isArray(schema)) return;
   const s = schema as Record<string, any>;
 
-  if (Array.isArray(s.allOf)) for (const sub of s.allOf) validateAgainstSchema(value, sub, path, out);
+  // Named components are deduplicated into the DEFS table (see schemas.ts);
+  // recursion is bounded by the data's own depth, so cycles terminate.
+  if (typeof s.$ref === "string") {
+    validateAgainstSchema(value, defs?.[s.$ref], path, out, defs);
+    return;
+  }
+
+  if (Array.isArray(s.allOf)) for (const sub of s.allOf) validateAgainstSchema(value, sub, path, out, defs);
   const variants = s.anyOf ?? s.oneOf;
   if (Array.isArray(variants) && variants.length > 0) {
     const matched = variants.some((sub: unknown) => {
       const scratch: Violation[] = [];
-      validateAgainstSchema(value, sub, path, scratch);
+      validateAgainstSchema(value, sub, path, scratch, defs);
       return scratch.length === 0;
     });
     if (!matched) out.push({ path, message: "matches none of the allowed variants" });
@@ -190,7 +197,7 @@ export function validateAgainstSchema(value: unknown, schema: unknown, path: str
     if (typeof s.maxItems === "number" && value.length > s.maxItems) out.push({ path, message: "more than maxItems " + s.maxItems });
     if (s.items) {
       for (let i = 0; i < value.length && out.length < MAX_VIOLATIONS; i++) {
-        validateAgainstSchema(value[i], s.items, path + "[" + i + "]", out);
+        validateAgainstSchema(value[i], s.items, path + "[" + i + "]", out, defs);
       }
     }
   }
@@ -203,7 +210,7 @@ export function validateAgainstSchema(value: unknown, schema: unknown, path: str
     }
     if (s.properties && typeof s.properties === "object") {
       for (const [key, sub] of Object.entries(s.properties)) {
-        if (obj[key] !== undefined) validateAgainstSchema(obj[key], sub, path + "." + key, out);
+        if (obj[key] !== undefined) validateAgainstSchema(obj[key], sub, path + "." + key, out, defs);
       }
       if (s.additionalProperties === false) {
         for (const key of Object.keys(obj)) {
@@ -310,6 +317,8 @@ export interface CoreConfig {
   validate?: { requests: boolean; responses: boolean; mode: "throw" | "warn" };
   /** Per-operation schema table, keyed "resource.method" (see schemas.ts). */
   schemas?: Record<string, { req?: unknown; res?: unknown }>;
+  /** Shared component definitions the schema table references. */
+  schemaDefs?: Record<string, unknown>;
   /** Root-level retry policy (x-typeship-retries at the document root). */
   retry?: RetryPolicy;
   /** Client-level values for x-typeship-globals parameters, by wire name. */
@@ -360,7 +369,7 @@ export class HttpCore {
     if (opSchemas?.req && this.config.validate!.requests
         && req.body !== undefined && (req.bodyKind ?? "json") === "json") {
       const violations: Violation[] = [];
-      validateAgainstSchema(req.body, opSchemas.req, "body", violations);
+      validateAgainstSchema(req.body, opSchemas.req, "body", violations, this.config.schemaDefs);
       if (violations.length > 0) {
         const validationError = new ValidationError("request", violations);
         if (this.config.validate!.mode === "warn") {
@@ -425,7 +434,7 @@ export class HttpCore {
         }
         if (opSchemas?.res && this.config.validate!.responses && data !== undefined) {
           const violations: Violation[] = [];
-          validateAgainstSchema(data, opSchemas.res, "response", violations);
+          validateAgainstSchema(data, opSchemas.res, "response", violations, this.config.schemaDefs);
           if (violations.length > 0) {
             const validationError = new ValidationError("response", violations);
             if (this.config.validate!.mode === "warn") {
