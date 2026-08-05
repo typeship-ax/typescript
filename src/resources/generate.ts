@@ -20,7 +20,7 @@ export class GenerateResource {
      * Which artifact to generate.
      * Default: "sdk"
      */
-    platform?: "sdk" | "cli" | "mcp";
+    platform?: "sdk" | "cli" | "mcp" | "agent";
     /** npm name override for the generated package. */
     package_name?: string;
   }, options?: RequestOptions): Promise<ApiResult<GenerationResult, GenerateRunError>> {

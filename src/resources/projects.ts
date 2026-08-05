@@ -39,7 +39,7 @@ export class ProjectsResource {
     name: string;
     spec_url: string;
     /** Default: "sdk" */
-    platform?: "sdk" | "cli" | "mcp";
+    platform?: "sdk" | "cli" | "mcp" | "agent";
   }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsCreateError>> {
     return this._core.request<Project, ProjectsCreateError>({
       method: "POST",
@@ -98,8 +98,10 @@ export class ProjectsResource {
     mcp_enabled?: boolean;
     /** Enable the webhook relay so the generated CLI's webhooks listen command works for this API's users. */
     relay_enabled?: boolean;
+    /** Serve an always-current AGENTS.md for this API at a stable hosted URL. */
+    agent_enabled?: boolean;
     cli_config?: CliConfig | null;
-    platform?: "sdk" | "cli" | "mcp";
+    platform?: "sdk" | "cli" | "mcp" | "agent";
   }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsUpdateError>> {
     return this._core.request<Project, ProjectsUpdateError>({
       method: "PATCH",

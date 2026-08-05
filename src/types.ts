@@ -29,7 +29,7 @@ export interface GenerationMeta {
   converted?: boolean;
   package_name: string;
   client_name: string;
-  targets: Array<"sdk" | "cli" | "mcp">;
+  targets: Array<"sdk" | "cli" | "mcp" | "agent">;
   resource_count?: number;
   operation_count?: number;
   schema_count?: number;
@@ -107,7 +107,9 @@ export interface Project {
   mcp_url?: string | null;
   /** Whether the webhook relay is enabled, letting the generated CLI's webhooks listen command mint relay sessions. */
   relay_enabled?: boolean;
-  platform: "sdk" | "cli" | "mcp";
+  /** Path of the hosted agent-context URL (an always-current AGENTS.md) when enabled. */
+  agents_url?: string | null;
+  platform: "sdk" | "cli" | "mcp" | "agent";
   /** Format: date-time */
   created_at: string;
 }
