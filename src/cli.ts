@@ -28,6 +28,7 @@ const UPDATE_NOTICE = false;
 const API_DESCRIPTION: string | null = "Generate a zero-dependency TypeScript SDK, a CLI, and an MCP server from\nan OpenAPI spec. Generation and shares need no authentication. Projects\nand hosted generations require an API key, created in the console and\nsent as `Authorization: Bearer tsk_...`.\n";
 const DOCS_URL_DEFAULT: string | null = "https://typeship.dev";
 const RELAY: { mintUrl: string; project: string } | null = null;
+const SUPPORT_URL: string | null = null;
 const OAUTH_TOKEN_URL: string | null = null;
 const OAUTH_CLIENT_ID: string | null = null;
 const OAUTH_SCOPES: string[] = [];
@@ -675,7 +676,7 @@ async function cmdUpgrade(parsed: Parsed): Promise<void> {
 // completion — shell completion scripts built from the op table
 // ---------------------------------------------------------------------------
 
-const TOP_WORDS = ["login", "logout", "whoami", "config", "mcp", "upgrade", "docs", "completion", "help", "version"];
+const TOP_WORDS = ["login", "logout", "whoami", "config", "mcp", "upgrade", "docs", "webhooks", "feedback", "completion", "help", "version"];
 
 function completionScript(): string {
   const fn = "_" + BIN.replace(/-/g, "_") + "_complete";
@@ -1054,6 +1055,33 @@ async function cmdWebhooks(parsed: Parsed): Promise<void> {
   }
 }
 
+async function cmdFeedback(parsed: Parsed): Promise<void> {
+  if (parsed.help) {
+    process.stdout.write(BIN + " feedback — open the API provider's issue tracker with environment details prefilled\n");
+    await flushExit(0);
+  }
+  if (!SUPPORT_URL) {
+    fail(2, "No support URL is configured for this CLI. The API provider can set one in their typeship console.");
+  }
+  let target = SUPPORT_URL!;
+  if (/github\.com\/[^/]+\/[^/]+\/issues\/new/.test(target)) {
+    const bodyLines = [
+      "<!-- describe the problem or request above the line -->",
+      "",
+      "---",
+      "- cli: " + BIN + " " + VERSION + " (api " + API_VERSION + ")",
+      "- node: " + process.version,
+      "- platform: " + process.platform + "/" + process.arch,
+    ];
+    const sep = target.includes("?") ? "&" : "?";
+    target += sep + "title=" + encodeURIComponent("[" + BIN + "] ") + "&body=" + encodeURIComponent(bodyLines.join("\n"));
+  }
+  process.stderr.write("Opening " + paintErr("cyan", SUPPORT_URL!) + "\n");
+  openInBrowser(target);
+  out({ ok: true, opened: SUPPORT_URL });
+  await flushExit(0);
+}
+
 /** Opt-in (console setting) once-a-day upgrade hint. Off by default:
  * generated code phones nobody unless the project owner chose this. The
  * notice reads the previous run's cached answer, so commands never wait
@@ -1117,6 +1145,7 @@ function printRoot(): void {
   lines.push("Setup: " + BIN + " config (defaults)" + (HAS_MCP ? " | " + BIN + " mcp (agent clients)" : "") + " | " + BIN + " upgrade | " + BIN + " completion <shell>");
   lines.push("Docs: " + BIN + " docs [<resource> <command> | search <term> | read <page> | --web]");
   if (RELAY) lines.push("Webhooks: " + BIN + " webhooks listen --forward-to <url>  (local event forwarding)");
+  if (SUPPORT_URL) lines.push("Feedback: " + BIN + " feedback  (opens the provider's issue tracker)");
   if (EXCLUDED_OPS > 0) {
     lines.push("");
     lines.push("Note: " + EXCLUDED_OPS + " operation(s) with binary/multipart bodies are SDK-only.");
@@ -1233,6 +1262,7 @@ async function main(): Promise<void> {
 
   if (resourceCmd === "upgrade") { await cmdUpgrade(parsed); }
   if (resourceCmd === "webhooks") { await cmdWebhooks(parsed); }
+  if (resourceCmd === "feedback") { await cmdFeedback(parsed); }
   if (resourceCmd === "docs") { await cmdDocs(parsed); }
   if (resourceCmd === "completion") { await cmdCompletion(parsed); }
   if (resourceCmd === "config") { await cmdConfig(parsed); }

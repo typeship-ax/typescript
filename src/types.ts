@@ -137,6 +137,10 @@ export interface CliConfig {
   update_notice?: boolean;
   /** Docs site base URL for the generated CLI's docs command and the MCP server's docs tools. Guides are read from the site's llms.txt. Defaults to the spec's externalDocs URL. */
   docs_url?: string | null;
+  /** Where the generated CLI's feedback command sends users. GitHub issues/new URLs get a prefilled title and environment details. */
+  support_url?: string | null;
+  /** MCP tool shape. meta collapses per-operation tools into search_docs, read_docs, and execute so large APIs don't flood agent context; auto switches to meta above 100 operations. */
+  mcp_tool_mode?: "auto" | "operations" | "meta";
 }
 
 export interface Generation {

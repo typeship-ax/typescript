@@ -25,6 +25,9 @@ const AUTH_SCALARS: { option: string; flag: string; env: string }[] = [{"option"
 const BASIC: { envUser: string; envPass: string } | null = null;
 const ENVIRONMENTS: Record<string, string> = {};
 const DOCS_URL_DEFAULT: string | null = "https://typeship.dev";
+/** "meta" collapses per-operation tools into search/read/execute so huge
+ * APIs don't flood agent context with hundreds of tools. */
+const TOOL_MODE: "operations" | "meta" = "operations";
 /** Authorization server for OAuth discovery (RFC 9728), from the spec. */
 const OAUTH_ISSUER: string | null = null;
 
@@ -84,7 +87,35 @@ interface JsonRpcRequest {
   params?: Record<string, unknown>;
 }
 
+const EXECUTE_TOOL = {
+  name: "execute",
+  description: "Execute any API operation by name. Discover operations with search_docs; read_docs <operation> shows its arguments. Arguments are passed as a JSON object keyed by parameter name.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      operation: { type: "string", description: "Operation tool name, e.g. accounts_createAccount" },
+      arguments: { type: "object", description: "Operation arguments keyed by parameter name" },
+    },
+    required: ["operation"],
+  },
+};
+
 function toolDefinitions(): unknown[] {
+  if (TOOL_MODE === "meta") {
+    return [
+      {
+        name: "search_docs",
+        description: "Search this API's " + OPS.length + " operations and, when a docs site is configured, its guides. Start here to find the operation you need.",
+        inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] },
+      },
+      {
+        name: "read_docs",
+        description: "Read an operation's full reference (arguments, requirements) by tool name, or a docs-site guide page.",
+        inputSchema: { type: "object", properties: { page: { type: "string" } }, required: ["page"] },
+      },
+      EXECUTE_TOOL,
+    ];
+  }
   return [
     ...OPS.map((op) => ({
       name: op.tool,
@@ -281,6 +312,16 @@ async function handleRpc(
         if (typeof docArgs.page !== "string") return replyError(-32602, "read_docs requires a page string");
         const docResult = await docsRead(docArgs.page);
         return reply({ content: [{ type: "text", text: docResult.text }], isError: docResult.isError });
+      }
+      if (name === "execute") {
+        const executeArgs = (request.params?.arguments ?? {}) as { operation?: unknown; arguments?: unknown };
+        if (typeof executeArgs.operation !== "string") return replyError(-32602, "execute requires an operation name");
+        const wanted = executeArgs.operation;
+        const target = OPS.find((o) => o.tool === wanted || o.tool === wanted.replace(/\./g, "_"));
+        if (!target) return replyError(-32602, "Unknown operation: " + wanted + ". Use search_docs to find operations.");
+        const opArgs = (executeArgs.arguments ?? {}) as Record<string, unknown>;
+        const { text, isError } = await callTool(target, opArgs, authHeader);
+        return reply({ content: [{ type: "text", text }], isError });
       }
       const op = OPS.find((o) => o.tool === name);
       if (!op) return replyError(-32602, "Unknown tool: " + String(name));
