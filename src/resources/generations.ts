@@ -8,6 +8,23 @@ import type { Generation } from "../types.js";
 export class GenerationsResource {
   constructor(private readonly _core: HttpCore) {}
   /**
+   * Fetch one file from a generation
+   * 
+   * Raw file content, for generations whose output was too large to inline (files_omitted true). The generation's files_index lists valid paths.
+   * `GET /generations/{generation_id}/file`
+   */
+  async getFile(generationId: string, params: GenerationsGetFileParams, options?: RequestOptions): Promise<ApiResult<string, GenerationsGetFileError>> {
+    return this._core.request<string, GenerationsGetFileError>({
+      method: "GET",
+      path: `/generations/${encodeURIComponent(String(generationId))}/file`,
+      query: { path: params.path },
+      errors: { "401": UnauthorizedError, "404": NotFoundError },
+      idempotent: true,
+      options,
+    });
+  }
+
+  /**
    * Retrieve a generation
    * 
    * Includes the generated files when the generation succeeded.
@@ -23,6 +40,14 @@ export class GenerationsResource {
     });
   }
 }
+
+export interface GenerationsGetFileParams {
+  /** Repo-relative path inside the generated package. */
+  path: string;
+}
+
+/** Every error `getFile` can produce, as a discriminated union. */
+export type GenerationsGetFileError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError;
 
 /** Every error `get` can produce, as a discriminated union. */
 export type GenerationsGetError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError;

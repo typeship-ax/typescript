@@ -20,6 +20,39 @@ Body: `{ spec: SpecInput; /** * Which artifact to generate. * De...` (required)
 Returns: `GenerationResult`
 Errors: `PayloadTooLargeError` (413), `UnprocessableEntityError` (422), `ApiResponseError` (default)
 
+## generations
+
+### `client.generations.getFile(generation_id, params)`
+
+Fetch one file from a generation
+
+`GET /generations/{generation_id}/file`
+
+Raw file content, for generations whose output was too large to inline (files_omitted true). The generation's files_index lists valid paths.
+
+| Parameter | In | Type | Required | Description |
+| --- | --- | --- | --- | --- |
+| `generation_id` | path | `string` | yes |  |
+| `path` | query | `string` | yes | Repo-relative path inside the generated package. |
+
+Returns: `string`
+Errors: `UnauthorizedError` (401), `NotFoundError` (404)
+
+### `client.generations.get(generation_id)`
+
+Retrieve a generation
+
+`GET /generations/{generation_id}`
+
+Includes the generated files when the generation succeeded.
+
+| Parameter | In | Type | Required | Description |
+| --- | --- | --- | --- | --- |
+| `generation_id` | path | `string` | yes |  |
+
+Returns: `Generation`
+Errors: `UnauthorizedError` (401), `NotFoundError` (404)
+
 ## account
 
 ### `client.account.whoami()`
@@ -162,20 +195,3 @@ account's hosted generation allowance.
 
 Returns: `Generation`
 Errors: `UnauthorizedError` (401), `PaymentRequiredError` (402), `NotFoundError` (404), `UnprocessableEntityError` (422)
-
-## generations
-
-### `client.generations.get(generation_id)`
-
-Retrieve a generation
-
-`GET /generations/{generation_id}`
-
-Includes the generated files when the generation succeeded.
-
-| Parameter | In | Type | Required | Description |
-| --- | --- | --- | --- | --- |
-| `generation_id` | path | `string` | yes |  |
-
-Returns: `Generation`
-Errors: `UnauthorizedError` (401), `NotFoundError` (404)

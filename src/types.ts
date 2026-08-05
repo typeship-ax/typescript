@@ -145,9 +145,17 @@ export interface CliConfig {
   mcp_tool_mode?: "auto" | "operations" | "meta";
 }
 
+export interface FileStub {
+  path: string;
+  bytes: number;
+}
+
 export interface Generation {
   id: string;
   object: "generation";
+  /** Present and true when the generated output was too large to inline; files_index lists paths, fetched one at a time via GET /generations/{generation_id}/file. */
+  files_omitted?: boolean;
+  files_index?: FileStub[];
   project_id?: string | null;
   status: "succeeded" | "failed";
   trigger: "manual" | "share" | "webhook" | "poll" | "preview";

@@ -3,10 +3,10 @@
 
 import { HttpCore, formatDebugEvent, type AuthValue, type DebugEvent, type RequestContext, bearerAuth } from "./core/http.js";
 import { GenerateResource } from "./resources/generate.js";
+import { GenerationsResource } from "./resources/generations.js";
 import { AccountResource } from "./resources/account.js";
 import { SharesResource } from "./resources/shares.js";
 import { ProjectsResource } from "./resources/projects.js";
-import { GenerationsResource } from "./resources/generations.js";
 
 /** This package's version, also sent as the `User-Agent`. */
 export const VERSION = "1.0.0";
@@ -45,10 +45,10 @@ export interface ClientOptions {
  */
 export class TypeshipClient {
   readonly generate: GenerateResource;
+  readonly generations: GenerationsResource;
   readonly account: AccountResource;
   readonly shares: SharesResource;
   readonly projects: ProjectsResource;
-  readonly generations: GenerationsResource;
 
   constructor(options: ClientOptions = {}) {
     // Identifies this package to the API (ignored by browsers, which
@@ -76,10 +76,10 @@ export class TypeshipClient {
       debug,
     });
     this.generate = new GenerateResource(core);
+    this.generations = new GenerationsResource(core);
     this.account = new AccountResource(core);
     this.shares = new SharesResource(core);
     this.projects = new ProjectsResource(core);
-    this.generations = new GenerationsResource(core);
   }
 }
 
@@ -96,7 +96,7 @@ export {
 } from "./core/http.js";
 export { Page, PagePromise } from "./core/pagination.js";
 export * from "./resources/generate.js";
+export * from "./resources/generations.js";
 export * from "./resources/account.js";
 export * from "./resources/shares.js";
 export * from "./resources/projects.js";
-export * from "./resources/generations.js";

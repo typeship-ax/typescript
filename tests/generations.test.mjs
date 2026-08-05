@@ -5,8 +5,23 @@ import assert from "node:assert/strict";
 import { TypeshipClient } from "../dist/index.js";
 import { startMock } from "./helper.mjs";
 
+test("generations.getFile GET /generations/{generation_id}/file", async () => {
+  const mock = await startMock({ status: 200, contentType: "application/json", body: "\"example\"" });
+  try {
+    const client = new TypeshipClient({ baseUrl: mock.url, bearerToken: "test-token" });
+    const result = await client.generations.getFile("test-generation_id", {"path":"example"});
+    assert.equal(result.ok, true, JSON.stringify(result));
+    const request = mock.requests[0];
+    assert.equal(request.method, "GET");
+    assert.equal(request.path.split("?")[0], "/generations/test-generation_id/file");
+    assert.equal(request.headers["authorization"], "Bearer test-token");
+  } finally {
+    mock.close();
+  }
+});
+
 test("generations.get GET /generations/{generation_id}", async () => {
-  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"id\":\"example\",\"object\":\"generation\",\"project_id\":\"example\",\"status\":\"succeeded\",\"trigger\":\"manual\",\"meta\":{\"title\":\"example\",\"version\":\"example\",\"spec_format\":\"openapi\",\"oas_version\":\"example\",\"converted\":true,\"package_name\":\"example\",\"client_name\":\"example\",\"targets\":[\"sdk\"],\"resource_count\":1,\"operation_count\":1,\"schema_count\":1,\"paginated_operation_count\":1,\"omitted_operation_count\":1,\"pr_url\":\"example\",\"pr_number\":1,\"file_count\":1,\"total_lines\":1},\"warnings\":[\"example\"],\"files\":[{\"path\":\"example\",\"content\":\"example\"}],\"error\":\"example\",\"created_at\":\"2024-01-01T00:00:00Z\"}" });
+  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"id\":\"example\",\"object\":\"generation\",\"files_omitted\":true,\"files_index\":[{\"path\":\"example\",\"bytes\":1}],\"project_id\":\"example\",\"status\":\"succeeded\",\"trigger\":\"manual\",\"meta\":{\"title\":\"example\",\"version\":\"example\",\"spec_format\":\"openapi\",\"oas_version\":\"example\",\"converted\":true,\"package_name\":\"example\",\"client_name\":\"example\",\"targets\":[\"sdk\"],\"resource_count\":1,\"operation_count\":1,\"schema_count\":1,\"paginated_operation_count\":1,\"omitted_operation_count\":1,\"pr_url\":\"example\",\"pr_number\":1,\"file_count\":1,\"total_lines\":1},\"warnings\":[\"example\"],\"files\":[{\"path\":\"example\",\"content\":\"example\"}],\"error\":\"example\",\"created_at\":\"2024-01-01T00:00:00Z\"}" });
   try {
     const client = new TypeshipClient({ baseUrl: mock.url, bearerToken: "test-token" });
     const result = await client.generations.get("test-generation_id");

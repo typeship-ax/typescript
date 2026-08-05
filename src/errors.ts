@@ -47,22 +47,22 @@ export class UnauthorizedError extends ApiError<401, ErrorModel> {
 }
 
 /**
- * The account's plan does not include share links.
- * Raised for HTTP 402 responses.
- */
-export class PaymentRequiredError extends ApiError<402, ErrorModel> {
-  constructor(body: ErrorModel, response: ResponseMeta) {
-    super("The account's plan does not include share links.", 402, body, response);
-  }
-}
-
-/**
  * No such resource in this account.
  * Raised for HTTP 404 responses.
  */
 export class NotFoundError extends ApiError<404, ErrorModel> {
   constructor(body: ErrorModel, response: ResponseMeta) {
     super("No such resource in this account.", 404, body, response);
+  }
+}
+
+/**
+ * The account's plan does not include share links.
+ * Raised for HTTP 402 responses.
+ */
+export class PaymentRequiredError extends ApiError<402, ErrorModel> {
+  constructor(body: ErrorModel, response: ResponseMeta) {
+    super("The account's plan does not include share links.", 402, body, response);
   }
 }
 
