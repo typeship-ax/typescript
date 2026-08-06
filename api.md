@@ -15,7 +15,7 @@ Generate a package from a spec
 Stateless generation, no authentication. Nothing is stored. Returns
 the full generated package as files.
 
-Body: `{ spec: SpecInput; /** * Which artifact to generate. * De...` (required)
+Body: `{ spec: SpecInput; /** Artifacts to generate from the spe...` (required)
 
 Returns: `GenerationResult`
 Errors: `PayloadTooLargeError` (413), `UnprocessableEntityError` (422), `ApiResponseError` (default)

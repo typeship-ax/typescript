@@ -16,8 +16,11 @@ export class GenerateResource {
    */
   async run(body: {
     spec: SpecInput;
+    /** Artifacts to generate from the spec. Defaults to [sdk]. Takes precedence over the deprecated platform field. */
+    platforms?: Array<"sdk" | "cli" | "mcp" | "agent">;
     /**
-     * Which artifact to generate.
+     * Single-artifact alias for platforms.
+     * @deprecated
      * Default: "sdk"
      */
     platform?: "sdk" | "cli" | "mcp" | "agent";

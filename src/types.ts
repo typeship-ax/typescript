@@ -110,7 +110,13 @@ export interface Project {
   relay_enabled?: boolean;
   /** Path of the hosted agent-context URL (an always-current AGENTS.md) when enabled. */
   agents_url?: string | null;
-  platform: "sdk" | "cli" | "mcp" | "agent";
+  /** Artifacts this project builds from its spec, in one run into one package. sdk is always present. */
+  platforms: Array<"sdk" | "cli" | "mcp" | "agent">;
+  /**
+   * Single-artifact view of platforms; use platforms.
+   * @deprecated
+   */
+  platform?: "sdk" | "cli" | "mcp" | "agent";
   /** Format: date-time */
   created_at: string;
 }
