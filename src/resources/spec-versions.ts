@@ -9,6 +9,32 @@ import type { SpecVersion } from "../types.js";
 export class SpecVersionsResource {
   constructor(private readonly _core: HttpCore) {}
   /**
+   * List the specs this project has generated from
+   * 
+   * The audit trail behind a regeneration: which spec produced which SDK, and when it changed. Content is omitted from the list because specs run to megabytes.
+   * 
+   * Auto-paginates: `for await (const item of …)` walks every page.
+   * `GET /projects/{project_id}/spec_versions`
+   */
+  list(projectId: string, params?: SpecVersionsListParams, options?: RequestOptions): PagePromise<SpecVersion, SpecVersionsListError> {
+    return paginate<SpecVersion, SpecVersionsListError>(this._core, {
+      method: "GET",
+      path: `/projects/${encodeURIComponent(String(projectId))}/spec_versions`,
+      query: { limit: params?.limit, cursor: params?.cursor },
+      errors: { "401": UnauthorizedError, "404": NotFoundError },
+      idempotent: true,
+      schemaKey: "specVersions.list",
+      options,
+    }, {
+      style: "cursor",
+      itemsField: "data",
+      cursorParam: "cursor",
+      nextCursorField: "next_cursor",
+      limitParam: "limit",
+    });
+  }
+
+  /**
    * Retrieve a spec version
    * 
    * One recorded spec, with its content. Storing every spec a project has generated from is only an audit trail if you can read one back and diff it against what shipped.
@@ -41,39 +67,7 @@ export class SpecVersionsResource {
       options,
     });
   }
-
-  /**
-   * List the specs this project has generated from
-   * 
-   * The audit trail behind a regeneration: which spec produced which SDK, and when it changed. Content is omitted from the list because specs run to megabytes.
-   * 
-   * Auto-paginates: `for await (const item of …)` walks every page.
-   * `GET /projects/{project_id}/spec_versions`
-   */
-  list(projectId: string, params?: SpecVersionsListParams, options?: RequestOptions): PagePromise<SpecVersion, SpecVersionsListError> {
-    return paginate<SpecVersion, SpecVersionsListError>(this._core, {
-      method: "GET",
-      path: `/projects/${encodeURIComponent(String(projectId))}/spec_versions`,
-      query: { limit: params?.limit, cursor: params?.cursor },
-      errors: { "401": UnauthorizedError, "404": NotFoundError },
-      idempotent: true,
-      schemaKey: "specVersions.list",
-      options,
-    }, {
-      style: "cursor",
-      itemsField: "data",
-      cursorParam: "cursor",
-      nextCursorField: "next_cursor",
-      limitParam: "limit",
-    });
-  }
 }
-
-/** Every error `get` can produce, as a discriminated union. */
-export type SpecVersionsGetError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
-
-/** Every error `getContent` can produce, as a discriminated union. */
-export type SpecVersionsGetContentError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
 
 export interface SpecVersionsListParams {
   limit?: number;
@@ -82,4 +76,10 @@ export interface SpecVersionsListParams {
 
 /** Every error `list` can produce, as a discriminated union. */
 export type SpecVersionsListError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
+
+/** Every error `get` can produce, as a discriminated union. */
+export type SpecVersionsGetError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
+
+/** Every error `getContent` can produce, as a discriminated union. */
+export type SpecVersionsGetContentError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
 

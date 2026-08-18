@@ -5,12 +5,12 @@ import { HttpCore, formatDebugEvent, type AuthValue, type DebugEvent, type Reque
 import { DEFS, SCHEMAS } from "./schemas.js";
 
 import { GenerateResource } from "./resources/generate.js";
+import { ProjectsResource } from "./resources/projects.js";
 import { GenerationsResource } from "./resources/generations.js";
+import { SpecVersionsResource } from "./resources/spec-versions.js";
 import { AccountResource } from "./resources/account.js";
 import { UsageResource } from "./resources/usage.js";
 import { ApiKeysResource } from "./resources/api-keys.js";
-import { SpecVersionsResource } from "./resources/spec-versions.js";
-import { ProjectsResource } from "./resources/projects.js";
 
 /** This package's version, also sent as the `User-Agent`. */
 export const VERSION = "1.0.0";
@@ -55,12 +55,12 @@ export interface ClientOptions {
  */
 export class TypeshipClient {
   readonly generate: GenerateResource;
+  readonly projects: ProjectsResource;
   readonly generations: GenerationsResource;
+  readonly specVersions: SpecVersionsResource;
   readonly account: AccountResource;
   readonly usage: UsageResource;
   readonly apiKeys: ApiKeysResource;
-  readonly specVersions: SpecVersionsResource;
-  readonly projects: ProjectsResource;
 
   constructor(options: ClientOptions = {}) {
     // Identifies this package to the API (ignored by browsers, which
@@ -99,12 +99,12 @@ export class TypeshipClient {
       schemaDefs: validate ? DEFS : undefined,
     });
     this.generate = new GenerateResource(core);
+    this.projects = new ProjectsResource(core);
     this.generations = new GenerationsResource(core);
+    this.specVersions = new SpecVersionsResource(core);
     this.account = new AccountResource(core);
     this.usage = new UsageResource(core);
     this.apiKeys = new ApiKeysResource(core);
-    this.specVersions = new SpecVersionsResource(core);
-    this.projects = new ProjectsResource(core);
   }
 }
 
@@ -122,9 +122,9 @@ export {
 export { Page, PagePromise } from "./core/pagination.js";
 
 export * from "./resources/generate.js";
+export * from "./resources/projects.js";
 export * from "./resources/generations.js";
+export * from "./resources/spec-versions.js";
 export * from "./resources/account.js";
 export * from "./resources/usage.js";
 export * from "./resources/api-keys.js";
-export * from "./resources/spec-versions.js";
-export * from "./resources/projects.js";

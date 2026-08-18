@@ -5,6 +5,21 @@ import assert from "node:assert/strict";
 import { TypeshipClient } from "../dist/index.js";
 import { startMock } from "./helper.mjs";
 
+test("specVersions.list GET /projects/{project_id}/spec_versions", async () => {
+  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"data\":[{\"id\":\"example\",\"object\":\"spec_version\",\"project_id\":\"example\",\"hash\":\"example\",\"bytes\":1,\"source\":{},\"content\":\"example\",\"content_omitted\":true,\"created_at\":\"2024-01-01T00:00:00Z\"}]}" });
+  try {
+    const client = new TypeshipClient({ baseUrl: mock.url, bearerToken: "test-token" });
+    const result = await client.specVersions.list("test-project_id", undefined);
+    assert.equal(result.ok, true, JSON.stringify(result));
+    const request = mock.requests[0];
+    assert.equal(request.method, "GET");
+    assert.equal(request.path.split("?")[0], "/projects/test-project_id/spec_versions");
+    assert.equal(request.headers["authorization"], "Bearer test-token");
+  } finally {
+    mock.close();
+  }
+});
+
 test("specVersions.get GET /spec_versions/{spec_version_id}", async () => {
   const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"id\":\"example\",\"object\":\"spec_version\",\"project_id\":\"example\",\"hash\":\"example\",\"bytes\":1,\"source\":{},\"content\":\"example\",\"content_omitted\":true,\"created_at\":\"2024-01-01T00:00:00Z\"}" });
   try {
@@ -29,21 +44,6 @@ test("specVersions.getContent GET /spec_versions/{spec_version_id}/content", asy
     const request = mock.requests[0];
     assert.equal(request.method, "GET");
     assert.equal(request.path.split("?")[0], "/spec_versions/test-spec_version_id/content");
-    assert.equal(request.headers["authorization"], "Bearer test-token");
-  } finally {
-    mock.close();
-  }
-});
-
-test("specVersions.list GET /projects/{project_id}/spec_versions", async () => {
-  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"data\":[{\"id\":\"example\",\"object\":\"spec_version\",\"project_id\":\"example\",\"hash\":\"example\",\"bytes\":1,\"source\":{},\"content\":\"example\",\"content_omitted\":true,\"created_at\":\"2024-01-01T00:00:00Z\"}]}" });
-  try {
-    const client = new TypeshipClient({ baseUrl: mock.url, bearerToken: "test-token" });
-    const result = await client.specVersions.list("test-project_id", undefined);
-    assert.equal(result.ok, true, JSON.stringify(result));
-    const request = mock.requests[0];
-    assert.equal(request.method, "GET");
-    assert.equal(request.path.split("?")[0], "/projects/test-project_id/spec_versions");
     assert.equal(request.headers["authorization"], "Bearer test-token");
   } finally {
     mock.close();

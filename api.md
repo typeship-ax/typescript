@@ -20,161 +20,6 @@ Body: `{ spec: SpecInput; /** Artifacts to generate from the spe...` (required)
 Returns: `GenerationResult`
 Errors: `PayloadTooLargeError` (413), `UnprocessableEntityError` (422), `ApiResponseError` (default)
 
-## generations
-
-### `client.generations.getFile(generation_id, params)`
-
-Fetch one file from a generation
-
-`GET /generations/{generation_id}/file`
-
-Raw file content, for generations whose output was too large to inline (files_omitted true). The generation's files_index lists valid paths.
-
-| Parameter | In | Type | Required | Description |
-| --- | --- | --- | --- | --- |
-| `generation_id` | path | `string` | yes |  |
-| `path` | query | `string` | yes | Repo-relative path inside the generated package. |
-
-Returns: `string`
-Errors: `UnauthorizedError` (401), `NotFoundError` (404)
-
-### `client.generations.get(generation_id)`
-
-Retrieve a generation
-
-`GET /generations/{generation_id}`
-
-Includes the generated files when the generation succeeded.
-
-| Parameter | In | Type | Required | Description |
-| --- | --- | --- | --- | --- |
-| `generation_id` | path | `string` | yes |  |
-
-Returns: `Generation`
-Errors: `UnauthorizedError` (401), `NotFoundError` (404)
-
-## account
-
-### `client.account.me()`
-
-The account behind the presented credentials
-
-`GET /me`
-
-Returns the account that owns the presented API key. This is also the
-identity endpoint the generated typeship CLI's `whoami` calls.
-
-Returns: `Account`
-Errors: `UnauthorizedError` (401)
-
-### `client.account.update(body)`
-
-Update account defaults
-
-`PATCH /me`
-
-Only settings are writable. Name and email belong to the login, and plan is written by billing.
-
-Body: `{ settings: AccountSettings; }` (required)
-
-Returns: `Account`
-Errors: `BadRequestError` (400), `UnauthorizedError` (401)
-
-## usage
-
-### `client.usage.retrieve()`
-
-Retrieve usage for this account
-
-`GET /usage`
-
-What this account has consumed and what remains. A hosted generation can cost more than one unit: a project generating TypeScript, Python, and Go consumes three, so callers that would otherwise discover the limit by receiving a 402 can check first.
-
-Returns: `Usage`
-Errors: `UnauthorizedError` (401)
-
-## apiKeys
-
-### `client.apiKeys.list(params)`
-
-List API keys
-
-`GET /api_keys`
-
-Keys are never returned in full — only their identity and last four. Creation stays in the console deliberately: a leaked key that can mint more keys is a leaked account.
-
-| Parameter | In | Type | Required | Description |
-| --- | --- | --- | --- | --- |
-| `limit` | query | `number` | no |  |
-| `cursor` | query | `string` | no |  |
-
-Returns: `PagePromise<{ data: ApiKey[]; next_cursor?: string | null; }>` — auto-paginating (`for await` walks every page)
-Errors: `UnauthorizedError` (401)
-
-### `client.apiKeys.revoke(api_key_id)`
-
-Revoke an API key
-
-`DELETE /api_keys/{api_key_id}`
-
-Idempotent: revoking an already-revoked key returns the same body, so a rotation script that re-runs does not have to special-case having already succeeded.
-
-| Parameter | In | Type | Required | Description |
-| --- | --- | --- | --- | --- |
-| `api_key_id` | path | `string` | yes |  |
-
-Returns: `ApiKey`
-Errors: `UnauthorizedError` (401), `NotFoundError` (404)
-
-## specVersions
-
-### `client.specVersions.get(spec_version_id)`
-
-Retrieve a spec version
-
-`GET /spec_versions/{spec_version_id}`
-
-One recorded spec, with its content. Storing every spec a project has generated from is only an audit trail if you can read one back and diff it against what shipped.
-
-| Parameter | In | Type | Required | Description |
-| --- | --- | --- | --- | --- |
-| `spec_version_id` | path | `string` | yes |  |
-
-Returns: `SpecVersion`
-Errors: `UnauthorizedError` (401), `NotFoundError` (404)
-
-### `client.specVersions.getContent(spec_version_id)`
-
-Retrieve a spec version's raw text
-
-`GET /spec_versions/{spec_version_id}/content`
-
-The escape hatch for specs too large to inline, and the endpoint to pipe straight into a diff.
-
-| Parameter | In | Type | Required | Description |
-| --- | --- | --- | --- | --- |
-| `spec_version_id` | path | `string` | yes |  |
-
-Returns: `string`
-Errors: `UnauthorizedError` (401), `NotFoundError` (404)
-
-### `client.specVersions.list(project_id, params)`
-
-List the specs this project has generated from
-
-`GET /projects/{project_id}/spec_versions`
-
-The audit trail behind a regeneration: which spec produced which SDK, and when it changed. Content is omitted from the list because specs run to megabytes.
-
-| Parameter | In | Type | Required | Description |
-| --- | --- | --- | --- | --- |
-| `project_id` | path | `string` | yes |  |
-| `limit` | query | `number` | no |  |
-| `cursor` | query | `string` | no |  |
-
-Returns: `PagePromise<{ data: SpecVersion[]; next_cursor?: string | null; }>` — auto-paginating (`for await` walks every page)
-Errors: `UnauthorizedError` (401), `NotFoundError` (404)
-
 ## projects
 
 ### `client.projects.list(params)`
@@ -277,3 +122,158 @@ regenerate on push.
 
 Returns: `{ data: Array<Generation | GenerationFailure>; }`
 Errors: `UnauthorizedError` (401), `PaymentRequiredError` (402), `NotFoundError` (404), `UnprocessableEntityError` (422)
+
+## generations
+
+### `client.generations.get(generation_id)`
+
+Retrieve a generation
+
+`GET /generations/{generation_id}`
+
+Includes the generated files when the generation succeeded.
+
+| Parameter | In | Type | Required | Description |
+| --- | --- | --- | --- | --- |
+| `generation_id` | path | `string` | yes |  |
+
+Returns: `Generation`
+Errors: `UnauthorizedError` (401), `NotFoundError` (404)
+
+### `client.generations.getFile(generation_id, params)`
+
+Fetch one file from a generation
+
+`GET /generations/{generation_id}/file`
+
+Raw file content, for generations whose output was too large to inline (files_omitted true). The generation's files_index lists valid paths.
+
+| Parameter | In | Type | Required | Description |
+| --- | --- | --- | --- | --- |
+| `generation_id` | path | `string` | yes |  |
+| `path` | query | `string` | yes | Repo-relative path inside the generated package. |
+
+Returns: `string`
+Errors: `UnauthorizedError` (401), `NotFoundError` (404)
+
+## specVersions
+
+### `client.specVersions.list(project_id, params)`
+
+List the specs this project has generated from
+
+`GET /projects/{project_id}/spec_versions`
+
+The audit trail behind a regeneration: which spec produced which SDK, and when it changed. Content is omitted from the list because specs run to megabytes.
+
+| Parameter | In | Type | Required | Description |
+| --- | --- | --- | --- | --- |
+| `project_id` | path | `string` | yes |  |
+| `limit` | query | `number` | no |  |
+| `cursor` | query | `string` | no |  |
+
+Returns: `PagePromise<{ data: SpecVersion[]; next_cursor?: string | null; }>` — auto-paginating (`for await` walks every page)
+Errors: `UnauthorizedError` (401), `NotFoundError` (404)
+
+### `client.specVersions.get(spec_version_id)`
+
+Retrieve a spec version
+
+`GET /spec_versions/{spec_version_id}`
+
+One recorded spec, with its content. Storing every spec a project has generated from is only an audit trail if you can read one back and diff it against what shipped.
+
+| Parameter | In | Type | Required | Description |
+| --- | --- | --- | --- | --- |
+| `spec_version_id` | path | `string` | yes |  |
+
+Returns: `SpecVersion`
+Errors: `UnauthorizedError` (401), `NotFoundError` (404)
+
+### `client.specVersions.getContent(spec_version_id)`
+
+Retrieve a spec version's raw text
+
+`GET /spec_versions/{spec_version_id}/content`
+
+The escape hatch for specs too large to inline, and the endpoint to pipe straight into a diff.
+
+| Parameter | In | Type | Required | Description |
+| --- | --- | --- | --- | --- |
+| `spec_version_id` | path | `string` | yes |  |
+
+Returns: `string`
+Errors: `UnauthorizedError` (401), `NotFoundError` (404)
+
+## account
+
+### `client.account.me()`
+
+The account behind the presented credentials
+
+`GET /me`
+
+Returns the account that owns the presented API key. This is also the
+identity endpoint the generated typeship CLI's `whoami` calls.
+
+Returns: `Account`
+Errors: `UnauthorizedError` (401)
+
+### `client.account.update(body)`
+
+Update account defaults
+
+`PATCH /me`
+
+Only settings are writable. Name and email belong to the login, and plan is written by billing.
+
+Body: `{ settings: AccountSettings; }` (required)
+
+Returns: `Account`
+Errors: `BadRequestError` (400), `UnauthorizedError` (401)
+
+## usage
+
+### `client.usage.retrieve()`
+
+Retrieve usage for this account
+
+`GET /usage`
+
+What this account has consumed and what remains. A hosted generation can cost more than one unit: a project generating TypeScript, Python, and Go consumes three, so callers that would otherwise discover the limit by receiving a 402 can check first.
+
+Returns: `Usage`
+Errors: `UnauthorizedError` (401)
+
+## apiKeys
+
+### `client.apiKeys.list(params)`
+
+List API keys
+
+`GET /api_keys`
+
+Keys are never returned in full — only their identity and last four. Creation stays in the console deliberately: a leaked key that can mint more keys is a leaked account.
+
+| Parameter | In | Type | Required | Description |
+| --- | --- | --- | --- | --- |
+| `limit` | query | `number` | no |  |
+| `cursor` | query | `string` | no |  |
+
+Returns: `PagePromise<{ data: ApiKey[]; next_cursor?: string | null; }>` — auto-paginating (`for await` walks every page)
+Errors: `UnauthorizedError` (401)
+
+### `client.apiKeys.revoke(api_key_id)`
+
+Revoke an API key
+
+`DELETE /api_keys/{api_key_id}`
+
+Idempotent: revoking an already-revoked key returns the same body, so a rotation script that re-runs does not have to special-case having already succeeded.
+
+| Parameter | In | Type | Required | Description |
+| --- | --- | --- | --- | --- |
+| `api_key_id` | path | `string` | yes |  |
+
+Returns: `ApiKey`
+Errors: `UnauthorizedError` (401), `NotFoundError` (404)

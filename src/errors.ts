@@ -47,22 +47,22 @@ export class UnauthorizedError extends ApiError<401, ErrorModel> {
 }
 
 /**
+ * Invalid name, spec source, or field value.
+ * Raised for HTTP 400 responses.
+ */
+export class BadRequestError extends ApiError<400, ErrorModel> {
+  constructor(body: ErrorModel, response: ResponseMeta) {
+    super("Invalid name, spec source, or field value.", 400, body, response);
+  }
+}
+
+/**
  * No such resource in this account.
  * Raised for HTTP 404 responses.
  */
 export class NotFoundError extends ApiError<404, ErrorModel> {
   constructor(body: ErrorModel, response: ResponseMeta) {
     super("No such resource in this account.", 404, body, response);
-  }
-}
-
-/**
- * Invalid setting.
- * Raised for HTTP 400 responses.
- */
-export class BadRequestError extends ApiError<400, ErrorModel> {
-  constructor(body: ErrorModel, response: ResponseMeta) {
-    super("Invalid setting.", 400, body, response);
   }
 }
 

@@ -24,7 +24,7 @@ import { TypeshipClient } from "typeship";
 
 const client = new TypeshipClient({ bearerToken: process.env.API_TOKEN! });
 
-for await (const item of client.apiKeys.list()) {
+for await (const item of client.projects.list()) {
   console.log(item);
 }
 ```
@@ -35,7 +35,7 @@ Nothing throws on HTTP errors. Every call returns a discriminated result, and th
 error side is a union of the documented error classes for that operation:
 
 ```ts
-const result = await client.apiKeys.list();
+const result = await client.projects.list();
 
 if (!result.ok) {
   if (result.error instanceof NotFoundError) {
@@ -52,12 +52,12 @@ Prefer exceptions? `unwrap(result)` returns the data or throws the typed error.
 ## Pagination
 
 ```ts
-for await (const item of client.apiKeys.list()) {
+for await (const item of client.projects.list()) {
   // every item from every page, fetched lazily
 }
 
 // or page manually:
-const page = await client.apiKeys.list();
+const page = await client.projects.list();
 if (page.ok) {
   page.data.items;
   await page.data.getNextPage();
@@ -69,9 +69,9 @@ if (page.ok) {
 Every operation is a command that mirrors the SDK exactly (`npm run build` once, or run via tsx):
 
 ```sh
-typeship api-keys list
+typeship projects list
 typeship <resource> <command> --help     # flags, types, required markers
-typeship api-keys list --all   # stream every page as NDJSON
+typeship projects list --all   # stream every page as NDJSON
 ```
 
 Body fields become flags (`--name x --currency usd`); nested values take JSON; `--data '<json>'` sets the whole body. Flags only — no prompts, CI-safe, exit codes 0/1/2.

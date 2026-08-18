@@ -8,6 +8,23 @@ import type { Generation } from "../types.js";
 export class GenerationsResource {
   constructor(private readonly _core: HttpCore) {}
   /**
+   * Retrieve a generation
+   * 
+   * Includes the generated files when the generation succeeded.
+   * `GET /generations/{generation_id}`
+   */
+  async get(generationId: string, options?: RequestOptions): Promise<ApiResult<Generation, GenerationsGetError>> {
+    return this._core.request<Generation, GenerationsGetError>({
+      method: "GET",
+      path: `/generations/${encodeURIComponent(String(generationId))}`,
+      errors: { "401": UnauthorizedError, "404": NotFoundError },
+      idempotent: true,
+      schemaKey: "generations.get",
+      options,
+    });
+  }
+
+  /**
    * Fetch one file from a generation
    * 
    * Raw file content, for generations whose output was too large to inline (files_omitted true). The generation's files_index lists valid paths.
@@ -24,24 +41,10 @@ export class GenerationsResource {
       options,
     });
   }
-
-  /**
-   * Retrieve a generation
-   * 
-   * Includes the generated files when the generation succeeded.
-   * `GET /generations/{generation_id}`
-   */
-  async get(generationId: string, options?: RequestOptions): Promise<ApiResult<Generation, GenerationsGetError>> {
-    return this._core.request<Generation, GenerationsGetError>({
-      method: "GET",
-      path: `/generations/${encodeURIComponent(String(generationId))}`,
-      errors: { "401": UnauthorizedError, "404": NotFoundError },
-      idempotent: true,
-      schemaKey: "generations.get",
-      options,
-    });
-  }
 }
+
+/** Every error `get` can produce, as a discriminated union. */
+export type GenerationsGetError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
 
 export interface GenerationsGetFileParams {
   /** Repo-relative path inside the generated package. */
@@ -50,7 +53,4 @@ export interface GenerationsGetFileParams {
 
 /** Every error `getFile` can produce, as a discriminated union. */
 export type GenerationsGetFileError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
-
-/** Every error `get` can produce, as a discriminated union. */
-export type GenerationsGetError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
 
