@@ -131,7 +131,7 @@ export interface Account {
   name: string;
   /** Format: email */
   email: string;
-  plan: "free" | "starter" | "pro";
+  plan: "free" | "pro";
   /** Format: date-time */
   created_at: string;
 }
