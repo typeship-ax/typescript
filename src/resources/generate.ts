@@ -16,14 +16,13 @@ export class GenerateResource {
    */
   async run(body: {
     spec: SpecInput;
-    /** Artifacts to generate from the spec. Defaults to [sdk]. Takes precedence over the deprecated platform field. */
+    /** Artifacts to generate from the spec. Defaults to [sdk]. */
     platforms?: Array<"sdk" | "cli" | "mcp" | "agent">;
     /**
-     * Single-artifact alias for platforms.
-     * @deprecated
-     * Default: "sdk"
+     * Language to generate. Python and Go produce the SDK only; the CLI, MCP server, and agent context are TypeScript artifacts and are skipped with a warning when requested alongside them.
+     * Default: "typescript"
      */
-    platform?: "sdk" | "cli" | "mcp" | "agent";
+    language?: "typescript" | "python" | "go";
     /** npm name override for the generated package. */
     package_name?: string;
     options?: Customization;

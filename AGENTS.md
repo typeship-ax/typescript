@@ -2,10 +2,14 @@
 
 This package is the generated TypeScript SDK + CLI + MCP server for **typeship** (v1.0.0).
 
-Generate a zero-dependency TypeScript SDK, a CLI, and an MCP server from
-an OpenAPI spec. Generation and shares need no authentication. Projects
-and hosted generations require an API key, created in the console and
-sent as `Authorization: Bearer tsk_...`.
+Generate a zero-dependency SDK — TypeScript, Python, or Go — plus a CLI
+and an MCP server, from an OpenAPI spec.
+
+Generation needs no authentication. Everything else — projects, hosted
+generations, spec versions, keys, and usage — requires an API
+key, created in the console and sent as
+`Authorization: Bearer tsk_live_...`. A browser session is not a
+credential for this API.
 
 ## Ground rules
 - Generated code: never edit files in this package by hand — changes are lost on regeneration. Wrap the client in your own code instead.
@@ -13,11 +17,11 @@ sent as `Authorization: Bearer tsk_...`.
 - `api.md` in this package is the complete method reference: every operation, parameter, and error class. Read it before guessing.
 
 ## Authentication
-- Bearer token: `TYPESHIP_TOKEN` env var, or `bearerToken` client option.
+- Bearer token: `TYPESHIP_TOKEN` env var, or the `bearerToken` client option.
 
 ## Using the SDK
 ```ts
-import { TypeshipClient } from "typeship-sdk";
+import { TypeshipClient } from "typeship";
 const client = new TypeshipClient({ /* auth options above */ });
 ```
 - Every call returns `ApiResult<T, E>`: check `result.ok`, or `unwrap(result)` to throw the typed error. Nothing throws on HTTP errors by default.

@@ -126,7 +126,7 @@ function toolDefinitions(): unknown[] {
     ...OPS.map((op) => ({
       name: op.tool,
       description:
-        (op.summary ? op.summary + " — " : "") + op.httpMethod + " " + op.path +
+        (op.summary ? op.summary + ": " : "") + op.httpMethod + " " + op.path +
         (op.paginated ? " (paginated: returns one page plus hasMore)" : ""),
       inputSchema: op.select
         ? {
@@ -180,7 +180,7 @@ async function fetchDocs(pathOrFile: string): Promise<string | null> {
 
 function referenceText(op: OpSpec): string {
   const lines = [
-    op.tool + " — " + op.httpMethod + " " + op.path + (op.paginated ? " (paginated)" : ""),
+    op.tool + ": " + op.httpMethod + " " + op.path + (op.paginated ? " (paginated)" : ""),
     ...(op.summary ? [op.summary] : []),
     ...(op.description ? ["", op.description.trim()] : []),
   ];

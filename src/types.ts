@@ -97,6 +97,12 @@ export interface Project {
   spec_url?: string | null;
   source: Source;
   destination?: Destination | null;
+  /** Languages this project generates. Each is a separate package, a separate pull request, and a separate hosted generation. Defaults to typescript alone. */
+  languages?: Array<"typescript" | "python" | "go">;
+  /** Where each language's pull request lands, keyed by language. A repository each is the convention API vendors follow, and Go requires it since `go get` resolves a module to the repository root. Several languages may share a repository with different directories, producing one pull request. */
+  destinations?: Record<string, Destination>;
+  /** Registry name per language. The ecosystems disagree about what a name is: npm takes an optional @scope, PyPI normalizes to lowercase-with-hyphens, and Go's name is the module path that `go get` resolves. Unset means the name is derived from the API's title. */
+  package_names?: Record<string, string>;
   /** Regenerate automatically when the spec changes. */
   auto_regen: boolean;
   /** npm name override for generated output; supports @scope/name. */
@@ -112,22 +118,18 @@ export interface Project {
   agents_url?: string | null;
   /** Artifacts this project builds from its spec, in one run into one package. sdk is always present. */
   platforms: Array<"sdk" | "cli" | "mcp" | "agent">;
-  /**
-   * Single-artifact view of platforms; use platforms.
-   * @deprecated
-   */
-  platform?: "sdk" | "cli" | "mcp" | "agent";
   /** Format: date-time */
   created_at: string;
 }
 
-export interface User {
+export interface Account {
   id: string;
-  object: "user";
+  object: "account";
   name: string;
   /** Format: email */
   email: string;
   plan: "free" | "starter" | "pro";
+  settings?: AccountSettings;
   /** Format: date-time */
   created_at: string;
 }
@@ -152,7 +154,7 @@ export interface CliConfig {
   mcp_tool_mode?: "auto" | "operations" | "meta";
 }
 
-/** Generation-time customization. Plain configuration — typeship never requires vendor extensions inside the spec itself. */
+/** Generation-time customization. Plain configuration. typeship never requires vendor extensions inside the spec itself. */
 export interface Customization {
   /** Wire names of query/header parameters that become settable once on the generated client and auto-apply to every operation that accepts them; per-call values win. Names that match nothing are reported as generation warnings. */
   globals?: string[];
@@ -202,7 +204,9 @@ export interface Generation {
   files_index?: FileStub[];
   project_id?: string | null;
   status: "succeeded" | "failed";
-  trigger: "manual" | "share" | "webhook" | "poll" | "preview";
+  trigger: "manual" | "webhook" | "poll" | "preview";
+  /** Language this run generated. Null on generations recorded before projects had a language axis. */
+  language?: "typescript" | "python" | "go" | null;
   meta?: GenerationMeta;
   warnings?: string[];
   /** Present on retrieve and create; omitted in lists. */
@@ -212,18 +216,68 @@ export interface Generation {
   created_at: string;
 }
 
-export interface Share {
+/** A language that did not generate in a multi-language run. */
+export interface GenerationFailure {
+  language: "typescript" | "python" | "go";
+  status: "failed";
+  error: string;
+}
+
+/** Defaults applied when a project is created, and never afterwards — a setting changed today must not move where yesterday's project publishes. Repository and package names derive from the project name supplied at creation. */
+export interface AccountSettings {
+  /** GitHub owner new projects publish under. With "acme", a project named "Acme API" generating all three languages defaults to acme/acme-node, acme/acme-python, and acme/acme-go. */
+  default_destination_owner?: string | null;
+  /** Languages new projects generate. */
+  default_languages?: Array<"typescript" | "python" | "go">;
+  /** npm scope for new projects, e.g. "@acme". */
+  default_package_scope?: string | null;
+}
+
+export interface Usage {
+  object: "usage";
+  hosted_generations: {
+    used: number;
+    /** Null on paid plans, which meter rather than cap. */
+    included?: number | null;
+    remaining?: number | null;
+  };
+  /** Endpoints included before per-endpoint billing applies. */
+  included_endpoints: number;
+}
+
+export interface ApiKey {
   id: string;
-  object: "share";
-  /** Public path of the share page. Anyone with it can view and download. */
-  url: string;
+  object: "api_key";
+  name: string;
+  /** Last four characters of the secret; the secret itself is never stored. */
+  last4: string;
+  revoked: boolean;
+  /** Format: date-time */
+  last_used_at?: string | null;
+  /** Format: date-time */
+  created_at: string;
+}
+
+export interface SpecVersion {
+  id: string;
+  object: "spec_version";
+  project_id: string;
+  /** sha256 of the raw spec text; the version's identity. */
+  hash: string;
+  bytes?: number;
+  /** Where this spec came from — a URL, or a repo and path. */
+  source?: Record<string, unknown> | null;
+  /** The raw spec text. Present on retrieve, omitted from lists, and replaced by content_omitted when the spec is too large to inline. */
+  content?: string;
+  /** Present and true when the spec was too large to inline; fetch it from /spec_versions/{spec_version_id}/content. */
+  content_omitted?: boolean;
   /** Format: date-time */
   created_at: string;
 }
 
 export interface ErrorModel {
   errors: Array<{
-    code: "invalid_request" | "unauthorized" | "not_found" | "spec_error" | "fetch_error" | "plan_limit_reached" | "payload_too_large";
+    code: "invalid_request" | "unauthorized" | "not_found" | "spec_error" | "fetch_error" | "plan_limit_reached" | "payload_too_large" | "rate_limited" | "internal_error";
     message: string;
   }>;
   /** Also sent as the x-request-id response header. */

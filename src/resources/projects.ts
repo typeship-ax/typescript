@@ -9,6 +9,7 @@ import type {
   Customization,
   Destination,
   Generation,
+  GenerationFailure,
   Project,
   Source,
   SpecPatch,
@@ -46,9 +47,26 @@ export class ProjectsResource {
    */
   async create(body: {
     name: string;
-    spec_url: string;
-    /** Default: "sdk" */
-    platform?: "sdk" | "cli" | "mcp" | "agent";
+    /** Spec location for a URL-sourced project. Provide this or source; a project with neither has nothing to generate. */
+    spec_url?: string;
+    source?: Source;
+    /** Artifacts to build, generated together into one package. */
+    platforms?: Array<"sdk" | "cli" | "mcp" | "agent">;
+    /** Languages to generate. Each is a separate package, a separate pull request, and a separate hosted generation. Defaults to typescript alone. */
+    languages?: Array<"typescript" | "python" | "go">;
+    /** Per-language pull-request destination, keyed by language. */
+    destinations?: Record<string, Destination>;
+    /** Registry name per language; unset derives from the API title. */
+    package_names?: Record<string, string>;
+    destination?: Destination | null;
+    auto_regen?: boolean;
+    package_name?: string | null;
+    spec_patches?: SpecPatch[];
+    mcp_enabled?: boolean;
+    relay_enabled?: boolean;
+    agent_enabled?: boolean;
+    cli_config?: CliConfig | null;
+    customization?: Customization | null;
   }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsCreateError>> {
     return this._core.request<Project, ProjectsCreateError>({
       method: "POST",
@@ -103,6 +121,12 @@ export class ProjectsResource {
     spec_url?: string;
     source?: Source;
     destination?: Destination | null;
+    /** Languages to generate. Each counts as its own hosted generation. */
+    languages?: Array<"typescript" | "python" | "go">;
+    /** Per-language pull-request destination, keyed by language. */
+    destinations?: Record<string, Destination>;
+    /** Registry name per language; unset derives from the API title. */
+    package_names?: Record<string, string>;
     auto_regen?: boolean;
     package_name?: string | null;
     spec_patches?: SpecPatch[];
@@ -114,7 +138,6 @@ export class ProjectsResource {
     agent_enabled?: boolean;
     cli_config?: CliConfig | null;
     customization?: Customization | null;
-    platform?: "sdk" | "cli" | "mcp" | "agent";
   }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsUpdateError>> {
     return this._core.request<Project, ProjectsUpdateError>({
       method: "PATCH",
@@ -136,7 +159,7 @@ export class ProjectsResource {
     return paginate<Generation, ProjectsListGenerationsError>(this._core, {
       method: "GET",
       path: `/projects/${encodeURIComponent(String(projectId))}/generations`,
-      query: { limit: params?.limit, cursor: params?.cursor },
+      query: { limit: params?.limit, cursor: params?.cursor, language: params?.language },
       errors: { "401": UnauthorizedError, "404": NotFoundError },
       idempotent: true,
       schemaKey: "projects.listGenerations",
@@ -153,13 +176,19 @@ export class ProjectsResource {
   /**
    * Run a hosted generation
    * 
-   * Fetches the project's spec URL, generates the project's platform,
-   * and stores the result in the project's history. Counts toward the
-   * account's hosted generation allowance.
+   * Fetches the project's spec URL, generates every configured language,
+   * and stores each result in the project's history. Each language
+   * counts as one hosted generation. Does not open pull requests. Only
+   * URL-sourced projects can be regenerated this way; repository sources
+   * regenerate on push.
    * `POST /projects/{project_id}/generations`
    */
-  async generate(projectId: string, options?: RequestOptions): Promise<ApiResult<Generation, ProjectsGenerateError>> {
-    return this._core.request<Generation, ProjectsGenerateError>({
+  async generate(projectId: string, options?: RequestOptions): Promise<ApiResult<{
+    data: Array<Generation | GenerationFailure>;
+  }, ProjectsGenerateError>> {
+    return this._core.request<{
+    data: Array<Generation | GenerationFailure>;
+  }, ProjectsGenerateError>({
       method: "POST",
       path: `/projects/${encodeURIComponent(String(projectId))}/generations`,
       errors: { "401": UnauthorizedError, "402": PaymentRequiredError, "404": NotFoundError, "422": UnprocessableEntityError },
@@ -192,6 +221,8 @@ export type ProjectsUpdateError = BadRequestError | UnauthorizedError | NotFound
 export interface ProjectsListGenerationsParams {
   limit?: number;
   cursor?: string;
+  /** Only generations for this language. */
+  language?: "typescript" | "python" | "go";
 }
 
 /** Every error `listGenerations` can produce, as a discriminated union. */

@@ -57,21 +57,21 @@ export class NotFoundError extends ApiError<404, ErrorModel> {
 }
 
 /**
- * The account's plan does not include share links.
- * Raised for HTTP 402 responses.
- */
-export class PaymentRequiredError extends ApiError<402, ErrorModel> {
-  constructor(body: ErrorModel, response: ResponseMeta) {
-    super("The account's plan does not include share links.", 402, body, response);
-  }
-}
-
-/**
- * Invalid name or spec URL.
+ * Invalid setting.
  * Raised for HTTP 400 responses.
  */
 export class BadRequestError extends ApiError<400, ErrorModel> {
   constructor(body: ErrorModel, response: ResponseMeta) {
-    super("Invalid name or spec URL.", 400, body, response);
+    super("Invalid setting.", 400, body, response);
+  }
+}
+
+/**
+ * The account has used its hosted generation allowance.
+ * Raised for HTTP 402 responses.
+ */
+export class PaymentRequiredError extends ApiError<402, ErrorModel> {
+  constructor(body: ErrorModel, response: ResponseMeta) {
+    super("The account has used its hosted generation allowance.", 402, body, response);
   }
 }

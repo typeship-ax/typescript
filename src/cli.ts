@@ -21,12 +21,12 @@ const BASIC: { envUser: string; envPass: string } | null = null;
 const EXCLUDED_OPS = 0;
 const VERSION = "1.0.0";
 const API_VERSION = "1.0.0";
-const WHOAMI: { resource: string; method: string } | null = {"resource":"account","method":"whoami"};
+const WHOAMI: { resource: string; method: string } | null = {"resource":"account","method":"me"};
 const ENVIRONMENTS: Record<string, string> = {};
 const HAS_MCP = true;
-const PKG_NAME = "typeship-sdk";
+const PKG_NAME = "typeship";
 const UPDATE_NOTICE = false;
-const API_DESCRIPTION: string | null = "Generate a zero-dependency TypeScript SDK, a CLI, and an MCP server from\nan OpenAPI spec. Generation and shares need no authentication. Projects\nand hosted generations require an API key, created in the console and\nsent as `Authorization: Bearer tsk_...`.\n";
+const API_DESCRIPTION: string | null = "Generate a zero-dependency SDK — TypeScript, Python, or Go — plus a CLI\nand an MCP server, from an OpenAPI spec.\n\nGeneration needs no authentication. Everything else — projects, hosted\ngenerations, spec versions, keys, and usage — requires an API\nkey, created in the console and sent as\n`Authorization: Bearer tsk_live_...`. A browser session is not a\ncredential for this API.\n";
 const DOCS_URL_DEFAULT: string | null = "https://typeship.dev";
 const RELAY: { mintUrl: string; project: string } | null = null;
 const SUPPORT_URL: string | null = null;
@@ -1134,7 +1134,7 @@ function printRoot(): void {
     byResource.set(op.command[0], list);
   }
   const lines: string[] = [];
-  lines.push(paintOut("bold", BIN) + " — " + "typeship" + " (v" + "1.0.0" + ")");
+  lines.push(paintOut("bold", BIN) + ": " + "typeship" + " (v" + "1.0.0" + ")");
   lines.push("");
   lines.push(paintOut("bold", "Usage:") + " " + BIN + " <resource> <command> [args] [--flags]");
   lines.push("");
