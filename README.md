@@ -22,7 +22,7 @@ npm install ./typeship   # or copy the folder into your repo / publish it
 ```ts
 import { TypeshipClient } from "typeship";
 
-const client = new TypeshipClient({ bearerToken: process.env.API_TOKEN! });
+const client = new TypeshipClient({ bearerToken: process.env.TYPESHIP_TOKEN! });
 
 for await (const item of client.projects.list()) {
   console.log(item);
@@ -35,10 +35,12 @@ Nothing throws on HTTP errors. Every call returns a discriminated result, and th
 error side is a union of the documented error classes for that operation:
 
 ```ts
+import { UnauthorizedError } from "typeship";
+
 const result = await client.projects.list();
 
 if (!result.ok) {
-  if (result.error instanceof NotFoundError) {
+  if (result.error instanceof UnauthorizedError) {
     // result.error.body is fully typed for this status
   }
   throw result.error; // every branch is an Error subclass
@@ -107,7 +109,7 @@ new TypeshipClient({
   baseUrl: "https://typeship.dev/api/v1", // default
   timeoutMs: 30_000, // per attempt
   maxRetries: 2,     // retryable failures only
-  fetch: myFetch,    // bring your own fetch (proxies, tests)
+  fetch: globalThis.fetch, // or your own: proxies, tests, instrumentation
 });
 ```
 

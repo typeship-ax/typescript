@@ -7,6 +7,16 @@ import type { ErrorModel } from "./types.js";
 export { ApiError, GraphQLRequestError, TransportError, UnexpectedApiError, ValidationError, type Violation, unwrap } from "./core/http.js";
 
 /**
+ * Missing or invalid API key.
+ * Raised for HTTP 401 responses.
+ */
+export class UnauthorizedError extends ApiError<401, ErrorModel> {
+  constructor(body: ErrorModel, response: ResponseMeta) {
+    super("Missing or invalid API key.", 401, body, response);
+  }
+}
+
+/**
  * Spec exceeds the 10MB limit.
  * Raised for HTTP 413 responses.
  */
@@ -33,16 +43,6 @@ export class UnprocessableEntityError extends ApiError<422, ErrorModel> {
 export class ApiResponseError extends ApiError<number, ErrorModel> {
   constructor(body: ErrorModel, response: ResponseMeta) {
     super("Unexpected error.", response.status, body, response);
-  }
-}
-
-/**
- * Missing or invalid API key.
- * Raised for HTTP 401 responses.
- */
-export class UnauthorizedError extends ApiError<401, ErrorModel> {
-  constructor(body: ErrorModel, response: ResponseMeta) {
-    super("Missing or invalid API key.", 401, body, response);
   }
 }
 

@@ -47,9 +47,7 @@ export interface ClientOptions {
  * Generate a zero-dependency SDK — TypeScript, Python, or Go — plus a CLI
  * and an MCP server, from an OpenAPI spec.
  * 
- * Generation needs no authentication. Everything else — projects, hosted
- * generations, spec versions, keys, and usage — requires an API
- * key, created in the console and sent as
+ * Every operation requires an API key, created in the console and sent as
  * `Authorization: Bearer tsk_live_...`. A browser session is not a
  * credential for this API.
  */

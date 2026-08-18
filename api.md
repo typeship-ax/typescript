@@ -12,13 +12,14 @@ Generate a package from a spec
 
 `POST /generate`
 
-Stateless generation, no authentication. Nothing is stored. Returns
-the full generated package as files.
+Stateless generation: nothing is stored. Returns the full generated
+package as files. The free plan generates the first 25 operations;
+paid plans generate the whole spec.
 
 Body: `{ spec: SpecInput; /** Artifacts to generate from the spe...` (required)
 
 Returns: `GenerationResult`
-Errors: `PayloadTooLargeError` (413), `UnprocessableEntityError` (422), `ApiResponseError` (default)
+Errors: `UnauthorizedError` (401), `PayloadTooLargeError` (413), `UnprocessableEntityError` (422), `ApiResponseError` (default)
 
 ## projects
 
