@@ -19,7 +19,6 @@ export const SCHEMAS: Record<string, { req?: unknown; res?: unknown }> = {
   "specVersions.get": {"res":{"$ref":"res:SpecVersion"}},
   "specVersions.getContent": {"res":{"type":"string"}},
   "account.me": {"res":{"$ref":"res:Account"}},
-  "account.update": {"req":{"type":"object","properties":{"settings":{"$ref":"req:AccountSettings"}},"required":["settings"]},"res":{"$ref":"res:Account"}},
   "usage.retrieve": {"res":{"$ref":"res:Usage"}},
   "apiKeys.list": {"res":{"type":"object","properties":{"data":{"type":"array","items":{"$ref":"res:ApiKey"}},"next_cursor":{"type":["string","null"]}},"required":["data"]}},
   "apiKeys.revoke": {"res":{"$ref":"res:ApiKey"}},
@@ -49,9 +48,7 @@ export const DEFS: Record<string, unknown> = {
   "res:FileStub": {"type":"object","properties":{"path":{"type":"string"},"bytes":{"type":"integer"}},"required":["path","bytes"]},
   "res:GenerationFailure": {"type":"object","properties":{"language":{"type":"string","enum":["typescript","python","go"]},"status":{"type":"string","const":"failed"},"error":{"type":"string"}},"required":["language","status","error"]},
   "res:SpecVersion": {"type":"object","properties":{"id":{"type":"string"},"object":{"type":"string","const":"spec_version"},"project_id":{"type":"string"},"hash":{"type":"string"},"bytes":{"type":"integer"},"source":{"type":["object","null"]},"content":{"type":"string"},"content_omitted":{"type":"boolean"},"created_at":{"type":"string"}},"required":["id","object","project_id","hash","created_at"]},
-  "res:Account": {"type":"object","properties":{"id":{"type":"string"},"object":{"type":"string","const":"account"},"name":{"type":"string"},"email":{"type":"string"},"plan":{"type":"string","enum":["free","starter","pro"]},"settings":{"$ref":"res:AccountSettings"},"created_at":{"type":"string"}},"required":["id","object","name","email","plan","created_at"]},
-  "res:AccountSettings": {"type":"object","properties":{"default_destination_owner":{"type":["string","null"]},"default_languages":{"type":"array","items":{"type":"string","enum":["typescript","python","go"]}},"default_package_scope":{"type":["string","null"]}}},
-  "req:AccountSettings": {"type":"object","properties":{"default_destination_owner":{"type":["string","null"]},"default_languages":{"type":"array","items":{"type":"string","enum":["typescript","python","go"]}},"default_package_scope":{"type":["string","null"]}}},
+  "res:Account": {"type":"object","properties":{"id":{"type":"string"},"object":{"type":"string","const":"account"},"name":{"type":"string"},"email":{"type":"string"},"plan":{"type":"string","enum":["free","starter","pro"]},"created_at":{"type":"string"}},"required":["id","object","name","email","plan","created_at"]},
   "res:Usage": {"type":"object","properties":{"object":{"type":"string","const":"usage"},"hosted_generations":{"type":"object","properties":{"used":{"type":"integer"},"included":{"type":["integer","null"]},"remaining":{"type":["integer","null"]}},"required":["used"]},"included_endpoints":{"type":"integer"}},"required":["object","hosted_generations","included_endpoints"]},
   "res:ApiKey": {"type":"object","properties":{"id":{"type":"string"},"object":{"type":"string","const":"api_key"},"name":{"type":"string"},"last4":{"type":"string"},"revoked":{"type":"boolean"},"last_used_at":{"type":["string","null"]},"created_at":{"type":"string"}},"required":["id","object","name","last4","revoked","created_at"]},
 };

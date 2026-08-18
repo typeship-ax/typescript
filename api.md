@@ -219,19 +219,6 @@ identity endpoint the generated typeship CLI's `whoami` calls.
 Returns: `Account`
 Errors: `UnauthorizedError` (401)
 
-### `client.account.update(body)`
-
-Update account defaults
-
-`PATCH /me`
-
-Only settings are writable. Name and email belong to the login, and plan is written by billing.
-
-Body: `{ settings: AccountSettings; }` (required)
-
-Returns: `Account`
-Errors: `BadRequestError` (400), `UnauthorizedError` (401)
-
 ## usage
 
 ### `client.usage.retrieve()`

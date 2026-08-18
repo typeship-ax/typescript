@@ -6,28 +6,13 @@ import { TypeshipClient } from "../dist/index.js";
 import { startMock } from "./helper.mjs";
 
 test("account.me GET /me", async () => {
-  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"id\":\"example\",\"object\":\"account\",\"name\":\"example\",\"email\":\"example\",\"plan\":\"free\",\"settings\":{\"default_destination_owner\":\"example\",\"default_languages\":[\"typescript\"],\"default_package_scope\":\"example\"},\"created_at\":\"2024-01-01T00:00:00Z\"}" });
+  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"id\":\"example\",\"object\":\"account\",\"name\":\"example\",\"email\":\"example\",\"plan\":\"free\",\"created_at\":\"2024-01-01T00:00:00Z\"}" });
   try {
     const client = new TypeshipClient({ baseUrl: mock.url, bearerToken: "test-token" });
     const result = await client.account.me();
     assert.equal(result.ok, true, JSON.stringify(result));
     const request = mock.requests[0];
     assert.equal(request.method, "GET");
-    assert.equal(request.path.split("?")[0], "/me");
-    assert.equal(request.headers["authorization"], "Bearer test-token");
-  } finally {
-    mock.close();
-  }
-});
-
-test("account.update PATCH /me", async () => {
-  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"id\":\"example\",\"object\":\"account\",\"name\":\"example\",\"email\":\"example\",\"plan\":\"free\",\"settings\":{\"default_destination_owner\":\"example\",\"default_languages\":[\"typescript\"],\"default_package_scope\":\"example\"},\"created_at\":\"2024-01-01T00:00:00Z\"}" });
-  try {
-    const client = new TypeshipClient({ baseUrl: mock.url, bearerToken: "test-token" });
-    const result = await client.account.update({"settings":{}});
-    assert.equal(result.ok, true, JSON.stringify(result));
-    const request = mock.requests[0];
-    assert.equal(request.method, "PATCH");
     assert.equal(request.path.split("?")[0], "/me");
     assert.equal(request.headers["authorization"], "Bearer test-token");
   } finally {

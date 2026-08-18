@@ -132,7 +132,6 @@ export interface Account {
   /** Format: email */
   email: string;
   plan: "free" | "starter" | "pro";
-  settings?: AccountSettings;
   /** Format: date-time */
   created_at: string;
 }
@@ -230,16 +229,6 @@ export interface GenerationFailure {
   language: "typescript" | "python" | "go";
   status: "failed";
   error: string;
-}
-
-/** Defaults applied when a project is created, and never afterwards — a setting changed today must not move where yesterday's project publishes. Repository and package names derive from the project name supplied at creation. */
-export interface AccountSettings {
-  /** GitHub owner new projects publish under. With "acme", a project named "Acme API" generating all three languages defaults to acme/acme-node, acme/acme-python, and acme/acme-go. */
-  default_destination_owner?: string | null;
-  /** Languages new projects generate. */
-  default_languages?: Array<"typescript" | "python" | "go">;
-  /** npm scope for new projects, e.g. "@acme". */
-  default_package_scope?: string | null;
 }
 
 export interface Usage {
