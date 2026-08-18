@@ -49,9 +49,9 @@ export class ProjectsResource {
     /** Spec location for a URL-sourced project. Provide this or source; a project with neither has nothing to generate. */
     spec_url?: string;
     source?: Source;
-    /** Artifacts to build, generated together into one package. */
+    /** Artifacts to build. sdk is implied; cli, mcp, and agent require typescript among the languages. Free projects run one platform in total (one SDK language); more is a 402 until the account is on Pro. */
     platforms?: Array<"sdk" | "cli" | "mcp" | "agent">;
-    /** Languages to generate. Each is a separate package, a separate pull request, and a separate hosted generation. Defaults to typescript alone. */
+    /** Languages to generate. Each is a separate package, a separate pull request, a separate hosted generation, and one platform for billing. Defaults to typescript alone. */
     languages?: Array<"typescript" | "python" | "go">;
     /** Per-language pull-request destination, keyed by language. */
     destinations?: Record<string, Destination>;
@@ -61,8 +61,11 @@ export class ProjectsResource {
     auto_regen?: boolean;
     package_name?: string | null;
     spec_patches?: SpecPatch[];
+    /** Requires the mcp platform and Pro. */
     mcp_enabled?: boolean;
+    /** Requires the cli platform and Pro. */
     relay_enabled?: boolean;
+    /** Requires the agent platform and Pro. */
     agent_context_enabled?: boolean;
     config?: Config | null;
   }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsCreateError>> {
@@ -70,7 +73,7 @@ export class ProjectsResource {
       method: "POST",
       path: "/projects",
       body,
-      errors: { "400": BadRequestError, "401": UnauthorizedError },
+      errors: { "400": BadRequestError, "401": UnauthorizedError, "402": PaymentRequiredError },
       schemaKey: "projects.create",
       options,
     });
@@ -118,8 +121,10 @@ export class ProjectsResource {
     name?: string;
     spec_url?: string;
     source?: Source;
+    /** Artifacts to build; replaces the list. Dropping cli, mcp, or agent turns off the hosted feature it serves. cli, mcp, and agent require typescript among the languages. Turning a platform off stops generating it; nothing already delivered is removed. */
+    platforms?: Array<"sdk" | "cli" | "mcp" | "agent">;
     destination?: Destination | null;
-    /** Languages to generate. Each counts as its own hosted generation. */
+    /** Languages to generate; replaces the list. Each is its own hosted generation and one platform for billing. */
     languages?: Array<"typescript" | "python" | "go">;
     /** Per-language pull-request destination, keyed by language. */
     destinations?: Record<string, Destination>;
@@ -128,11 +133,11 @@ export class ProjectsResource {
     auto_regen?: boolean;
     package_name?: string | null;
     spec_patches?: SpecPatch[];
-    /** Serve this project as a hosted remote MCP endpoint. */
+    /** Serve this project as a hosted remote MCP endpoint. Requires the mcp platform and Pro. */
     mcp_enabled?: boolean;
-    /** Enable the webhook relay so the generated CLI's webhooks listen command works for this API's users. */
+    /** Enable the webhook relay so the generated CLI's webhooks listen command works for this API's users. Requires the cli platform and Pro. */
     relay_enabled?: boolean;
-    /** Serve an always-current AGENTS.md for this API at a stable hosted URL. */
+    /** Serve an always-current AGENTS.md for this API at a stable hosted URL. Requires the agent platform and Pro. */
     agent_context_enabled?: boolean;
     /** Replaces the whole config. Pass null to clear it. */
     config?: Config | null;
@@ -141,7 +146,7 @@ export class ProjectsResource {
       method: "PATCH",
       path: `/projects/${encodeURIComponent(String(projectId))}`,
       body,
-      errors: { "400": BadRequestError, "401": UnauthorizedError, "404": NotFoundError },
+      errors: { "400": BadRequestError, "401": UnauthorizedError, "402": PaymentRequiredError, "404": NotFoundError },
       schemaKey: "projects.update",
       options,
     });
@@ -205,7 +210,7 @@ export interface ProjectsListParams {
 export type ProjectsListError = UnauthorizedError | UnexpectedApiError | TransportError | ValidationError;
 
 /** Every error `create` can produce, as a discriminated union. */
-export type ProjectsCreateError = BadRequestError | UnauthorizedError | UnexpectedApiError | TransportError | ValidationError;
+export type ProjectsCreateError = BadRequestError | UnauthorizedError | PaymentRequiredError | UnexpectedApiError | TransportError | ValidationError;
 
 /** Every error `get` can produce, as a discriminated union. */
 export type ProjectsGetError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
@@ -214,7 +219,7 @@ export type ProjectsGetError = UnauthorizedError | NotFoundError | UnexpectedApi
 export type ProjectsDeleteError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
 
 /** Every error `update` can produce, as a discriminated union. */
-export type ProjectsUpdateError = BadRequestError | UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
+export type ProjectsUpdateError = BadRequestError | UnauthorizedError | PaymentRequiredError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
 
 export interface ProjectsListGenerationsParams {
   limit?: number;

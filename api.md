@@ -46,7 +46,7 @@ Create a project
 Body: `{ name: string; /** Spec location for a URL-sourced proje...` (required)
 
 Returns: `Project`
-Errors: `BadRequestError` (400), `UnauthorizedError` (401)
+Errors: `BadRequestError` (400), `UnauthorizedError` (401), `PaymentRequiredError` (402)
 
 ### `client.projects.get(project_id)`
 
@@ -84,10 +84,10 @@ Update a project
 | --- | --- | --- | --- | --- |
 | `project_id` | path | `string` | yes |  |
 
-Body: `{ name?: string; spec_url?: string; source?: Source; dest...` (required)
+Body: `{ name?: string; spec_url?: string; source?: Source; /** ...` (required)
 
 Returns: `Project`
-Errors: `BadRequestError` (400), `UnauthorizedError` (401), `NotFoundError` (404)
+Errors: `BadRequestError` (400), `UnauthorizedError` (401), `PaymentRequiredError` (402), `NotFoundError` (404)
 
 ### `client.projects.listGenerations(project_id, params)`
 

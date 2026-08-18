@@ -109,17 +109,17 @@ export interface Project {
   package_name?: string | null;
   spec_patches?: SpecPatch[];
   config?: Config | null;
-  /** Whether the hosted MCP endpoint is on. */
+  /** Whether the hosted MCP endpoint is on. Requires the mcp platform and Pro; turning the platform off turns this off. */
   mcp_enabled?: boolean;
   /** Path of the hosted MCP endpoint while it is on; read-only. */
   mcp_url?: string | null;
-  /** Whether the hosted agent context URL is on. */
+  /** Whether the hosted agent context URL is on. Requires the agent platform and Pro; turning the platform off turns this off. */
   agent_context_enabled?: boolean;
   /** Path of the hosted agent context (an always-current AGENTS.md) while it is on; read-only. */
   agent_context_url?: string | null;
-  /** Whether the webhook relay is on, letting the generated CLI's webhooks listen command mint relay sessions. */
+  /** Whether the webhook relay is on, letting the generated CLI's webhooks listen command mint relay sessions. Requires the cli platform and Pro; turning the platform off turns this off. */
   relay_enabled?: boolean;
-  /** Artifacts this project builds from its spec, in one run into one package. sdk is always present. */
+  /** Artifacts this project builds from its spec. sdk is always present and stands for the SDK in each of `languages`; cli, mcp, and agent are built on the TypeScript SDK and ship in its package, so they require typescript among the languages. Each SDK language and each of cli, mcp, and agent is one platform for billing. */
   platforms: Array<"sdk" | "cli" | "mcp" | "agent">;
   /** Format: date-time */
   created_at: string;
