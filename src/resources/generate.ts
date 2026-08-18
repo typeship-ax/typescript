@@ -3,7 +3,7 @@
 
 import { HttpCore, type ApiResult, type RequestOptions } from "../core/http.js";
 import { TransportError, UnexpectedApiError, ValidationError, ApiResponseError, PayloadTooLargeError, UnprocessableEntityError } from "../errors.js";
-import type { Customization, GenerationResult, SpecInput } from "../types.js";
+import type { Config, GenerationResult, SpecInput } from "../types.js";
 
 export class GenerateResource {
   constructor(private readonly _core: HttpCore) {}
@@ -25,7 +25,7 @@ export class GenerateResource {
     language?: "typescript" | "python" | "go";
     /** npm name override for the generated package. */
     package_name?: string;
-    options?: Customization;
+    config?: Config;
   }, options?: RequestOptions): Promise<ApiResult<GenerationResult, GenerateRunError>> {
     return this._core.request<GenerationResult, GenerateRunError>({
       method: "POST",

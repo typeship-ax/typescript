@@ -103,19 +103,22 @@ export interface Project {
   destinations?: Record<string, Destination>;
   /** Registry name per language. The ecosystems disagree about what a name is: npm takes an optional @scope, PyPI normalizes to lowercase-with-hyphens, and Go's name is the module path that `go get` resolves. Unset means the name is derived from the API's title. */
   package_names?: Record<string, string>;
-  /** Regenerate automatically when the spec changes. */
+  /** Regenerate when the spec changes: on every push to the default branch for a repository source, every 30 minutes for a URL source. On by default. Off means only "generate now" and POST /projects/{project_id}/generations regenerate. */
   auto_regen: boolean;
   /** npm name override for generated output; supports @scope/name. */
   package_name?: string | null;
   spec_patches?: SpecPatch[];
-  cli_config?: CliConfig | null;
-  customization?: Customization | null;
-  /** Path of the hosted MCP endpoint when enabled. */
+  config?: Config | null;
+  /** Whether the hosted MCP endpoint is on. */
+  mcp_enabled?: boolean;
+  /** Path of the hosted MCP endpoint while it is on; read-only. */
   mcp_url?: string | null;
-  /** Whether the webhook relay is enabled, letting the generated CLI's webhooks listen command mint relay sessions. */
+  /** Whether the hosted agent context URL is on. */
+  agent_context_enabled?: boolean;
+  /** Path of the hosted agent context (an always-current AGENTS.md) while it is on; read-only. */
+  agent_context_url?: string | null;
+  /** Whether the webhook relay is on, letting the generated CLI's webhooks listen command mint relay sessions. */
   relay_enabled?: boolean;
-  /** Path of the hosted agent-context URL (an always-current AGENTS.md) when enabled. */
-  agents_url?: string | null;
   /** Artifacts this project builds from its spec, in one run into one package. sdk is always present. */
   platforms: Array<"sdk" | "cli" | "mcp" | "agent">;
   /** Format: date-time */
@@ -134,8 +137,8 @@ export interface Account {
   created_at: string;
 }
 
-/** Behavior of the generated CLI for this project. */
-export interface CliConfig {
+/** How the generated CLI behaves. Part of Config. */
+export interface CliBehavior {
   /** resource.method of a zero-argument GET that the generated CLI's whoami command calls. Overrides auto-detection; a value that matches nothing is reported as a generation warning. */
   whoami_operation?: string | null;
   /** OAuth client id baked into the generated CLI for device-flow login. Without it, login prompts for a pasted credential. */
@@ -146,21 +149,27 @@ export interface CliConfig {
   oauth_audience?: string | null;
   /** Opt in to a once-a-day registry check that prints an upgrade hint. Off by default; generated code phones nobody unless this is enabled. */
   update_notice?: boolean;
-  /** Docs site base URL for the generated CLI's docs command and the MCP server's docs tools. Guides are read from the site's llms.txt. Defaults to the spec's externalDocs URL. */
-  docs_url?: string | null;
   /** Where the generated CLI's feedback command sends users. GitHub issues/new URLs get a prefilled title and environment details. */
   support_url?: string | null;
-  /** MCP tool shape. meta collapses per-operation tools into search_docs, read_docs, and execute so large APIs don't flood agent context; auto switches to meta above 100 operations. */
-  mcp_tool_mode?: "auto" | "operations" | "meta";
 }
 
-/** Generation-time customization. Plain configuration. typeship never requires vendor extensions inside the spec itself. */
-export interface Customization {
+/** How the generated MCP server and the hosted endpoint behave. Part of Config. */
+export interface McpBehavior {
+  /** MCP tool shape. meta collapses per-operation tools into search_docs, read_docs, and execute so large APIs don't flood agent context; auto switches to meta above 100 operations. */
+  tool_mode?: "auto" | "operations" | "meta";
+}
+
+/** Everything typeship needs beyond the spec, in one object: generation customization (globals, retries, pagination) and how the generated tooling behaves (cli, mcp, docs_url). Plain configuration. typeship never requires vendor extensions inside the spec itself. The same shape is accepted on a project and on POST /generate. */
+export interface Config {
   /** Wire names of query/header parameters that become settable once on the generated client and auto-apply to every operation that accepts them; per-call values win. Names that match nothing are reported as generation warnings. */
   globals?: string[];
   retries?: RetryTuning;
   /** Per-operation pagination control, keyed by operationId or "METHOD /path". Unmatched keys are reported as generation warnings. */
   pagination?: Record<string, PaginationRule | boolean>;
+  cli?: CliBehavior;
+  mcp?: McpBehavior;
+  /** The API's documentation site. Read through its llms.txt by the generated CLI's docs command, the MCP server's docs tools, and the agent context. Defaults to the spec's externalDocs URL. */
+  docs_url?: string | null;
 }
 
 /** Retry behavior. Top-level fields adjust every operation; operations maps operationId or "METHOD /path" keys to per-operation overrides. */

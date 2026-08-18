@@ -5,8 +5,7 @@ import { HttpCore, type ApiResult, type RequestOptions } from "../core/http.js";
 import { paginate, PagePromise } from "../core/pagination.js";
 import { TransportError, UnexpectedApiError, ValidationError, BadRequestError, NotFoundError, PaymentRequiredError, UnauthorizedError, UnprocessableEntityError } from "../errors.js";
 import type {
-  CliConfig,
-  Customization,
+  Config,
   Destination,
   Generation,
   GenerationFailure,
@@ -64,9 +63,8 @@ export class ProjectsResource {
     spec_patches?: SpecPatch[];
     mcp_enabled?: boolean;
     relay_enabled?: boolean;
-    agent_enabled?: boolean;
-    cli_config?: CliConfig | null;
-    customization?: Customization | null;
+    agent_context_enabled?: boolean;
+    config?: Config | null;
   }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsCreateError>> {
     return this._core.request<Project, ProjectsCreateError>({
       method: "POST",
@@ -135,9 +133,9 @@ export class ProjectsResource {
     /** Enable the webhook relay so the generated CLI's webhooks listen command works for this API's users. */
     relay_enabled?: boolean;
     /** Serve an always-current AGENTS.md for this API at a stable hosted URL. */
-    agent_enabled?: boolean;
-    cli_config?: CliConfig | null;
-    customization?: Customization | null;
+    agent_context_enabled?: boolean;
+    /** Replaces the whole config. Pass null to clear it. */
+    config?: Config | null;
   }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsUpdateError>> {
     return this._core.request<Project, ProjectsUpdateError>({
       method: "PATCH",
