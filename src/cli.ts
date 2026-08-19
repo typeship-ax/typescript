@@ -6,8 +6,9 @@
 // Exit codes: 0 success, 1 API/transport error, 2 usage error.
 
 import { spawnSync } from "node:child_process";
+import { createHash, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, hostname } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { TypeshipClient, formatDebugEvent, type DebugEvent } from "./index.js";
@@ -41,6 +42,7 @@ const OAUTH_SCOPES: string[] = [];
 const OAUTH_TOKEN_PARAMS: Record<string, string> = {};
 const MCP_URL: string | null = "https://typeship.dev/mcp";
 const SKILLS_REPO: string | null = "typeship/skills";
+const CLI_AUTH_URL: string | null = "https://typeship.dev/api/auth/cli";
 const ENV_PREFIX = "TYPESHIP";
 const API_TITLE = "typeship";
 
@@ -61,7 +63,7 @@ interface Parsed {
  * is known. */
 const CORE_BOOLEAN_FLAGS = new Set(["all", "version", "non-interactive", "debug", "validate", "yes", "force", "json"]);
 const BUILTIN_BOOLEAN_FLAGS: Record<string, string[]> = {
-  login: ["with-token"],
+  login: ["with-token", "no-browser"],
   upgrade: ["check"],
   mcp: ["claude", "cursor", "claude-desktop", "codex", "vscode", "windsurf", "gemini", "opencode", "zed", "all"],
   docs: ["web"],
@@ -432,16 +434,98 @@ async function storePastedToken(stored: StoredCreds, token: string): Promise<voi
   await flushExit(0);
 }
 
+/**
+ * Browser approval (PKCE-shaped): POST <CLI_AUTH_URL>/start with an S256
+ * challenge, show the person the verification URL (open it unless we are
+ * headless or under an agent), poll <CLI_AUTH_URL>/status with the verifier
+ * until the API hands back a key minted for this CLI, store it. The key
+ * never crosses the chat: the agent relays a URL, the person clicks once.
+ */
+/** The approval endpoint follows the base URL: a preview or local deployment
+ * of the API approves its own logins. */
+function cliAuthUrl(flags: Map<string, string | boolean>): string {
+  const base = resolveBaseUrl(flags);
+  try {
+    if (CLI_AUTH_URL && DEFAULT_BASE_URL && base) {
+      const defaultOrigin = new URL(DEFAULT_BASE_URL).origin;
+      const origin = new URL(base).origin;
+      if (origin !== defaultOrigin && CLI_AUTH_URL.startsWith(defaultOrigin)) return origin + CLI_AUTH_URL.slice(defaultOrigin.length);
+    }
+  } catch { /* fall through to the configured URL */ }
+  return CLI_AUTH_URL!;
+}
+
+async function browserLogin(stored: StoredCreds, headless: boolean, flags: Map<string, string | boolean>): Promise<void> {
+  const first = AUTH_SCALARS[0]!;
+  const authUrl = cliAuthUrl(flags);
+  const verifier = randomBytes(32).toString("base64url");
+  const challenge = createHash("sha256").update(verifier).digest("base64url");
+  const name = BIN + " CLI on " + hostname();
+  const source = headless && !process.stdin.isTTY ? "agent" : "cli";
+  let start: { session?: string; verification_url?: string; expires_in?: number; interval?: number; error?: string };
+  try {
+    const response = await fetch(authUrl + "/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code_challenge: challenge, name, source }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    start = await response.json() as typeof start;
+    if (!response.ok || !start.session || !start.verification_url) {
+      failWith({ code: "COMMAND_FAILED", message: "Could not start the browser login: " + (start.error ?? "HTTP " + response.status), nextSteps: ["Pass the credential directly: '" + BIN + " login --" + first.flag + " <value>'."] });
+    }
+  } catch (e) {
+    failWith({ code: "NETWORK_ERROR", message: "Could not reach " + authUrl + "/start: " + (e as Error).message, nextSteps: ["Check the network, or pass the credential directly: '" + BIN + " login --" + first.flag + " <value>'."] });
+  }
+  const url = start!.verification_url!;
+  const expiresIn = start!.expires_in ?? 600;
+  const intervalMs = Math.max(1, start!.interval ?? 3) * 1000;
+  process.stderr.write("Approve this CLI in your browser: " + paintErr("cyan", url) + "\n");
+  if (headless) {
+    process.stderr.write(JSON.stringify({ event: "browser_approval", verification_url: url, expires_in: expiresIn, note: "Give this URL to the user; polling until they approve or it expires." }) + "\n");
+  } else {
+    openInBrowser(url);
+  }
+  const deadline = Date.now() + expiresIn * 1000;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, intervalMs));
+    let poll: { status?: string; api_key?: string; key_name?: string; org_id?: string };
+    try {
+      const response = await fetch(authUrl + "/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session: start!.session, code_verifier: verifier }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      poll = await response.json() as typeof poll;
+    } catch {
+      continue; // a blip; the next tick tries again
+    }
+    if (poll.status === "pending") continue;
+    if (poll.status === "complete" && poll.api_key) {
+      stored.scalars = { ...stored.scalars, [first.option]: poll.api_key };
+      writeCreds(stored);
+      out({ ok: true, method: "browser", key_name: poll.key_name ?? name, ...(poll.org_id ? { org_id: poll.org_id } : {}), credentials: credsPath() });
+      await flushExit(0);
+    }
+    if (poll.status === "denied") failWith({ status: "action_required", code: "AUTH_INVALID", message: "The request was denied in the browser.", nextSteps: ["Run '" + BIN + " login' again if that was a mistake, or pass a credential directly with --" + first.flag + "."] });
+    if (poll.status === "expired") break;
+    failWith({ code: "COMMAND_FAILED", message: "Browser login stopped: " + (poll.status ?? "unknown status"), nextSteps: ["Run '" + BIN + " login' again."] });
+  }
+  failWith({ status: "action_required", code: "TTY_REQUIRED", message: "The browser approval expired after " + expiresIn + "s without a decision.", nextSteps: ["Run '" + BIN + " login' again and approve the link within ten minutes.", "Or pass the credential directly: '" + BIN + " login --" + first.flag + " <value>'."] });
+}
+
 async function cmdLogin(parsed: Parsed): Promise<void> {
   if (parsed.help) {
     const lines = [
       BIN + " login — store credentials at " + credsPath(),
       "",
       ...AUTH_SCALARS.map((a) => "  " + BIN + " login --" + a.flag + " <value>"),
+      ...(CLI_AUTH_URL ? ["  " + BIN + " login                        approve in the browser: a key is minted for you (add --no-browser to print the link instead of opening it)"] : []),
       "  " + BIN + " login --with-token           read the credential from stdin (CI)",
       ...(OAUTH_TOKEN_URL ? ["  " + BIN + " login --client-id <id>       OAuth device flow" + (OAUTH_CLIENT_ID ? " (a default id is built in)" : "")] : []),
       ...(BASIC ? ["  " + BIN + " login --username <u> --password <p>"] : []),
-      "  " + BIN + " login                        interactive prompt (TTY only)",
+      ...(CLI_AUTH_URL ? [] : ["  " + BIN + " login                        interactive prompt (TTY only)"]),
       "",
       "Precedence at request time: flags > env vars > stored credentials.",
     ];
@@ -478,6 +562,13 @@ async function cmdLogin(parsed: Parsed): Promise<void> {
     await deviceLogin(clientId, isAgentMode(parsed));
   }
 
+  // Browser approval: the API mints a key for this CLI once a person
+  // approves in the browser. Works under an agent too (it prints the URL and
+  // polls); only the explicit non-interactive switch turns it off.
+  if (CLI_AUTH_URL && AUTH_SCALARS[0] && !explicitNonInteractive(parsed)) {
+    await browserLogin(stored, isAgentMode(parsed) || parsed.flags.get("no-browser") === true, parsed.flags);
+  }
+
   if (nonInteractive(parsed) || !process.stdin.isTTY) {
     failWith({
       status: "action_required",
@@ -487,6 +578,7 @@ async function cmdLogin(parsed: Parsed): Promise<void> {
         ...AUTH_SCALARS.map((a) => "Pass the credential: '" + BIN + " login --" + a.flag + " <value>', or set " + a.env + " in the environment."),
         "Pipe it: echo \"$TOKEN\" | " + BIN + " login --with-token",
         ...(OAUTH_TOKEN_URL ? ["Device flow: '" + BIN + " login --client-id <id>' (prints a URL and code for the user)."] : []),
+        ...(CLI_AUTH_URL ? ["Browser approval: '" + BIN + " login --no-browser' prints a link for the user to approve and waits."] : []),
       ],
     });
   }
