@@ -31,10 +31,11 @@ const client = new TypeshipClient({ /* auth options above */ });
 
 ## Using the CLI
 - `typeship <resource> <command>` mirrors the SDK exactly; `typeship docs search <term>` finds operations and guides; `typeship docs <resource> <command>` prints the full reference.
-- Flags only, JSON to stdout, exit codes 0/1/2 — safe to run from scripts and agents.
+- Flags only, JSON to stdout, exit codes 0/1/2 — safe to run from scripts and agents. Errors are one JSON envelope on stderr: `{status, issues: [{code, message}], next_steps, detail}`; branch on `issues[].code`. Deletes need `--force`.
+- `typeship agent-guide --format json` explains the conventions; `typeship help --json` is the command surface as data; `typeship init --all` connects this machine (credential, MCP clients, an AGENTS.md block); `typeship doctor` checks it.
 
 ## MCP server
-- `typeship mcp --claude` wires the bundled MCP server into agent clients; it shares credentials with `typeship login`.
+- `typeship mcp install --all` writes the MCP server into every agent client found on the machine; it shares credentials with `typeship login` (or references the auth env var for a hosted endpoint).
 
 ## Documentation
 - The reference for this exact package: `api.md` (offline, always current with the code).

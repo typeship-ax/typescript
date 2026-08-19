@@ -12,6 +12,11 @@ import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { TypeshipClient, formatDebugEvent, type DebugEvent } from "./index.js";
 import { GLOBALS, OPS, buildArgs, findOp, missingRequired, type OpSpec, type ParamSpec } from "./ops.js";
+import {
+  MCP_CLIENTS, agentGuide, agentBlock, agentInstructionsFile, agentMode, bundleProperty, classifyApiError, detectHarness, envelope,
+  exitCodeFor, findMcpClient, installSkills, mcpConfigured, summarizeDoctor, upsertAgentBlock, writeBundle, writeMcpConfig,
+  type AgentContext, type CommandSummary, type DoctorCheck, type EnvelopeInput, type IssueCode, type McpEntry, type McpWriteResult,
+} from "./cli-agent.js";
 
 
 const BIN = "typeship";
@@ -34,6 +39,10 @@ const OAUTH_TOKEN_URL: string | null = null;
 const OAUTH_CLIENT_ID: string | null = null;
 const OAUTH_SCOPES: string[] = [];
 const OAUTH_TOKEN_PARAMS: Record<string, string> = {};
+const MCP_URL: string | null = "https://typeship.dev/mcp";
+const SKILLS_REPO: string | null = "typeship/skills";
+const ENV_PREFIX = "TYPESHIP";
+const API_TITLE = "typeship";
 
 interface Parsed {
   positionals: string[];
@@ -50,12 +59,15 @@ interface Parsed {
  * API parameter with the same name (`accounts list --cursor <c>`) still
  * takes its value. Boolean API parameters are recognized once the command
  * is known. */
-const CORE_BOOLEAN_FLAGS = new Set(["all", "version", "non-interactive", "debug", "validate"]);
+const CORE_BOOLEAN_FLAGS = new Set(["all", "version", "non-interactive", "debug", "validate", "yes", "force", "json"]);
 const BUILTIN_BOOLEAN_FLAGS: Record<string, string[]> = {
   login: ["with-token"],
   upgrade: ["check"],
-  mcp: ["claude", "cursor", "claude-desktop"],
+  mcp: ["claude", "cursor", "claude-desktop", "codex", "vscode", "windsurf", "gemini", "opencode", "zed", "all"],
   docs: ["web"],
+  init: ["all", "yes", "no-skills", "no-mcp", "no-agents-md"],
+  auth: ["live"],
+  doctor: [],
 };
 
 function isBooleanFlag(name: string, positionals: string[]): boolean {
@@ -87,6 +99,7 @@ function parseArgv(argv: string[]): Parsed {
     const arg = argv[i]!;
     if (arg === "--help" || arg === "-h") { help = true; continue; }
     if (arg === "-v") { flags.set("version", true); continue; }
+    if (arg === "-k" && argv[i + 1] !== undefined) { setFlag("k", argv[i + 1]!); i++; continue; }
     if (arg.startsWith("--")) {
       const eq = arg.indexOf("=");
       if (eq !== -1) {
@@ -111,8 +124,31 @@ function parseArgv(argv: string[]): Parsed {
   return { positionals, flags, repeated, help };
 }
 
-function nonInteractive(parsed: Parsed): boolean {
+/** --mode agent > TYPESHIP_MODE=agent > no terminal on stdin and stdout. In
+ * agent mode nothing prompts and no browser opens; every stop is a JSON
+ * envelope with next_steps. See cli-agent.ts. */
+function isAgentMode(parsed: Parsed): boolean {
+  return agentMode({
+    flagMode: parsed.flags.get("mode"),
+    envMode: process.env["TYPESHIP_MODE"],
+    stdoutIsTTY: process.stdout.isTTY === true,
+    stdinIsTTY: process.stdin.isTTY === true,
+  });
+}
+
+/** The explicit switch only: --non-interactive or TYPESHIP_NON_INTERACTIVE=1. */
+function explicitNonInteractive(parsed: Parsed): boolean {
   return parsed.flags.get("non-interactive") === true || process.env["TYPESHIP_NON_INTERACTIVE"] === "1";
+}
+
+/** Explicit switch, or agent mode: nothing prompts, no browser opens. */
+function nonInteractive(parsed: Parsed): boolean {
+  return explicitNonInteractive(parsed) || isAgentMode(parsed);
+}
+
+/** --yes / --force (or TYPESHIP_YES=1): skip confirmations, including destructive ones. */
+function assumeYes(parsed: Parsed): boolean {
+  return parsed.flags.get("yes") === true || parsed.flags.get("force") === true || process.env["TYPESHIP_YES"] === "1";
 }
 
 // ---------------------------------------------------------------------------
@@ -159,10 +195,37 @@ function flushExit(code: number): Promise<never> {
   });
 }
 
-function fail(code: number, message: string, extra?: unknown): never {
-  const payload = JSON.stringify({ error: message, ...(extra !== undefined ? { detail: extra } : {}) }, null, 2) + "\n";
-  process.stderr.write(payload, () => process.exit(code));
+/**
+ * Every failure is one JSON envelope on stderr:
+ *   {status: "error"|"action_required", issues: [{code, message}], docs_url?, next_steps: [], detail?}
+ * Branch on issues[].code (stable), never on the message. Exit 1 when the
+ * request or command failed, 2 for usage (wrong flags, missing arguments,
+ * a confirmation the caller must give).
+ */
+function failWith(input: EnvelopeInput): never {
+  const body = envelope({ docsUrl: DOCS_URL_DEFAULT, ...input });
+  const payload = JSON.stringify(body, null, 2) + "\n";
+  process.stderr.write(payload, () => process.exit(exitCodeFor(input.code)));
   throw new ExitPending();
+}
+
+/** Legacy shape: exit 2 is usage, everything else is a failed command. */
+function fail(code: number, message: string, extra?: unknown): never {
+  const usageCode: IssueCode = /^Unknown command/.test(message) ? "UNKNOWN_COMMAND"
+    : /^Unknown flag/.test(message) ? "UNKNOWN_FLAG"
+    : /^(Missing required|Expected \d+ argument)/.test(message) ? "MISSING_ARGUMENT"
+    : "INVALID_USAGE";
+  return failWith({
+    code: code === 2 ? usageCode : "COMMAND_FAILED",
+    message,
+    ...(extra !== undefined ? { detail: extra } : {}),
+    nextSteps: code === 2 ? ["Run '" + BIN + " --help' or '" + BIN + " <resource> <command> --help' for the flags this command takes."] : [],
+  });
+}
+
+/** An SDK error result as an envelope: status-derived code, the API's body as detail, concrete next steps. */
+function failApi(error: unknown, hadCredential: boolean): never {
+  return failWith(classifyApiError(error, { bin: BIN, hadCredential, docsUrl: DOCS_URL_DEFAULT }));
 }
 
 // ---------------------------------------------------------------------------
@@ -203,6 +266,21 @@ function readStdin(): Promise<string> {
     process.stdin.setEncoding("utf8");
     process.stdin.on("data", (chunk) => { data += chunk; });
     process.stdin.on("end", () => resolve(data));
+  });
+}
+
+/** One visible line from a TTY, for yes/no confirmations. */
+function readLine(): Promise<string> {
+  return new Promise((resolve) => {
+    const stdin = process.stdin;
+    stdin.resume();
+    stdin.setEncoding("utf8");
+    const onData = (chunk: string) => {
+      stdin.pause();
+      stdin.off("data", onData);
+      resolve(chunk);
+    };
+    stdin.on("data", onData);
   });
 }
 
@@ -252,7 +330,7 @@ async function oauthForm(url: string, params: Record<string, string>): Promise<{
 
 /** RFC 8628 device flow: discover the device endpoint from the token URL's
  * well-known metadata, show the code, poll until authorized. */
-async function deviceLogin(clientId: string): Promise<void> {
+async function deviceLogin(clientId: string, agent = false): Promise<void> {
   if (!OAUTH_TOKEN_URL) fail(2, "This API declares no OAuth token URL.");
   const origin = new URL(OAUTH_TOKEN_URL).origin;
   let deviceEndpoint: string | undefined;
@@ -283,6 +361,10 @@ async function deviceLogin(clientId: string): Promise<void> {
   }
   const uri = startBody!.verification_uri_complete ?? startBody!.verification_uri;
   process.stderr.write("Open " + paintErr("cyan", String(uri)) + " and enter code: " + paintErr("bold", String(startBody!.user_code)) + "\n");
+  // Under an agent the same facts also go out as one JSON line (stderr,
+  // so stdout stays the single result document), for the agent to hand
+  // the URL and code to the user while this polls.
+  if (agent) process.stderr.write(JSON.stringify({ event: "device_code", verification_uri: uri, user_code: startBody!.user_code, expires_in: startBody!.expires_in ?? 900 }) + "\n");
   let intervalMs = (startBody!.interval ?? 5) * 1000;
   const deadline = Date.now() + (startBody!.expires_in ?? 900) * 1000;
   while (Date.now() < deadline) {
@@ -392,12 +474,21 @@ async function cmdLogin(parsed: Parsed): Promise<void> {
 
   const clientId = (typeof parsed.flags.get("client-id") === "string" ? parsed.flags.get("client-id") as string : undefined)
     ?? process.env["TYPESHIP_CLIENT_ID"] ?? OAUTH_CLIENT_ID ?? undefined;
-  if (OAUTH_TOKEN_URL && clientId !== undefined && !nonInteractive(parsed)) {
-    await deviceLogin(clientId);
+  if (OAUTH_TOKEN_URL && clientId !== undefined && !explicitNonInteractive(parsed)) {
+    await deviceLogin(clientId, isAgentMode(parsed));
   }
 
   if (nonInteractive(parsed) || !process.stdin.isTTY) {
-    fail(2, "Non-interactive: pass the credential as a flag (see '" + BIN + " login --help') or pipe it with --with-token.");
+    failWith({
+      status: "action_required",
+      code: "TTY_REQUIRED",
+      message: "login needs a terminal to prompt, and there is none.",
+      nextSteps: [
+        ...AUTH_SCALARS.map((a) => "Pass the credential: '" + BIN + " login --" + a.flag + " <value>', or set " + a.env + " in the environment."),
+        "Pipe it: echo \"$TOKEN\" | " + BIN + " login --with-token",
+        ...(OAUTH_TOKEN_URL ? ["Device flow: '" + BIN + " login --client-id <id>' (prints a URL and code for the user)."] : []),
+      ],
+    });
   }
   const first = AUTH_SCALARS[0];
   if (!first) fail(2, "This API declares no credential the CLI can prompt for. See '" + BIN + " login --help'.");
@@ -420,7 +511,7 @@ async function cmdWhoami(parsed: Parsed): Promise<void> {
     const target = (client as unknown as Record<string, Record<string, () => Promise<{ ok: boolean; data?: unknown; error?: unknown }>>>)[op.resource]!;
     const result = await target[op.method]!();
     if (result.ok) { out(result.data ?? { ok: true }); await flushExit(0); }
-    fail(1, errorMessage(result.error), serializeError(result.error));
+    failApi(result.error, LAST_CLIENT_HAD_CREDENTIAL);
   }
   const stored = readCreds();
   let source = "none";
@@ -574,75 +665,348 @@ function claudeDesktopConfigPath(): string {
   return join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "Claude", "claude_desktop_config.json");
 }
 
+/** The mcp entry for a client: the hosted endpoint when the API has one
+ * (auth env var as a reference, never a literal), else the local stdio
+ * server. --url overrides. */
+function mcpEntryFor(url: string | undefined): { entry: McpEntry; warnings: string[] } {
+  const warnings: string[] = [];
+  const hosted = url ?? MCP_URL ?? undefined;
+  if (hosted) {
+    const envVar = AUTH_SCALARS[0]?.env;
+    return { entry: { url: hosted, ...(envVar ? { headers: { Authorization: "Bearer ${" + envVar + "}" } } : {}) }, warnings };
+  }
+  if (!HAS_MCP) {
+    fail(2, "This package was generated without the MCP server target. Regenerate with it, or pass --url for a remote endpoint.");
+  }
+  const server = mcpServerPath();
+  if (server.warning) warnings.push(server.warning);
+  return { entry: { command: "node", args: [server.path] }, warnings };
+}
+
+const MCP_CLIENT_FLAGS: Record<string, string> = {
+  claude: "claude-code", cursor: "cursor", "claude-desktop": "claude-desktop", codex: "codex", vscode: "vscode",
+  windsurf: "windsurf", gemini: "gemini-cli", opencode: "opencode", zed: "zed",
+};
+
 async function cmdMcp(parsed: Parsed): Promise<void> {
   if (parsed.help) {
     const lines = [
       BIN + " mcp — connect this API's MCP server to agent clients",
       "",
       "  " + BIN + " mcp                          print the server entry JSON",
-      "  " + BIN + " mcp --claude                 write ./.mcp.json (Claude Code)",
-      "  " + BIN + " mcp --cursor                 write ./.cursor/mcp.json",
-      "  " + BIN + " mcp --claude-desktop         write the Claude Desktop config",
-      "  " + BIN + " mcp --url <https://...>      use a remote MCP endpoint instead of the local server (--claude, --cursor; Claude Desktop takes remote servers as connectors in the app)",
+      "  " + BIN + " mcp install --all            write it into every agent client found on this machine",
+      "  " + BIN + " mcp install --claude         Claude Code (./.mcp.json)",
+      "  " + BIN + " mcp install --codex          Codex CLI (~/.codex/config.toml)",
+      "  " + BIN + " mcp install --vscode         VS Code (./.vscode/mcp.json)",
+      "  " + BIN + " mcp install --windsurf | --gemini | --opencode | --zed | --claude-desktop",
+      "  " + BIN + " mcp install --cursor         Cursor (./.cursor/mcp.json; see note below)",
+      "  " + BIN + " mcp --url <https://...>      use a remote MCP endpoint instead of the local server",
       "",
-      "The local server reads credentials saved by '" + BIN + " login', or the same auth env vars as the CLI.",
+      (MCP_URL ? "Default entry: the hosted endpoint " + MCP_URL + " with the auth env var as a reference (never a literal key)." : "Default entry: this package's local stdio server, which reads credentials saved by '" + BIN + " login' or the CLI's auth env vars."),
+      "The old spelling '" + BIN + " mcp --claude' still works. --all skips Cursor until it speaks MCP 2026-07-28.",
     ];
     process.stdout.write(lines.join("\n") + "\n");
     await flushExit(0);
   }
   const url = typeof parsed.flags.get("url") === "string" ? parsed.flags.get("url") as string : undefined;
-  const warnings: string[] = [];
-  let entry: Record<string, unknown>;
   if (url) {
     try {
       new URL(url);
     } catch {
       fail(2, "--url must be a valid URL");
     }
-    entry = { type: "http", url };
-  } else {
-    if (!HAS_MCP) {
-      fail(2, "This package was generated without the MCP server target. Regenerate with it, or pass --url for a remote endpoint.");
-    }
-    const server = mcpServerPath();
-    if (server.warning) warnings.push(server.warning);
-    entry = { command: "node", args: [server.path] };
+  }
+  const { entry, warnings } = mcpEntryFor(url);
+  const cwd = process.cwd();
+  const wanted = new Set<string>();
+  for (const [flag, id] of Object.entries(MCP_CLIENT_FLAGS)) if (parsed.flags.get(flag) === true) wanted.add(id);
+  const all = parsed.flags.get("all") === true;
+  if (all) {
+    for (const client of MCP_CLIENTS) if (!client.incompatible && client.detect(cwd)) wanted.add(client.id);
+  }
+  if (wanted.has("claude-desktop") && entry.url) {
+    if (all) wanted.delete("claude-desktop");
+    else fail(2, "Claude Desktop reads only stdio servers from its config file; add a remote server as a connector in Claude Desktop (Settings > Connectors > Add custom connector) with " + entry.url + ". Or drop --url to register this package's local server.");
   }
 
-  const targets: string[] = [];
-  if (parsed.flags.get("claude") === true) targets.push(join(process.cwd(), ".mcp.json"));
-  if (parsed.flags.get("cursor") === true) targets.push(join(process.cwd(), ".cursor", "mcp.json"));
-  if (parsed.flags.get("claude-desktop") === true) {
-    // Claude Desktop's config file only launches stdio servers; remote
-    // servers are added in the app as connectors. Writing a URL entry there
-    // would be a silent no-op, so say so instead.
-    if (url) {
-      fail(2, "Claude Desktop reads only stdio servers from its config file; add a remote server as a connector in Claude Desktop (Settings > Connectors > Add custom connector) with " + url + ". Or drop --url to register this package's local server.");
-    }
-    targets.push(claudeDesktopConfigPath());
-  }
-
-  if (targets.length === 0) {
+  if (wanted.size === 0) {
     out({
       server: BIN,
       entry,
       ...(warnings.length > 0 ? { warnings } : {}),
-      note: "Pass --claude, --cursor, or --claude-desktop to write the client config, or merge the entry under mcpServers." + (url ? "" : " The server reads credentials saved by '" + BIN + " login'."),
+      detected: MCP_CLIENTS.filter((c) => c.detect(cwd)).map((c) => c.id),
+      note: "Pass --all to write this entry into every detected client, one of --claude/--codex/--vscode/--windsurf/--gemini/--opencode/--zed/--claude-desktop/--cursor for a specific one, or merge it under mcpServers yourself." + (entry.url ? "" : " The server reads credentials saved by '" + BIN + " login'."),
     });
     await flushExit(0);
   }
-  const written: string[] = [];
-  for (const file of targets) {
-    let doc: { mcpServers?: Record<string, unknown> } = {};
-    try {
-      doc = JSON.parse(readFileSync(file, "utf8")) as typeof doc;
-    } catch { /* absent or invalid: start fresh */ }
-    doc.mcpServers = { ...(doc.mcpServers ?? {}), [BIN]: entry };
-    mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(file, JSON.stringify(doc, null, 2) + "\n");
-    written.push(file);
+  const results: McpWriteResult[] = [];
+  for (const id of wanted) {
+    const client = findMcpClient(id)!;
+    results.push(writeMcpConfig(client, cwd, BIN, entry));
   }
-  out({ ok: true, server: BIN, written, entry, ...(warnings.length > 0 ? { warnings } : {}) });
+  out({
+    ok: true,
+    server: BIN,
+    entry,
+    written: results.filter((r) => r.written).map((r) => r.file),
+    clients: results,
+    ...(warnings.length > 0 ? { warnings } : {}),
+    ...(all && MCP_CLIENTS.some((c) => c.incompatible && c.detect(cwd)) ? { skipped: MCP_CLIENTS.filter((c) => c.incompatible && c.detect(cwd)).map((c) => ({ client: c.id, reason: c.incompatible })) } : {}),
+  });
+  await flushExit(0);
+}
+
+// ---------------------------------------------------------------------------
+// agent contract — init, agent-guide, auth check, doctor, help --json
+// ---------------------------------------------------------------------------
+
+function agentContext(): AgentContext {
+  return {
+    bin: BIN,
+    pkg: PKG_NAME,
+    apiTitle: API_TITLE,
+    version: VERSION,
+    envPrefix: ENV_PREFIX,
+    authEnvVars: [...AUTH_SCALARS.map((a) => a.env), ...(BASIC ? [BASIC.envUser, BASIC.envPass] : [])],
+    docsUrl: docsSiteUrl(),
+    mcpUrl: MCP_URL,
+    skillsRepo: SKILLS_REPO,
+    hasMcp: HAS_MCP,
+    builtins: BUILTIN_COMMANDS,
+  };
+}
+
+function commandSummaries(): CommandSummary[] {
+  return OPS.map((op) => ({
+    resource: op.command[0],
+    command: op.command[1],
+    method: op.httpMethod,
+    path: op.path,
+    ...(op.summary ? { summary: op.summary } : {}),
+    paginated: op.paginated,
+    destructive: op.httpMethod === "DELETE",
+    flags: op.params.filter((p) => p.kind !== "path").map((p) => ({ flag: p.flag, type: p.type, required: p.required, ...(p.description ? { description: p.description.split("\n")[0] } : {}) })),
+  }));
+}
+
+/** help --json: the whole command surface as data. */
+function helpJson(): Record<string, unknown> {
+  const byResource = new Map<string, CommandSummary[]>();
+  for (const c of commandSummaries()) {
+    const list = byResource.get(c.resource) ?? [];
+    list.push(c);
+    byResource.set(c.resource, list);
+  }
+  return {
+    name: BIN,
+    version: VERSION,
+    api: API_TITLE,
+    api_version: API_VERSION,
+    usage: BIN + " <resource> <command> [args] [--flags]",
+    resources: [...byResource.entries()].map(([resource, commands]) => ({
+      resource,
+      commands: commands.map((c) => ({
+        command: c.command,
+        method: c.method,
+        path: c.path,
+        ...(c.summary ? { summary: c.summary } : {}),
+        paginated: c.paginated,
+        destructive: c.destructive,
+        positional: OPS.find((o) => o.command[0] === resource && o.command[1] === c.command)!.params.filter((p) => p.kind === "path").map((p) => p.name),
+        flags: c.flags,
+      })),
+    })),
+    builtins: BUILTIN_COMMANDS,
+    global_flags: ["--help", "--version", "--debug", "--non-interactive", "--mode agent|human", "--yes", "--force", "--color on|off|auto", "--base-url <url>", "--data '<json>'", "--all", "--validate", "--out <dir>", ...AUTH_SCALARS.map((a) => "--" + a.flag + " <value>")],
+    auth_env_vars: agentContext().authEnvVars,
+  };
+}
+
+async function cmdAgentGuide(parsed: Parsed): Promise<void> {
+  if (parsed.help) {
+    process.stdout.write(BIN + " agent-guide [--format json] — how an agent should drive this CLI: conventions, first command, docs, MCP, skills, next steps. JSON.\n");
+    await flushExit(0);
+  }
+  out(agentGuide(agentContext(), commandSummaries()));
+  await flushExit(0);
+}
+
+/** Which credential the CLI would send, without sending it. --live calls the identity endpoint too. */
+async function cmdAuth(parsed: Parsed): Promise<void> {
+  const sub = parsed.positionals[1];
+  if (parsed.help || sub !== "check") {
+    process.stdout.write([
+      BIN + " auth check [--live] — report the credential the CLI would use, as JSON: {status: ok|action_required, authenticated, source, ...}",
+      "  --live   also call the API's identity endpoint" + (WHOAMI ? "" : " (none in this API; --live is a no-op)"),
+      "",
+      "Precedence: flags > env vars > stored credentials (" + credsPath() + ").",
+    ].join("\n") + "\n");
+    await flushExit(parsed.help ? 0 : 2);
+  }
+  const stored = readCreds();
+  let source = "none";
+  if (AUTH_SCALARS.some((a) => typeof parsed.flags.get(a.flag) === "string")) source = "flags";
+  else {
+    const envScalar = AUTH_SCALARS.find((a) => process.env[a.env] !== undefined);
+    if (envScalar) source = "env:" + envScalar.env;
+    else if (stored && (stored.scalars || stored.basic || stored.oauth)) source = "login";
+  }
+  const authenticated = source !== "none";
+  const report: Record<string, unknown> = {
+    status: authenticated ? "ok" : "action_required",
+    authenticated,
+    source,
+    credentials_path: existsSync(credsPath()) ? credsPath() : null,
+    auth_env_vars: agentContext().authEnvVars,
+    base_url: resolveBaseUrl(parsed.flags) ?? null,
+    next_steps: authenticated ? [] : [
+      ...AUTH_SCALARS.map((a) => "Set " + a.env + " in the environment, or run '" + BIN + " login --" + a.flag + " <value>'."),
+      "Then run '" + BIN + " auth check --live'.",
+    ],
+  };
+  if (authenticated && parsed.flags.get("live") === true && WHOAMI) {
+    const op = OPS.find((o) => o.resource === WHOAMI.resource && o.method === WHOAMI.method);
+    if (op) {
+      const client = await makeClient(parsed.flags);
+      const target = (client as unknown as Record<string, Record<string, () => Promise<{ ok: boolean; data?: unknown; error?: unknown }>>>)[op.resource]!;
+      const result = await target[op.method]!();
+      if (result.ok) report.identity = result.data;
+      else {
+        const why = classifyApiError(result.error, { bin: BIN, hadCredential: true, docsUrl: DOCS_URL_DEFAULT });
+        report.status = "action_required";
+        report.live = { ok: false, code: why.code, message: why.message };
+        report.next_steps = why.nextSteps ?? [];
+      }
+    }
+  }
+  out(report);
+  await flushExit(report.status === "ok" ? 0 : 1);
+}
+
+async function cmdDoctor(parsed: Parsed): Promise<void> {
+  if (parsed.help) {
+    process.stdout.write(BIN + " doctor — check the install: binary, node, credentials, base URL, docs, MCP client config. JSON with next_steps.\n");
+    await flushExit(0);
+  }
+  const checks: DoctorCheck[] = [];
+  const nodeMajor = Number(process.versions.node.split(".")[0]);
+  checks.push({ name: "node", ok: nodeMajor >= 18, detail: process.version, ...(nodeMajor >= 18 ? {} : { fix: "Install Node 18 or newer." }) });
+  checks.push({ name: "cli", ok: true, detail: BIN + " " + VERSION + " (" + PKG_NAME + ")" });
+  const stored = readCreds();
+  const envScalar = AUTH_SCALARS.find((a) => process.env[a.env] !== undefined);
+  const hasCred = Boolean(envScalar) || Boolean(stored && (stored.scalars || stored.basic || stored.oauth));
+  checks.push({ name: "credentials", ok: hasCred, detail: envScalar ? "env:" + envScalar.env : hasCred ? credsPath() : "none", ...(hasCred ? {} : { fix: AUTH_SCALARS[0] ? "Set " + AUTH_SCALARS[0].env + " or run '" + BIN + " login'." : "Run '" + BIN + " login'." }) });
+  const baseUrl = resolveBaseUrl(parsed.flags);
+  if (baseUrl) {
+    try {
+      const response = await fetch(baseUrl, { method: "GET", signal: AbortSignal.timeout(8_000) });
+      checks.push({ name: "base_url", ok: true, detail: baseUrl + " → HTTP " + response.status });
+    } catch (e) {
+      checks.push({ name: "base_url", ok: false, detail: baseUrl + ": " + (e as Error).message, fix: "Check the network, or set --base-url / " + ENV_PREFIX + "_BASE_URL." });
+    }
+  } else {
+    checks.push({ name: "base_url", ok: false, detail: "none", fix: "Pass --base-url or run '" + BIN + " config set base-url <url>'." });
+  }
+  if (hasCred && WHOAMI) {
+    const op = OPS.find((o) => o.resource === WHOAMI.resource && o.method === WHOAMI.method);
+    if (op) {
+      try {
+        const client = await makeClient(parsed.flags);
+        const target = (client as unknown as Record<string, Record<string, () => Promise<{ ok: boolean; error?: unknown }>>>)[op.resource]!;
+        const result = await target[op.method]!();
+        checks.push(result.ok ? { name: "identity", ok: true, detail: op.command.join(" ") + " ok" } : { name: "identity", ok: false, detail: classifyApiError(result.error, { bin: BIN, hadCredential: true, docsUrl: DOCS_URL_DEFAULT }).message, fix: "The credential was rejected; run '" + BIN + " login' with a current one." });
+      } catch (e) {
+        checks.push({ name: "identity", ok: false, detail: (e as Error).message });
+      }
+    }
+  }
+  const docs = docsSiteUrl();
+  if (docs) {
+    const index = await fetchDocs("llms.txt");
+    checks.push({ name: "docs", ok: index !== null, detail: docs + "/llms.txt" + (index !== null ? " reachable" : " unreachable"), ...(index !== null ? {} : { fix: "The docs site is not answering; '" + BIN + " docs' falls back to the built-in reference." }) });
+  }
+  if (HAS_MCP || MCP_URL) {
+    const cwd = process.cwd();
+    const configured = MCP_CLIENTS.filter((c) => c.detect(cwd) && mcpConfigured(c, cwd, BIN)).map((c) => c.id);
+    const detected = MCP_CLIENTS.filter((c) => c.detect(cwd) && !c.incompatible).map((c) => c.id);
+    checks.push({ name: "mcp_clients", ok: detected.length === 0 || configured.length > 0, detail: "detected: " + (detected.join(", ") || "none") + "; configured: " + (configured.join(", ") || "none"), ...(detected.length > 0 && configured.length === 0 ? { fix: "Run '" + BIN + " mcp install --all'." } : {}) });
+  }
+  const summary = summarizeDoctor(checks);
+  out({ ...summary, harness: detectHarness(), agent_mode: isAgentMode(parsed) });
+  await flushExit(summary.status === "ok" ? 0 : 1);
+}
+
+/**
+ * init: the one command that connects a machine (or a repo) to this API.
+ * Stores a credential when given one, installs the skills repository, writes
+ * MCP config for every agent client found, and upserts a marked block into
+ * AGENTS.md (CLAUDE.md under Claude Code). Idempotent; --all takes the
+ * defaults without asking; every part reports and none of them fails init.
+ */
+async function cmdInit(parsed: Parsed): Promise<void> {
+  if (parsed.help) {
+    process.stdout.write([
+      BIN + " init [--all] [-k <credential>] [--yes] [--no-skills] [--no-mcp] [--no-agents-md]",
+      "",
+      "  -k, --" + (AUTH_SCALARS[0]?.flag ?? "token") + " <value>   store the credential (or set " + (AUTH_SCALARS[0]?.env ?? ENV_PREFIX + "_TOKEN") + " in the environment)",
+      "  --all                    do everything without prompting (implied under an agent)",
+      "  --no-skills | --no-mcp | --no-agents-md   skip a part",
+      "",
+      "Writes: " + credsPath() + " (credential), the skills directory of each agent on this machine" + (SKILLS_REPO ? " (npx skills add " + SKILLS_REPO + ")" : " (no skills repository configured)") + ", MCP config for detected clients, and a '" + BIN + "' block in ./AGENTS.md.",
+    ].join("\n") + "\n");
+    await flushExit(0);
+  }
+  const report: Record<string, unknown> = { ok: true, bin: BIN };
+  const nextSteps: string[] = [];
+  const cwd = process.cwd();
+  const harness = detectHarness();
+
+  // 1. credential
+  const stored: StoredCreds = readCreds() ?? {};
+  const first = AUTH_SCALARS[0];
+  const given = (typeof parsed.flags.get("k") === "string" ? parsed.flags.get("k") as string : undefined)
+    ?? (first && typeof parsed.flags.get(first.flag) === "string" ? parsed.flags.get(first.flag) as string : undefined);
+  if (given && first) {
+    stored.scalars = { ...stored.scalars, [first.option]: given };
+    writeCreds(stored);
+    report.credential = { status: "stored", path: credsPath() };
+  } else if (first && process.env[first.env]) {
+    report.credential = { status: "env", variable: first.env };
+  } else if (stored.scalars || stored.basic || stored.oauth) {
+    report.credential = { status: "stored", path: credsPath() };
+  } else {
+    report.credential = { status: "none" };
+    if (first) nextSteps.push("Set " + first.env + " in the environment, or run '" + BIN + " init -k <credential>' or '" + BIN + " login'.");
+  }
+
+  // 2. skills
+  if (parsed.flags.get("no-skills") === true) report.skills = { status: "skipped" };
+  else if (SKILLS_REPO) report.skills = installSkills(SKILLS_REPO, { agent: harness === "claude-code" ? "claude-code" : null });
+  else report.skills = { status: "skipped", repo: null, detail: "No skills repository is configured for this CLI." };
+
+  // 3. MCP config
+  if (parsed.flags.get("no-mcp") === true || !(HAS_MCP || MCP_URL)) {
+    report.mcp = { status: HAS_MCP || MCP_URL ? "skipped" : "unavailable" };
+  } else {
+    const { entry, warnings } = mcpEntryFor(undefined);
+    const clients = MCP_CLIENTS.filter((c) => !c.incompatible && c.detect(cwd) && !(c.id === "claude-desktop" && entry.url));
+    const results = clients.map((c) => writeMcpConfig(c, cwd, BIN, entry));
+    report.mcp = { status: results.length > 0 ? "written" : "no-clients", entry, clients: results, ...(warnings.length > 0 ? { warnings } : {}) };
+    if (results.length === 0) nextSteps.push("No MCP client was found on this machine; run '" + BIN + " mcp' to print the entry.");
+  }
+
+  // 4. AGENTS.md
+  if (parsed.flags.get("no-agents-md") === true) {
+    report.agents_md = { status: "skipped" };
+  } else {
+    const file = agentInstructionsFile(cwd, harness);
+    const result = upsertAgentBlock(file, BIN + " agent-contract", agentBlock(agentContext(), commandSummaries()));
+    report.agents_md = { status: result.updated ? "updated" : "written", file: result.file };
+  }
+
+  nextSteps.push("Run '" + BIN + " auth check --live'" + (WHOAMI ? "" : " (or any read command)") + " to confirm the connection.");
+  nextSteps.push("Run '" + BIN + " agent-guide' for the conventions, or '" + BIN + " --help' for commands.");
+  out({ ...report, next_steps: nextSteps });
   await flushExit(0);
 }
 
@@ -718,7 +1082,7 @@ async function cmdUpgrade(parsed: Parsed): Promise<void> {
 // completion — shell completion scripts built from the op table
 // ---------------------------------------------------------------------------
 
-const TOP_WORDS = ["login", "logout", "whoami", "config", "mcp", "upgrade", "docs", "webhooks", "feedback", "completion", "help", "version"];
+const TOP_WORDS = ["login", "logout", "whoami", "config", "mcp", "upgrade", "docs", "webhooks", "feedback", "completion", "help", "version", "init", "agent-guide", "auth", "doctor"];
 
 function completionScript(): string {
   const fn = "_" + BIN.replace(/-/g, "_") + "_complete";
@@ -844,10 +1208,16 @@ function referenceFor(op: OpSpec): string {
   return lines.join("\n");
 }
 
-function openInBrowser(url: string): void {
+/** Opens a browser for a person; under an agent it prints the URL instead of opening anything. */
+function openInBrowser(url: string, parsed?: Parsed): { opened: boolean; url: string } {
+  if (parsed && nonInteractive(parsed)) {
+    out({ opened: false, url, note: "Agent mode: nothing was opened. Give this URL to the user." });
+    return { opened: false, url };
+  }
   const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open";
   const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
   spawnSync(opener, args, { stdio: "ignore" });
+  return { opened: true, url };
 }
 
 async function cmdDocs(parsed: Parsed): Promise<void> {
@@ -870,8 +1240,8 @@ async function cmdDocs(parsed: Parsed): Promise<void> {
   if (parsed.flags.get("web") === true) {
     const base = docsSiteUrl();
     if (base === null) fail(2, "No docs site configured. Run '" + BIN + " config set docs-url <url>'.");
-    openInBrowser(base!);
-    out({ ok: true, opened: base });
+    const opened = openInBrowser(base!, parsed);
+    if (opened.opened) out({ ok: true, opened: base });
     await flushExit(0);
   }
 
@@ -1126,9 +1496,9 @@ async function cmdFeedback(parsed: Parsed): Promise<void> {
     const sep = target.includes("?") ? "&" : "?";
     target += sep + "title=" + encodeURIComponent("[" + BIN + "] ") + "&body=" + encodeURIComponent(bodyLines.join("\n"));
   }
-  process.stderr.write("Opening " + paintErr("cyan", SUPPORT_URL!) + "\n");
-  openInBrowser(target);
-  out({ ok: true, opened: SUPPORT_URL });
+  if (!nonInteractive(parsed)) process.stderr.write("Opening " + paintErr("cyan", SUPPORT_URL!) + "\n");
+  const opened = openInBrowser(target, parsed);
+  if (opened.opened) out({ ok: true, opened: SUPPORT_URL });
   await flushExit(0);
 }
 
@@ -1192,8 +1562,9 @@ function printRoot(): void {
     ...(BASIC ? [BASIC.envUser, BASIC.envPass] : []),
     "TYPESHIP_BASE_URL",
   ].join(", "));
-  lines.push("Account: " + BIN + " login | logout | whoami  (stored at " + credsPath() + ")");
-  lines.push("Setup: " + BIN + " config (defaults)" + (HAS_MCP ? " | " + BIN + " mcp (agent clients)" : "") + " | " + BIN + " upgrade | " + BIN + " completion <shell>");
+  lines.push("Account: " + BIN + " login | logout | whoami | auth check  (stored at " + credsPath() + ")");
+  lines.push("Setup: " + BIN + " init (connect this machine)" + " | " + BIN + " config (defaults)" + (HAS_MCP || MCP_URL ? " | " + BIN + " mcp install --all (agent clients)" : "") + " | " + BIN + " doctor | " + BIN + " upgrade | " + BIN + " completion <shell>");
+  lines.push("Agents: " + BIN + " agent-guide | " + BIN + " help --json | --mode agent | --yes/--force | --out <dir>  (JSON errors: {status, issues[{code}], next_steps})");
   lines.push("Docs: " + BIN + " docs [<resource> <command> | search <term> | read <page> | --web]");
   if (RELAY) lines.push("Webhooks: " + BIN + " webhooks listen --forward-to <url>  (local event forwarding)");
   if (SUPPORT_URL) lines.push("Feedback: " + BIN + " feedback  (opens the provider's issue tracker)");
@@ -1237,6 +1608,8 @@ function printOp(op: OpSpec): void {
   else if (op.hasBody) lines.push("  --data '<json>'" + " ".repeat(15) + "raw JSON body" + (op.bodyStyle === "fields" ? " (merged under field flags)" : ""));
   if (op.select) lines.push("  --select '<selection>'" + " ".repeat(9) + "GraphQL selection set override, e.g. '{ id name }'");
   if (op.paginated) lines.push("  --all" + " ".repeat(25) + "stream every item from every page (NDJSON)");
+  if (bundleProperty(op.outputSchema) !== null) lines.push("  --out <dir>" + " ".repeat(19) + "write the response's files ({path, content}) into a directory");
+  if (op.httpMethod === "DELETE") lines.push("  --force" + " ".repeat(23) + "destructive: required without a terminal, skips the prompt with one");
   if (op.sse) lines.push("  (streams: one JSON line per server-sent event until the stream ends)");
   process.stdout.write(lines.join("\n") + "\n");
 }
@@ -1280,15 +1653,23 @@ function coerce(spec: ParamSpec, raw: string | boolean): unknown {
   return text;
 }
 
-async function makeClient(flags: Map<string, string | boolean>): Promise<TypeshipClient> {
-  const stored = readCreds();
+/** Whether the last client built carried any credential; failApi tells NO_AUTH from AUTH_INVALID with it. */
+let LAST_CLIENT_HAD_CREDENTIAL = false;
+
+/** Base URL resolution: --base-url > env > config base-url > config environment > spec default. */
+function resolveBaseUrl(flags: Map<string, string | boolean>): string | undefined {
   const config = readConfig();
-  const options: Record<string, unknown> = {};
-  const baseUrl = (typeof flags.get("base-url") === "string" ? flags.get("base-url") as string : undefined)
+  return (typeof flags.get("base-url") === "string" ? flags.get("base-url") as string : undefined)
     ?? process.env["TYPESHIP_BASE_URL"]
     ?? config.baseUrl
     ?? (config.environment !== undefined ? ENVIRONMENTS[config.environment] : undefined)
     ?? DEFAULT_BASE_URL ?? undefined;
+}
+
+async function makeClient(flags: Map<string, string | boolean>): Promise<TypeshipClient> {
+  const stored = readCreds();
+  const options: Record<string, unknown> = {};
+  const baseUrl = resolveBaseUrl(flags);
   if (baseUrl === undefined) fail(2, "No base URL. Pass --base-url, set TYPESHIP_BASE_URL, or run '" + BIN + " config set base-url <url>'.");
   options.baseUrl = baseUrl;
   for (const a of AUTH_SCALARS) {
@@ -1316,6 +1697,7 @@ async function makeClient(flags: Map<string, string | boolean>): Promise<Typeshi
     const value = typeof flagValue === "string" ? flagValue : process.env["TYPESHIP_" + g.envSuffix];
     if (value !== undefined) options[g.option] = value;
   }
+  LAST_CLIENT_HAD_CREDENTIAL = AUTH_SCALARS.some((a) => options[a.option] !== undefined) || options.basicAuth !== undefined || options.bearerToken !== undefined;
   return new TypeshipClient(options as never);
 }
 
@@ -1344,12 +1726,19 @@ function didYouMean(input: string, candidates: Iterable<string>): string | undef
   return best;
 }
 
-const BUILTIN_COMMANDS = ["login", "logout", "whoami", "config", "mcp", "docs", "upgrade", "feedback", "completion", "webhooks", "help", "version"];
+const BUILTIN_COMMANDS = ["login", "logout", "whoami", "config", "mcp", "docs", "upgrade", "feedback", "completion", "webhooks", "help", "version", "init", "agent-guide", "auth", "doctor"];
 
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const parsed = parseArgv(argv);
-  if (parsed.positionals[0] === "help") { parsed.positionals.shift(); parsed.help = true; }
+  if (parsed.positionals[0] === "help") {
+    // help --json: the command surface as data (agents read this once).
+    if (parsed.flags.get("json") === true || parsed.flags.get("format") === "json") { out(helpJson()); await flushExit(0); }
+    parsed.positionals.shift(); parsed.help = true;
+  }
+  if (parsed.flags.get("format") !== undefined && parsed.flags.get("format") !== "json") {
+    fail(2, "--format json is the only format; output is always JSON.");
+  }
   if (parsed.flags.has("version") || parsed.positionals[0] === "version") {
     process.stdout.write(BIN + " " + VERSION + " (" + "typeship" + " " + API_VERSION + ", generated by typeship)\n");
     await flushExit(0);
@@ -1357,8 +1746,12 @@ async function main(): Promise<void> {
   const [resourceCmd, methodCmd] = parsed.positionals;
   COLOR_OUT = colorEnabled(process.stdout, parsed);
   COLOR_ERR = colorEnabled(process.stderr, parsed);
-  await maybeUpdateNotice(resourceCmd, nonInteractive(parsed));
+  await maybeUpdateNotice(resourceCmd, explicitNonInteractive(parsed));
 
+  if (resourceCmd === "init") { await cmdInit(parsed); }
+  if (resourceCmd === "agent-guide") { await cmdAgentGuide(parsed); }
+  if (resourceCmd === "auth") { await cmdAuth(parsed); }
+  if (resourceCmd === "doctor") { await cmdDoctor(parsed); }
   if (resourceCmd === "upgrade") { await cmdUpgrade(parsed); }
   if (resourceCmd === "webhooks") { await cmdWebhooks(parsed); }
   if (resourceCmd === "feedback") { await cmdFeedback(parsed); }
@@ -1421,7 +1814,7 @@ async function main(): Promise<void> {
   // Mirrors opReservedFlags() in the generator: API parameters never use these
   // names (colliding ones are emitted as --<kind>-<name>), so an unknown flag
   // check can be exact.
-  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "debug", "validate", "non-interactive", "color", "version", "help", ...AUTH_SCALARS.map((a) => a.flag), ...(BASIC ? ["username", "password"] : []), ...GLOBALS.map((g) => g.flag)]);
+  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "debug", "validate", "non-interactive", "color", "version", "help", "yes", "force", "mode", "format", "json", "out", ...AUTH_SCALARS.map((a) => a.flag), ...(BASIC ? ["username", "password"] : []), ...GLOBALS.map((g) => g.flag)]);
   for (const spec of op.params) {
     if (spec.kind === "path") continue;
     const raw = parsed.flags.get(spec.flag);
@@ -1457,6 +1850,31 @@ async function main(): Promise<void> {
       : "Missing required: --data '<json>' (this operation's request body is required)");
   }
 
+  // --out <dir> materializes a file-shaped response (see cli-agent.ts bundleProperty).
+  const bundleField = bundleProperty(op.outputSchema);
+  const outDir = typeof parsed.flags.get("out") === "string" ? (parsed.flags.get("out") as string) : undefined;
+  if (outDir !== undefined && bundleField === null) {
+    fail(2, "--out applies to commands whose response carries files ({path, content}); " + op.command.join(" ") + " does not.");
+  }
+
+  // Destructive commands need --force. A person gets asked; an agent gets
+  // an action_required envelope with the exact command to run, so nothing
+  // is deleted on a guess.
+  if (op.httpMethod === "DELETE" && !assumeYes(parsed)) {
+    const rerun = BIN + " " + process.argv.slice(2).map((a) => (/\s/.test(a) ? JSON.stringify(a) : a)).join(" ") + " --force";
+    if (nonInteractive(parsed) || !process.stdin.isTTY) {
+      failWith({
+        status: "action_required",
+        code: "CONFIRMATION_REQUIRED",
+        message: op.command.join(" ") + " is destructive (" + op.httpMethod + " " + op.path + ") and needs --force.",
+        nextSteps: ["Confirm with the user, then run: " + rerun],
+      });
+    }
+    process.stderr.write(paintErr("yellow", op.command.join(" ") + " will " + op.httpMethod + " " + op.path + ". Continue? [y/N] "));
+    const answer = (await readLine()).trim().toLowerCase();
+    if (answer !== "y" && answer !== "yes") failWith({ status: "action_required", code: "CONFIRMATION_REQUIRED", message: "Cancelled.", nextSteps: ["Run again with --force to skip the prompt: " + rerun] });
+  }
+
   const client = await makeClient(parsed.flags);
   const selectValue = typeof parsed.flags.get("select") === "string" ? (parsed.flags.get("select") as string) : undefined;
   const args = buildArgs(op, values, dataBody, selectValue);
@@ -1470,7 +1888,7 @@ async function main(): Promise<void> {
       }
       await flushExit(0);
     } catch (e) {
-      fail(1, (e as Error).message ?? "Pagination failed", serializeError(e));
+      failApi(e, LAST_CLIENT_HAD_CREDENTIAL);
     }
   }
 
@@ -1483,19 +1901,27 @@ async function main(): Promise<void> {
           process.stdout.write(JSON.stringify(event) + "\n");
         }
       } catch (e) {
-        fail(1, (e as Error).message ?? "Stream failed", serializeError(e));
+        failApi(e, LAST_CLIENT_HAD_CREDENTIAL);
       }
       await flushExit(0);
     }
     if (op.paginated) {
       const page = result.data as { items: unknown[]; hasNextPage(): boolean };
       out({ items: page.items, hasMore: page.hasNextPage() });
+    } else if (outDir !== undefined && bundleField !== null) {
+      // --out: a file-shaped response (an array of {path, content}) lands
+      // on disk; stdout gets the rest of the response plus a summary.
+      const data = (result.data ?? {}) as Record<string, unknown>;
+      const files = (data[bundleField] as { path: string; content: string }[] | undefined) ?? [];
+      const written = writeBundle(outDir, files);
+      const { [bundleField]: _omitted, ...rest } = data;
+      out({ ...rest, out: written });
     } else {
       out(result.data ?? { ok: true });
     }
     await flushExit(0);
   }
-  fail(1, errorMessage(result.error), serializeError(result.error));
+  failApi(result.error, LAST_CLIENT_HAD_CREDENTIAL);
 }
 
 function errorMessage(error: unknown): string {
