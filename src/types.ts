@@ -47,6 +47,20 @@ export interface GenerationResult {
   files: GeneratedFile[];
   warnings: string[];
   meta: GenerationMeta;
+  limits?: GenerationLimits;
+}
+
+/** Present when the generation was capped: by the free plan, or because the call was anonymous. Absent on uncapped generations. */
+export interface GenerationLimits {
+  /** How many operations this generation was allowed to include. */
+  max_operations: number;
+  /** How many operations in the spec were left out. */
+  omitted_operations: number;
+  reason: "anonymous" | "free_plan";
+  /** Anonymous calls only. Where to create an account. */
+  signup_url?: string;
+  /** Where the cap is lifted. */
+  upgrade_url: string;
 }
 
 /** Where the project's spec lives. */
@@ -121,12 +135,12 @@ export interface Project {
   created_at: string;
 }
 
+/** The organization an API key belongs to. Members share its projects, keys, and plan; sign-in identity is not part of the API. */
 export interface Account {
   id: string;
   object: "account";
+  /** The organization's display name. */
   name: string;
-  /** Format: email */
-  email: string;
   plan: "free" | "pro" | "enterprise";
   /** Format: date-time */
   created_at: string;
