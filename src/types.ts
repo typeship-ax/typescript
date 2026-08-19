@@ -257,6 +257,15 @@ export interface Usage {
   };
   /** Endpoints included before per-endpoint billing applies. */
   included_endpoints: number;
+  /** Who called the API in the last 30 days, read from the User-Agent the generated tooling sends: by surface (cli, mcp, sdk, http) and by agent harness (claude-code, codex, cursor, ...), and the share of requests that came through an agent. */
+  requests?: {
+    days: number;
+    requests: number;
+    by_surface: Record<string, number>;
+    by_harness: Record<string, number>;
+    /** 0 to 1. */
+    agent_share: number;
+  };
 }
 
 export interface ApiKey {

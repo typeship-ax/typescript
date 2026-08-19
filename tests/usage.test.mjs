@@ -6,7 +6,7 @@ import { TypeshipClient } from "../dist/index.js";
 import { startMock } from "./helper.mjs";
 
 test("usage.retrieve GET /usage", async () => {
-  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"object\":\"usage\",\"hosted_generations\":{\"used\":1,\"included\":1,\"remaining\":1},\"included_endpoints\":1}" });
+  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"object\":\"usage\",\"hosted_generations\":{\"used\":1,\"included\":1,\"remaining\":1},\"included_endpoints\":1,\"requests\":{\"days\":1,\"requests\":1,\"by_surface\":{},\"by_harness\":{},\"agent_share\":1}}" });
   try {
     const client = new TypeshipClient({ baseUrl: mock.url, bearerToken: "test-token" });
     const result = await client.usage.retrieve();

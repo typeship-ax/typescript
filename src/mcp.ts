@@ -25,8 +25,16 @@ import {
 } from "./mcp-protocol.js";
 
 const BIN = "typeship";
+const PKG_NAME = "typeship";
 const SERVER_NAME = "typeship-mcp";
 const SERVER_VERSION = "1.0.0";
+/** The MCP client's announced name (clientInfo in request _meta), for the User-Agent. */
+let MCP_CLIENT_NAME: string | null = null;
+function noteClientInfo(message: unknown): void {
+  const meta = (message as { params?: { _meta?: Record<string, { name?: unknown }> } } | null)?.params?._meta;
+  const name = meta?.["io.modelcontextprotocol/clientInfo"]?.name;
+  if (typeof name === "string" && name && name !== MCP_CLIENT_NAME) { MCP_CLIENT_NAME = name.slice(0, 60); clientInstance = undefined; }
+}
 const DEFAULT_BASE_URL = "https://typeship.dev/api/v1";
 const AUTH_SCALARS: { option: string; flag: string; env: string }[] = [{"option":"bearerToken","flag":"token","env":"TYPESHIP_TOKEN"}];
 const BASIC: { envUser: string; envPass: string } | null = null;
@@ -90,6 +98,8 @@ function makeClient(): TypeshipClient {
   if (process.env["TYPESHIP_DEBUG"] === "1") {
     options.debug = (event: DebugEvent) => process.stderr.write(formatDebugEvent(BIN + "-mcp", event) + "\n");
   }
+  // The local MCP server identifies itself (surface + the client it serves, when announced).
+  options.defaultHeaders = { "User-Agent": PKG_NAME + "-mcp/" + SERVER_VERSION + " (typeship" + (MCP_CLIENT_NAME ? "; client=" + MCP_CLIENT_NAME : "") + ")" };
   return new TypeshipClient(options as never);
 }
 
@@ -239,6 +249,7 @@ export async function handleHttp(request: Request): Promise<Response> {
     const mismatch = checkRequestHeaders(request.headers, parsed);
     if (mismatch) return json(mismatch.status, mismatch.message);
   }
+  noteClientInfo(parsed);
   let outcome: RpcOutcome;
   try {
     outcome = await handleRpc(serverFor(authHeader), parsed);
@@ -303,6 +314,7 @@ async function startStdio(): Promise<void> {
       return;
     }
     const id = incoming !== null && typeof incoming === "object" && !Array.isArray(incoming) ? (incoming as { id?: unknown }).id : undefined;
+    noteClientInfo(incoming);
     void handleRpc(server, incoming)
       .then((outcome) => {
         if (outcome.message === null) return;

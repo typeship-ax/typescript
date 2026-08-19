@@ -1792,6 +1792,14 @@ async function makeClient(flags: Map<string, string | boolean>): Promise<Typeshi
     if (value !== undefined) options[g.option] = value;
   }
   LAST_CLIENT_HAD_CREDENTIAL = AUTH_SCALARS.some((a) => options[a.option] !== undefined) || options.basicAuth !== undefined || options.bearerToken !== undefined;
+  // Who is calling: the CLI, under which agent harness, in agent mode. The
+  // API can read it back for usage by surface; it carries no secrets.
+  const harness = detectHarness();
+  const agent = agentMode({ flagMode: flags.get("mode"), envMode: process.env["TYPESHIP_MODE"], stdoutIsTTY: process.stdout.isTTY === true, stdinIsTTY: process.stdin.isTTY === true });
+  options.defaultHeaders = {
+    ...(options.defaultHeaders as Record<string, string> | undefined),
+    "User-Agent": PKG_NAME + "-cli/" + VERSION + " (typeship" + (harness ? "; harness=" + harness : "") + (agent ? "; agent" : "") + ")",
+  };
   return new TypeshipClient(options as never);
 }
 
