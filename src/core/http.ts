@@ -342,7 +342,11 @@ export interface DebugEvent {
 const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
 
 export class HttpCore {
-  constructor(readonly config: CoreConfig) {}
+  readonly config: CoreConfig;
+  // no parameter properties: this file also runs under strip-only TS
+  constructor(config: CoreConfig) {
+    this.config = config;
+  }
 
   /** The client-level value for an x-typeship-globals parameter. */
   globalValue(name: string): unknown {
@@ -734,7 +738,7 @@ function appendDeep(target: URLSearchParams, key: string, value: unknown): void 
   }
 }
 
-function serializeBody(req: CoreRequest): { body: BodyInit | undefined; contentType?: string } {
+function serializeBody(req: CoreRequest): { body: NonNullable<RequestInit["body"]> | undefined; contentType?: string } {
   if (req.body === undefined) return { body: undefined };
   switch (req.bodyKind ?? "json") {
     case "json":
@@ -762,7 +766,7 @@ function serializeBody(req: CoreRequest): { body: BodyInit | undefined; contentT
     case "text":
       return { body: String(req.body), contentType: "text/plain" };
     case "binary":
-      return { body: req.body as BodyInit };
+      return { body: req.body as NonNullable<RequestInit["body"]> };
   }
 }
 

@@ -32,13 +32,25 @@ type FetchPage<Item, E> = (
 ) => Promise<ApiResult<Page<Item, E>, E>>;
 
 export class Page<Item, E = unknown> {
+  private readonly fetchPage: FetchPage<Item, E>;
+  private readonly config: PageConfig;
+  private readonly params: Record<string, unknown>;
+  readonly body: unknown;
+  readonly response: ResponseMeta;
+
   constructor(
-    private readonly fetchPage: FetchPage<Item, E>,
-    private readonly config: PageConfig,
-    private readonly params: Record<string, unknown>,
-    readonly body: unknown,
-    readonly response: ResponseMeta,
-  ) {}
+    fetchPage: FetchPage<Item, E>,
+    config: PageConfig,
+    params: Record<string, unknown>,
+    body: unknown,
+    response: ResponseMeta,
+  ) {
+    this.fetchPage = fetchPage;
+    this.config = config;
+    this.params = params;
+    this.body = body;
+    this.response = response;
+  }
 
   get items(): Item[] {
     const value = getPath(this.body, this.config.itemsField);
@@ -121,7 +133,10 @@ export class Page<Item, E = unknown> {
  * all pages). Iteration throws the operation's typed error union on failure.
  */
 export class PagePromise<Item, E> implements PromiseLike<ApiResult<Page<Item, E>, E>>, AsyncIterable<Item> {
-  constructor(private readonly first: Promise<ApiResult<Page<Item, E>, E>>) {}
+  private readonly first: Promise<ApiResult<Page<Item, E>, E>>;
+  constructor(first: Promise<ApiResult<Page<Item, E>, E>>) {
+    this.first = first;
+  }
 
   then<R1 = ApiResult<Page<Item, E>, E>, R2 = never>(
     onfulfilled?: ((value: ApiResult<Page<Item, E>, E>) => R1 | PromiseLike<R1>) | null,

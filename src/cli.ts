@@ -41,12 +41,30 @@ interface Parsed {
   help: boolean;
 }
 
-/** Global flags that never take a value, so they don't swallow the next
- * positional (`--non-interactive accounts list`). */
-const GLOBAL_BOOLEAN_FLAGS = new Set([
-  "all", "version", "with-token", "check", "non-interactive",
-  "claude", "cursor", "claude-desktop", "web", "debug", "validate",
-]);
+/** Flags that never take a value, so they don't swallow the next positional
+ * (`--non-interactive accounts list`). Built-in commands' own switches
+ * (`mcp --cursor`, `upgrade --check`) count only under that command, so an
+ * API parameter with the same name (`accounts list --cursor <c>`) still
+ * takes its value. Boolean API parameters are recognized once the command
+ * is known. */
+const CORE_BOOLEAN_FLAGS = new Set(["all", "version", "non-interactive", "debug", "validate"]);
+const BUILTIN_BOOLEAN_FLAGS: Record<string, string[]> = {
+  login: ["with-token"],
+  upgrade: ["check"],
+  mcp: ["claude", "cursor", "claude-desktop"],
+  docs: ["web"],
+};
+
+function isBooleanFlag(name: string, positionals: string[]): boolean {
+  if (CORE_BOOLEAN_FLAGS.has(name)) return true;
+  const first = positionals[0];
+  if (first !== undefined && (BUILTIN_BOOLEAN_FLAGS[first] ?? []).includes(name)) return true;
+  if (positionals.length >= 2) {
+    const op = findOp(positionals[0]!, positionals[1]!);
+    if (op) return op.params.some((p) => p.flag === name && p.type === "boolean");
+  }
+  return false;
+}
 
 function parseArgv(argv: string[]): Parsed {
   const positionals: string[] = [];
@@ -60,8 +78,10 @@ function parseArgv(argv: string[]): Parsed {
       const eq = arg.indexOf("=");
       if (eq !== -1) {
         flags.set(arg.slice(2, eq), arg.slice(eq + 1));
-      } else if (GLOBAL_BOOLEAN_FLAGS.has(arg.slice(2))) {
-        flags.set(arg.slice(2), true);
+      } else if (isBooleanFlag(arg.slice(2), positionals)) {
+        const next = argv[i + 1];
+        if (next === "true" || next === "false") { flags.set(arg.slice(2), next); i++; }
+        else flags.set(arg.slice(2), true);
       } else {
         const next = argv[i + 1];
         if (next !== undefined && !next.startsWith("--")) {
@@ -1093,8 +1113,9 @@ async function cmdFeedback(parsed: Parsed): Promise<void> {
 
 /** Opt-in (console setting) once-a-day upgrade hint. Off by default:
  * generated code phones nobody unless the project owner chose this. The
- * notice reads the previous run's cached answer, so commands never wait
- * on the registry; the cache refreshes at most once a day. */
+ * notice prints the previous run's cached answer; at most once a day it
+ * refreshes the cache first, with a 1.5s cap so a slow registry can't
+ * hold a command hostage. */
 async function maybeUpdateNotice(commandWord: string | undefined, quiet: boolean): Promise<void> {
   if (!UPDATE_NOTICE || quiet) return;
   if (commandWord === undefined || ["upgrade", "version", "help", "login", "logout"].includes(commandWord)) return;
@@ -1358,7 +1379,10 @@ async function main(): Promise<void> {
     try { dataBody = JSON.parse(dataRaw); } catch (e) { fail(2, "--data is not valid JSON: " + (e as Error).message); }
   }
 
-  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "username", "password", "with-token", "client-id", "version", "url", "claude", "cursor", "claude-desktop", "non-interactive", "check", "color", "web", "forward-to", "events", "debug", "validate", "key", ...AUTH_SCALARS.map((a) => a.flag), ...GLOBALS.map((g) => g.flag)]);
+  // Mirrors opReservedFlags() in the generator: API parameters never use these
+  // names (colliding ones are emitted as --<kind>-<name>), so an unknown flag
+  // check can be exact.
+  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "debug", "validate", "non-interactive", "color", "version", "help", ...AUTH_SCALARS.map((a) => a.flag), ...(BASIC ? ["username", "password"] : []), ...GLOBALS.map((g) => g.flag)]);
   for (const spec of op.params) {
     if (spec.kind === "path") continue;
     const raw = parsed.flags.get(spec.flag);
