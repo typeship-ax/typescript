@@ -877,7 +877,7 @@ function commandSummaries(): CommandSummary[] {
     ...(op.summary ? { summary: op.summary } : {}),
     paginated: op.paginated,
     destructive: op.httpMethod === "DELETE",
-    flags: op.params.filter((p) => p.kind !== "path").map((p) => ({ flag: p.flag, type: p.type, required: p.required, ...(p.description ? { description: p.description.split("\n")[0] } : {}) })),
+    flags: op.params.filter((p) => p.kind !== "path").map((p) => ({ flag: p.flag, type: p.type, ...(p.items ? { items: p.items } : {}), ...(p.enum ? { enum: p.enum } : {}), required: p.required, ...(p.description ? { description: p.description.split("\n")[0] } : {}) })),
   }));
 }
 
@@ -1292,13 +1292,20 @@ function referenceFor(op: OpSpec): string {
     lines.push("", paintOut("bold", label + ":"));
     for (const p of params) {
       const name = p.kind === "path" ? "<" + p.name + ">" : "--" + p.flag;
-      const type = p.enum ? p.enum.join("|") : p.type;
-      lines.push("  " + padPaint("cyan", name, 30) + type + (p.required ? " " + paintOut("yellow", "(required)") : ""));
+      lines.push("  " + padPaint("cyan", name, 30) + typeLabel(p) + (p.required ? " " + paintOut("yellow", "(required)") : ""));
+      const values = p.type === "array" ? p.items?.enum : p.enum;
+      if (values && values.join("|").length > 24) lines.push("      one of: " + values.join(", "));
       if (p.description) {
         for (const descLine of p.description.trim().split("\n")) lines.push("      " + descLine);
       }
     }
   }
+  const extras = commandExtras(op);
+  if (extras.length > 0) {
+    lines.push("", paintOut("bold", "CLI flags:"));
+    for (const [name, text] of extras) lines.push("  " + padPaint("cyan", name, 30) + text);
+  }
+  lines.push("", paintOut("bold", "Example:"), "  " + exampleLine(op));
   return lines.join("\n");
 }
 
@@ -1622,6 +1629,24 @@ async function maybeUpdateNotice(commandWord: string | undefined, quiet: boolean
   }
 }
 
+/** The command that fetches the next page: same positionals, the next page's query flags. */
+function nextCommandFor(op: OpSpec, pathValues: string[], next: Record<string, unknown>): string {
+  const parts = [BIN, op.command[0], op.command[1], ...pathValues.map(shellQuote)];
+  for (const [wire, value] of Object.entries(next)) {
+    if (value === undefined || value === null) continue;
+    const spec = op.params.find((p) => (p.kind === "query" || p.kind === "body") && p.name === wire);
+    const flag = spec ? spec.flag : wire;
+    const text = Array.isArray(value) ? value.map(String).join(",") : typeof value === "object" ? JSON.stringify(value) : String(value);
+    parts.push("--" + flag, shellQuote(text));
+  }
+  return parts.join(" ");
+}
+
+/** Quote a value for a copy-pasteable shell line (POSIX single quotes). */
+function shellQuote(value: string): string {
+  return /^[A-Za-z0-9_@%+=:,./-]+$/.test(value) ? value : "'" + value.replace(/'/g, "'\\''") + "'";
+}
+
 function usageLine(op: OpSpec): string {
   const paths = op.params.filter((p) => p.kind === "path").map((p) => "<" + p.name + ">").join(" ");
   return BIN + " " + op.command[0] + " " + op.command[1] + (paths ? " " + paths : "");
@@ -1636,6 +1661,89 @@ function wireOf(op: OpSpec): string {
 /** Pad to a column, then paint — escape codes must not count toward width. */
 function padPaint(code: keyof typeof ANSI, text: string, width: number): string {
   return paintOut(code, text) + " ".repeat(Math.max(1, width - text.length));
+}
+
+/** Terminal width for wrapping help: the real column count, else 100, never under 60. */
+function termWidth(): number {
+  const cols = process.stdout.columns;
+  return Math.max(60, Math.min(cols && cols > 0 ? cols : 100, 160));
+}
+
+/** Word-wrap text to a width. */
+function wrapText(text: string, width: number): string[] {
+  const words = text.split(/\s+/).filter((w) => w !== "");
+  const lines: string[] = [];
+  let line = "";
+  const max = Math.max(20, width);
+  for (const word of words) {
+    if (line === "") { line = word; continue; }
+    if ((line + " " + word).length > max) { lines.push(line); line = word; }
+    else line += " " + word;
+  }
+  if (line !== "") lines.push(line);
+  return lines;
+}
+
+/** The first sentence of a description for --help: Markdown links flattened, one line, bounded. */
+function helpSentence(description: string | undefined): string {
+  if (!description) return "";
+  const flat = description.trim().replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/\s+/g, " ");
+  const m = flat.match(/^(.{1,200}?[.!?])(\s|$)/);
+  const first = m ? m[1]! : flat;
+  return first.length > 220 ? first.slice(0, 217).replace(/\s+\S*$/, "") + "…" : first;
+}
+
+/** Type column text for a param: string, number, string[], a|b|c, enum, object, json, path. */
+function typeLabel(p: ParamSpec): string {
+  if (p.type === "file") return "path (uploaded)";
+  const inlineEnum = (values: string[] | undefined) => values && values.join("|").length <= 24 ? values.join("|") : undefined;
+  if (p.type === "array") {
+    const items = p.items ?? { type: "json" as const };
+    const inner = inlineEnum(items.enum) ?? (items.enum ? "enum" : items.type);
+    return inner + "[]";
+  }
+  if (p.enum) return inlineEnum(p.enum) ?? "enum";
+  return p.type;
+}
+
+/** The enum values that did not fit in the type column, for a continuation line. */
+function enumNote(p: ParamSpec): string | null {
+  const values = p.type === "array" ? p.items?.enum : p.enum;
+  if (!values || values.join("|").length <= 24) return null;
+  return "one of: " + values.join(", ");
+}
+
+/** A "--flag  type  description" table with columns sized to the content and descriptions wrapped. */
+function flagTable(params: ParamSpec[], extras: [string, string][]): string[] {
+  const width = termWidth();
+  const rows: { name: string; type: string; required: boolean; text: string; note: string | null }[] = params.map((p) => ({
+    name: p.kind === "path" ? "<" + p.name + ">" : "--" + p.flag,
+    type: typeLabel(p),
+    required: p.required,
+    text: helpSentence(p.description),
+    note: enumNote(p),
+  }));
+  for (const [name, text] of extras) rows.push({ name, type: "", required: false, text, note: null });
+  const nameCol = Math.min(34, Math.max(12, ...rows.map((r) => r.name.length + 2)));
+  const typeCol = Math.min(28, Math.max(8, ...rows.map((r) => r.type.length + 2)));
+  const indent = 2 + nameCol + typeCol;
+  const lines: string[] = [];
+  for (const r of rows) {
+    // A name wider than its column gets its own line; the type and text follow beneath, aligned.
+    const head = r.name.length + 2 > nameCol
+      ? "  " + paintOut("cyan", r.name) + "\n" + " ".repeat(2 + nameCol) + r.type.padEnd(typeCol)
+      : "  " + padPaint("cyan", r.name, nameCol) + r.type.padEnd(typeCol);
+    const plain = (r.required ? "(required)" + (r.text ? " " : "") : "") + r.text;
+    if (plain === "") { lines.push(head.trimEnd()); }
+    else {
+      const wrapped = wrapText(plain, width - indent);
+      const first = r.required ? paintOut("yellow", "(required)") + wrapped[0]!.slice("(required)".length) : wrapped[0]!;
+      lines.push((head + first).trimEnd());
+      for (const more of wrapped.slice(1)) lines.push(" ".repeat(indent) + more);
+    }
+    if (r.note) for (const more of wrapText(r.note, width - indent)) lines.push(" ".repeat(indent) + paintOut("dim", more));
+  }
+  return lines;
 }
 
 function printRoot(): void {
@@ -1680,38 +1788,100 @@ function printRoot(): void {
 function printResource(resource: string): void {
   const list = OPS.filter((o) => o.command[0] === resource);
   const lines: string[] = ["Commands for " + resource + ":", ""];
+  const width = termWidth();
+  const col = Math.min(64, Math.max(...list.map((o) => usageLine(o).length)) + 2);
   for (const op of list) {
-    lines.push("  " + usageLine(op).padEnd(56) + (op.summary ?? wireOf(op)));
+    const usage = usageLine(op);
+    const wrapped = wrapText(helpSentence(op.summary) || wireOf(op), width - 2 - col);
+    if (usage.length + 2 > col) {
+      lines.push("  " + usage);
+      for (const line of wrapped) lines.push(" ".repeat(2 + col) + line);
+    } else {
+      lines.push("  " + usage.padEnd(col) + wrapped[0]);
+      for (const line of wrapped.slice(1)) lines.push(" ".repeat(2 + col) + line);
+    }
   }
+  lines.push("", "Run '" + BIN + " " + resource + " <command> --help' for flags.");
   process.stdout.write(lines.join("\n") + "\n");
+}
+
+/** Flags the CLI itself adds to an API command, as [flag, description] rows. */
+function commandExtras(op: OpSpec): [string, string][] {
+  const extras: [string, string][] = [];
+  if (op.hasBody && op.bodyKind === "binary") extras.push(["--file <path>", "raw request body, uploaded as-is (- reads stdin)"]);
+  else if (op.hasBody) extras.push(["--data '<json>'", "raw JSON body" + (op.bodyStyle === "fields" ? " (merged under field flags)" : "") + "; @<file> reads a file, - reads stdin"]);
+  if (op.select) extras.push(["--select '<selection>'", "GraphQL selection set replacing the default, e.g. '{ id name }'"]);
+  if (op.paginated) extras.push(["--all", "stream every item from every page (NDJSON)"]);
+  if (bundleProperty(op.outputSchema) !== null) extras.push(["--out <dir>", "write the response's files ({path, content}) into a directory"]);
+  if (op.httpMethod === "DELETE") extras.push(["--force", "destructive: required without a terminal, skips the prompt with one"]);
+  return extras;
+}
+
+/** One runnable example built from the required inputs. */
+function exampleLine(op: OpSpec): string {
+  const parts = [usageLine(op)];
+  for (const p of op.params) {
+    if (p.kind === "path" || !p.required) continue;
+    const values = p.type === "array" ? p.items?.enum : p.enum;
+    const sample = p.type === "file" ? "./file"
+      : values ? values[0]!
+      : p.type === "number" ? "1"
+      : p.type === "boolean" ? "true"
+      : p.type === "object" ? "'{\"key\": \"value\"}'"
+      : p.type === "array" ? (p.items?.type === "number" ? "1,2" : p.items?.type === "object" || p.items?.type === "json" ? "'[{\"key\": \"value\"}]'" : "a,b")
+      : "<" + p.flag.replace(/-/g, "_") + ">";
+    parts.push("--" + p.flag + " " + sample);
+  }
+  const required = op.bodyStyle === "data" && ((op.inputSchema.required as string[] | undefined) ?? []).includes("body");
+  if (required) parts.push(op.bodyKind === "binary" ? "--file ./file" : "--data '<json>'");
+  return parts.join(" ");
 }
 
 function printOp(op: OpSpec): void {
   const lines: string[] = [];
   lines.push(paintOut("bold", usageLine(op)));
-  if (op.summary) lines.push(op.summary);
+  if (op.summary) lines.push(helpSentence(op.summary));
   lines.push(wireOf(op));
   lines.push("");
   const rows = op.params.filter((p) => p.kind !== "path");
-  if (rows.length > 0) {
+  const extras = commandExtras(op);
+  if (rows.length > 0 || extras.length > 0) {
     lines.push(paintOut("bold", "Flags:"));
-    for (const p of rows) {
-      let type: string = p.type === "file" ? "path (uploaded)" : p.type;
-      if (p.enum) type = p.enum.join("|");
-      lines.push(
-        "  " + padPaint("cyan", "--" + p.flag, 30) + type.padEnd(18) +
-        (p.required ? paintOut("yellow", "(required)") + " " : "") + (p.description ?? "").split("\n")[0]!.slice(0, 80),
-      );
-    }
+    lines.push(...flagTable(rows, extras));
   }
-  if (op.hasBody && op.bodyKind === "binary") lines.push("  --file <path>" + " ".repeat(17) + "raw request body, uploaded as-is");
-  else if (op.hasBody) lines.push("  --data '<json>'" + " ".repeat(15) + "raw JSON body" + (op.bodyStyle === "fields" ? " (merged under field flags)" : ""));
-  if (op.select) lines.push("  --select '<selection>'" + " ".repeat(9) + "GraphQL selection set replacing the default, e.g. '{ id name }'");
-  if (op.paginated) lines.push("  --all" + " ".repeat(25) + "stream every item from every page (NDJSON)");
-  if (bundleProperty(op.outputSchema) !== null) lines.push("  --out <dir>" + " ".repeat(19) + "write the response's files ({path, content}) into a directory");
-  if (op.httpMethod === "DELETE") lines.push("  --force" + " ".repeat(23) + "destructive: required without a terminal, skips the prompt with one");
   if (op.sse) lines.push("  (streams: one JSON line per server-sent event until the stream ends)");
+  lines.push("", paintOut("bold", "Example:"));
+  lines.push("  " + exampleLine(op));
+  if (op.paginated) lines.push("  " + usageLine(op) + " --all | jq -r '.id'");
+  const arrayFlag = rows.find((p) => p.type === "array");
+  if (arrayFlag) {
+    const sample = arrayFlag.items?.enum ? arrayFlag.items.enum.slice(0, 2).join(",") : arrayFlag.items?.type === "number" ? "1,2" : "a,b";
+    lines.push("", "Array flags take a comma list (--" + arrayFlag.flag + " " + sample + "), the flag repeated, or a JSON array.");
+  }
   process.stdout.write(lines.join("\n") + "\n");
+}
+
+/** A text file named by a flag value (--data @body.json). */
+function readTextFile(flag: string, path: string): string {
+  try {
+    return readFileSync(path, "utf8");
+  } catch (e) {
+    return fail(2, "--" + flag + ": cannot read " + path + " (" + (e as Error).message + ")");
+  }
+}
+
+/** Everything on stdin as bytes, for --file -. */
+function readStdinBytes(): Promise<Uint8Array<ArrayBuffer>> {
+  return new Promise((resolve) => {
+    const chunks: Buffer[] = [];
+    process.stdin.on("data", (chunk: Buffer) => { chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)); });
+    process.stdin.on("end", () => {
+      const all = Buffer.concat(chunks);
+      const bytes = new Uint8Array(all.byteLength);
+      bytes.set(all);
+      resolve(bytes);
+    });
+  });
 }
 
 /** A local file as an upload part; the SDK's multipart encoder takes Blobs. */
@@ -1723,34 +1893,82 @@ function fileFromPath(flag: string, path: string): File {
   }
 }
 
-function coerce(spec: ParamSpec, raw: string | boolean): unknown {
-  if (spec.type === "file") {
-    if (raw === true) fail(2, "--" + spec.flag + " expects a file path");
-    return fileFromPath(spec.flag, String(raw));
+/** One scalar value of a flag (or of an array flag's element). */
+function coerceScalar(flag: string, type: "string" | "number" | "boolean" | "object" | "json", enumValues: string[] | undefined, text: string): unknown {
+  if (type === "object") {
+    let parsed: unknown;
+    try { parsed = JSON.parse(text); } catch (e) { fail(2, "--" + flag + " expects JSON objects, got: " + text + " (" + (e as Error).message + ")"); }
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) fail(2, "--" + flag + " expects JSON objects, got: " + text);
+    return parsed;
   }
-  if (spec.type === "boolean") {
-    if (raw === true || raw === "true") return true;
-    if (raw === "false") return false;
-    fail(2, "--" + spec.flag + " expects true or false");
+  if (type === "boolean") {
+    if (text === "true") return true;
+    if (text === "false") return false;
+    fail(2, "--" + flag + " expects true or false, got: " + text);
   }
-  if (raw === true) fail(2, "--" + spec.flag + " needs a value");
-  const text = String(raw);
-  if (spec.type === "number") {
+  if (type === "number") {
     const n = Number(text);
-    if (!Number.isFinite(n)) fail(2, "--" + spec.flag + " expects a number, got: " + text);
+    if (!Number.isFinite(n) || text.trim() === "") fail(2, "--" + flag + " expects a number, got: " + text);
     return n;
   }
-  if (spec.type === "json") {
+  if (type === "json") {
     try {
       return JSON.parse(text);
     } catch {
       return text; // let plain strings through for loosely-typed fields
     }
   }
-  if (spec.enum && !spec.enum.includes(text)) {
-    fail(2, "--" + spec.flag + " must be one of: " + spec.enum.join(", "));
+  if (enumValues && !enumValues.includes(text)) {
+    fail(2, "--" + flag + " must be one of: " + enumValues.join(", ") + " (got: " + text + ")");
   }
   return text;
+}
+
+/**
+ * A flag's raw value(s) as the typed value the SDK expects.
+ * Arrays take the flag repeated (--tag a --tag b), a comma list (--tag a,b),
+ * or a JSON array; a lone scalar is a one-item array, never a bare string.
+ * Objects must be JSON. Enum values are checked locally.
+ */
+function coerce(spec: ParamSpec, raw: string | boolean, repeated?: string[]): unknown {
+  if (spec.type === "file") {
+    if (raw === true) fail(2, "--" + spec.flag + " expects a file path");
+    return fileFromPath(spec.flag, String(raw));
+  }
+  if (spec.type === "boolean") {
+    if (raw === true) return true;
+    return coerceScalar(spec.flag, "boolean", undefined, String(raw));
+  }
+  if (raw === true) fail(2, "--" + spec.flag + " needs a value");
+  const text = String(raw);
+  if (spec.type === "array") {
+    const items = spec.items ?? { type: "json" as const };
+    const values = repeated !== undefined ? repeated : [text];
+    const out: unknown[] = [];
+    for (const value of values) {
+      const trimmed = value.trim();
+      if (trimmed.startsWith("[")) {
+        let parsed: unknown;
+        try { parsed = JSON.parse(trimmed); } catch (e) { fail(2, "--" + spec.flag + " looks like a JSON array but does not parse: " + (e as Error).message); }
+        if (!Array.isArray(parsed)) fail(2, "--" + spec.flag + " expects an array");
+        for (const element of parsed as unknown[]) {
+          out.push(typeof element === "string" && items.type !== "json" && items.type !== "object" ? coerceScalar(spec.flag, items.type, items.enum, element) : element);
+        }
+        continue;
+      }
+      // A comma list splits for scalar elements; JSON elements (objects) keep commas.
+      const parts = items.type === "json" || items.type === "object" || repeated !== undefined ? [value] : value.split(",").map((v) => v.trim()).filter((v) => v !== "");
+      for (const part of parts) out.push(coerceScalar(spec.flag, items.type, items.enum, part));
+    }
+    return out;
+  }
+  if (spec.type === "object") {
+    let parsed: unknown;
+    try { parsed = JSON.parse(text); } catch (e) { fail(2, "--" + spec.flag + " expects a JSON object, e.g. --" + spec.flag + " '{\"key\": \"value\"}' (" + (e as Error).message + ")"); }
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) fail(2, "--" + spec.flag + " expects a JSON object, got: " + text);
+    return parsed;
+  }
+  return coerceScalar(spec.flag, spec.type === "json" ? "json" : spec.type === "number" ? "number" : "string", spec.enum, text);
 }
 
 /** Whether the last client built carried any credential; failApi tells NO_AUTH from AUTH_INVALID with it. */
@@ -1912,12 +2130,19 @@ async function main(): Promise<void> {
 
   let dataBody: unknown;
   const dataRaw = parsed.flags.get("data");
+  if (dataRaw === true) fail(2, "--data expects a JSON value, @<file>, or - for stdin");
   if (typeof dataRaw === "string") {
-    try { dataBody = JSON.parse(dataRaw); } catch (e) { fail(2, "--data is not valid JSON: " + (e as Error).message); }
+    // curl conventions: @path reads a file, - reads stdin, anything else is the literal.
+    const text = dataRaw === "-" ? await readStdin()
+      : dataRaw.startsWith("@") ? readTextFile("data", dataRaw.slice(1))
+      : dataRaw;
+    try { dataBody = JSON.parse(text); } catch (e) { fail(2, "--data is not valid JSON" + (dataRaw === "-" ? " (stdin)" : dataRaw.startsWith("@") ? " (" + dataRaw.slice(1) + ")" : "") + ": " + (e as Error).message); }
   }
-  // A binary body (an upload that isn't a form) comes from --file.
+  // A binary body (an upload that isn't a form) comes from --file (- reads stdin).
   const fileRaw = parsed.flags.get("file");
-  if (op.bodyKind === "binary" && typeof fileRaw === "string") dataBody = fileFromPath("file", fileRaw);
+  if (op.bodyKind === "binary" && typeof fileRaw === "string") {
+    dataBody = fileRaw === "-" ? new File([await readStdinBytes()], "stdin") : fileFromPath("file", fileRaw);
+  }
 
   // Mirrors opReservedFlags() in the generator: API parameters never use these
   // names (colliding ones are emitted as --<kind>-<name>), so an unknown flag
@@ -1927,12 +2152,15 @@ async function main(): Promise<void> {
     if (spec.kind === "path") continue;
     const raw = parsed.flags.get(spec.flag);
     if (raw === undefined) continue;
-    // A flag given more than once is an array (JSON-typed params only:
-    // arrays and loosely typed fields); each value is coerced on its own.
+    // A flag given more than once is an array: array-typed params collect
+    // every value (each coerced to the element type); loosely typed (json)
+    // params become an array of the parsed values.
     const all = parsed.repeated.get(spec.flag);
-    values[spec.name] = all !== undefined && spec.type === "json"
-      ? all.map((v) => coerce(spec, v))
-      : coerce(spec, raw);
+    values[spec.name] = spec.type === "array"
+      ? coerce(spec, raw, all)
+      : all !== undefined && spec.type === "json"
+        ? all.map((v) => coerce(spec, v))
+        : coerce(spec, raw);
   }
   for (const key of parsed.flags.keys()) {
     if (RESERVED_FLAGS.has(key)) continue;
@@ -2023,8 +2251,16 @@ async function main(): Promise<void> {
       }
     }
     if (op.paginated) {
-      const page = result.data as { items: unknown[]; hasNextPage(): boolean };
-      out({ items: page.items, hasMore: page.hasNextPage() });
+      // One page, plus what fetches the next: the raw arguments (the MCP
+      // tool's nextPage shape) and the exact command, so a script or an
+      // agent never has to reconstruct the cursor flag.
+      const page = result.data as { items: unknown[]; hasNextPage(): boolean; nextPageParams(): Record<string, unknown> | null };
+      const next = page.nextPageParams();
+      out({
+        items: page.items,
+        hasMore: next !== null,
+        ...(next !== null ? { nextPage: next, nextCommand: nextCommandFor(op, pathValues, next) } : {}),
+      });
     } else if (outDir !== undefined && bundleField !== null) {
       // --out: a file-shaped response (an array of {path, content}) lands
       // on disk; stdout gets the rest of the response plus a summary.

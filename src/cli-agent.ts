@@ -415,7 +415,11 @@ export function agentInstructionsFile(cwd: string, harness: string | null): stri
 
 export interface CommandFlagSummary {
   flag: string;
+  /** string | number | boolean | array | object | json | file */
   type: string;
+  /** Element type of an array flag. */
+  items?: { type: string; enum?: string[] };
+  enum?: string[];
   required: boolean;
   description?: string;
 }
@@ -448,10 +452,17 @@ export interface AgentContext {
 }
 
 /** One line per command, pipe-delimited: the compact index that goes into AGENTS.md. */
+/** string, number, usd|eur, string[], usd|eur[], object, json — the type as a reader expects it. */
+export function flagTypeLabel(f: CommandFlagSummary): string {
+  const inline = (values: string[] | undefined) => values && values.join("|").length <= 24 ? values.join("|") : values ? "enum" : undefined;
+  if (f.type === "array") return (inline(f.items?.enum) ?? f.items?.type ?? "json") + "[]";
+  return inline(f.enum) ?? f.type;
+}
+
 export function compactIndex(commands: CommandSummary[]): string {
   return commands
     .map((c) => {
-      const required = c.flags.filter((f) => f.required).map((f) => "--" + f.flag + (f.type === "boolean" ? "" : " <" + f.type + ">"));
+      const required = c.flags.filter((f) => f.required).map((f) => "--" + f.flag + (f.type === "boolean" ? "" : " <" + flagTypeLabel(f) + ">"));
       return c.resource + " " + c.command + " | " + c.method + " " + c.path + (required.length ? " | " + required.join(" ") : "") + (c.summary ? " | " + c.summary : "");
     })
     .join("\n");
@@ -502,8 +513,8 @@ export function agentGuide(ctx: AgentContext, commands: CommandSummary[]): Recor
       exit_codes: { "0": "ok", "1": "the request or command failed", "2": "usage: wrong flags, missing arguments, or a confirmation was required" },
       agent_mode: "--mode agent, " + ctx.envPrefix + "_MODE=agent, or no terminal on stdin and stdout: no prompts, no browsers, --yes implied for non-destructive stops.",
       destructive: "DELETE commands need --force (or --yes); without it they return CONFIRMATION_REQUIRED with the exact command to run.",
-      flags: "Positional path arguments first, then --flags. JSON-typed flags take JSON; repeat a flag for arrays. --data '<json>' merges under field flags.",
-      pagination: "Paginated commands return {items, hasMore}; --all walks every page.",
+      flags: "Positional path arguments first, then --flags. Array flags take a comma list, the flag repeated, or a JSON array; object flags take JSON. --data '<json>' merges under field flags (@<file> reads a file, - reads stdin).",
+      pagination: "Paginated commands return {items, hasMore, nextPage, nextCommand}: run nextCommand for the next page, or --all walks every page.",
     },
     builtins: ctx.builtins,
     next_steps: [
