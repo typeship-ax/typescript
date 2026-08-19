@@ -181,10 +181,35 @@ export interface Config {
   retries?: RetryTuning;
   /** Per-operation pagination control, keyed by operationId or "METHOD /path". Unmatched keys are reported as generation warnings. */
   pagination?: Record<string, PaginationRule | boolean>;
+  graphql?: GraphqlSettings;
   cli?: CliBehavior;
   mcp?: McpBehavior;
   /** The API's documentation site. Read through its llms.txt by the generated CLI's docs command, the MCP server's docs tools, and the package's AGENTS.md. Defaults to the spec's externalDocs URL. */
   docs_url?: string | null;
+}
+
+/** What a GraphQL schema cannot say about itself. Ignored for OpenAPI specs. */
+export interface GraphqlSettings {
+  /**
+   * The URL every request is POSTed to; the generated client's default baseUrl. Defaults to the URL the schema was fetched from. Without either, baseUrl is a required client option.
+   * Format: uri
+   */
+  endpoint?: string;
+  /** Named endpoints (sandbox, production). Each becomes a client environment; the first is the default unless endpoint is set. */
+  environments?: Array<{
+    name: string;
+    /** Format: uri */
+    url: string;
+  }>;
+  /**
+   * How requests authenticate. bearer sends Authorization: Bearer; basic is for key-pair APIs (public key as username, private key as password); api_key sends a header named by api_key_header; none generates no auth option.
+   * Default: "bearer"
+   */
+  auth?: "bearer" | "basic" | "api_key" | "none";
+  /** Header carrying the key when auth is api_key. Default X-API-Key. */
+  api_key_header?: string;
+  /** The API's name; drives the package and client names ("Braintree" gives braintree and BraintreeClient). Defaults to a name derived from the endpoint's host. */
+  title?: string;
 }
 
 /** Retry behavior. Top-level fields adjust every operation; operations maps operationId or "METHOD /path" keys to per-operation overrides. */

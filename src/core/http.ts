@@ -101,6 +101,83 @@ export class GraphQLRequestError extends Error {
 }
 
 // ---------------------------------------------------------------------------
+// GraphQL selections — typed field picking over the schema's result types
+// ---------------------------------------------------------------------------
+
+type Primitive = string | number | boolean | bigint | symbol | null | undefined;
+type Unwrap<T> = NonNullable<T> extends readonly (infer U)[] ? Unwrap<U> : NonNullable<T>;
+type IsUnion<T, U = T> = T extends unknown ? ([U] extends [T] ? false : true) : never;
+type TypeNameOf<T> = T extends { __typename?: infer N } ? Extract<N, string> : never;
+type Prettify<T> = { [K in keyof T]: T[K] } & {};
+
+/**
+ * A selection over a GraphQL result type `T`: `true` picks a leaf field, a
+ * nested object picks inside an object field, and `on` picks per concrete
+ * type when `T` is a union or interface (`{ on: { Transaction: { amount: true } } }`).
+ * Keys are checked against the schema, so a typo is a compile error.
+ */
+export type Selection<T> = Unwrap<T> extends Primitive ? never : SelectionObject<Unwrap<T>>;
+
+type FieldSelection<V> = Unwrap<V> extends Primitive ? true : SelectionObject<Unwrap<V>>;
+
+type SelectionObject<T> = {
+  [K in Extract<keyof T, string> as K extends "__typename" ? never : K]?: FieldSelection<T[K]>;
+} & { __typename?: true } & (IsUnion<T> extends true
+  ? { on?: { [N in TypeNameOf<T>]?: SelectionObject<Extract<T, { __typename?: N }>> } }
+  : { on?: never });
+
+/** The result type a {@link Selection} `S` produces from result type `T`:
+ * exactly the fields picked, nullability and lists preserved, union members
+ * narrowed by `__typename`. */
+export type Selected<T, S> = T extends readonly (infer U)[]
+  ? Selected<U, S>[]
+  : T extends Primitive
+    ? T
+    : S extends object
+      ? Prettify<SelectedMember<T, S>>
+      : never;
+
+type SelectedMember<T, S> = (S extends { on?: infer O }
+  ? O extends object
+    ? TypeNameOf<T> extends keyof O
+      ? PickSelected<T, NonNullable<O[TypeNameOf<T>]>>
+      : {}
+    : {}
+  : {}) &
+  PickSelected<T, S>;
+
+type PickSelected<T, S> = {
+  -readonly [K in keyof S as K extends "on" ? never : K extends keyof T ? (S[K] extends true | object ? K : never) : never]-?: K extends "__typename"
+    ? NonNullable<T[K & keyof T]>
+    : S[K] extends true
+      ? Exclude<T[K & keyof T], undefined>
+      : Selected<Exclude<T[K & keyof T], undefined>, S[K]>;
+};
+
+/** A selection object or a raw selection set (`"{ id name }"`). */
+export type SelectionInput = string | Record<string, unknown>;
+
+/** Serialize a selection object to a GraphQL selection set. Strings pass
+ * through untouched. */
+export function selectionToString(selection: SelectionInput): string {
+  if (typeof selection === "string") return selection;
+  const parts: string[] = [];
+  for (const [key, value] of Object.entries(selection)) {
+    if (!value) continue;
+    if (key === "on" && typeof value === "object") {
+      for (const [typeName, sub] of Object.entries(value as Record<string, unknown>)) {
+        if (sub && typeof sub === "object") parts.push("... on " + typeName + " " + selectionToString(sub as Record<string, unknown>));
+      }
+    } else if (value === true) {
+      parts.push(key);
+    } else if (typeof value === "object") {
+      parts.push(key + " " + selectionToString(value as Record<string, unknown>));
+    }
+  }
+  return "{ " + (parts.length > 0 ? parts.join(" ") : "__typename") + " }";
+}
+
+// ---------------------------------------------------------------------------
 // Optional runtime validation — zero-dependency, schema table in schemas.ts
 // ---------------------------------------------------------------------------
 

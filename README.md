@@ -29,6 +29,12 @@ for await (const item of client.projects.list()) {
 }
 ```
 
+## Authentication
+
+- **Bearer token** — `bearerToken` (a string, or a callback for tokens that expire), sent as `Authorization: Bearer <token>`.
+
+`defaultHeaders` adds headers to every request (API version headers, tenant ids); `onRequest` can rewrite any request before it is sent.
+
 ## Error handling
 
 Nothing throws on HTTP errors. Every call returns a discriminated result, and the
@@ -78,7 +84,7 @@ typeship projects list --all   # stream every page as NDJSON
 
 Body fields become flags (`--name x --currency usd`); nested values take JSON; `--data '<json>'` sets the whole body. Flags only — no prompts, CI-safe, exit codes 0/1/2.
 
-Auth via env (`TYPESHIP_TOKEN`, `TYPESHIP_BASE_URL`, …) or flags (`--token`, `--base-url`).
+Auth via env (`TYPESHIP_TOKEN`, `TYPESHIP_BASE_URL`) or flags (`--token`, `--base-url`).
 
 ## MCP server
 

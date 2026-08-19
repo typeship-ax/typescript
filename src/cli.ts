@@ -1281,7 +1281,7 @@ function referenceFor(op: OpSpec): string {
   const lines: string[] = [];
   lines.push(paintOut("bold", usageLine(op)));
   if (op.summary) lines.push(op.summary);
-  lines.push(op.httpMethod + " " + op.path + (op.paginated ? "  (paginated: --all streams every item)" : ""));
+  lines.push(wireOf(op) + (op.paginated ? "  (paginated: --all streams every item)" : ""));
   if (op.description) lines.push("", op.description.trim());
   const groups: [string, ParamSpec[]][] = [
     ["Path arguments", op.params.filter((p) => p.kind === "path")],
@@ -1351,7 +1351,7 @@ async function cmdDocs(parsed: Parsed): Promise<void> {
     if (refMatches.length > 0) {
       lines.push(paintOut("bold", "Reference:"));
       for (const op of refMatches.slice(0, 15)) {
-        lines.push("  " + padPaint("cyan", op.command.join(" "), 34) + (op.summary ?? op.httpMethod + " " + op.path));
+        lines.push("  " + padPaint("cyan", op.command.join(" "), 34) + (op.summary ?? wireOf(op)));
       }
     }
     const prose = await fetchDocs("llms-full.txt");
@@ -1627,6 +1627,12 @@ function usageLine(op: OpSpec): string {
   return BIN + " " + op.command[0] + " " + op.command[1] + (paths ? " " + paths : "");
 }
 
+/** How the command reaches the wire: "GET /users/{id}", or for GraphQL the
+ * root field, since every operation is one POST to the endpoint. */
+function wireOf(op: OpSpec): string {
+  return op.graphql ? "GraphQL " + op.graphql.kind + " " + op.graphql.field : op.httpMethod + " " + op.path;
+}
+
 /** Pad to a column, then paint — escape codes must not count toward width. */
 function padPaint(code: keyof typeof ANSI, text: string, width: number): string {
   return paintOut(code, text) + " ".repeat(Math.max(1, width - text.length));
@@ -1675,7 +1681,7 @@ function printResource(resource: string): void {
   const list = OPS.filter((o) => o.command[0] === resource);
   const lines: string[] = ["Commands for " + resource + ":", ""];
   for (const op of list) {
-    lines.push("  " + usageLine(op).padEnd(56) + (op.summary ?? op.httpMethod + " " + op.path));
+    lines.push("  " + usageLine(op).padEnd(56) + (op.summary ?? wireOf(op)));
   }
   process.stdout.write(lines.join("\n") + "\n");
 }
@@ -1684,7 +1690,7 @@ function printOp(op: OpSpec): void {
   const lines: string[] = [];
   lines.push(paintOut("bold", usageLine(op)));
   if (op.summary) lines.push(op.summary);
-  lines.push(op.httpMethod + " " + op.path);
+  lines.push(wireOf(op));
   lines.push("");
   const rows = op.params.filter((p) => p.kind !== "path");
   if (rows.length > 0) {
@@ -1700,7 +1706,7 @@ function printOp(op: OpSpec): void {
   }
   if (op.hasBody && op.bodyKind === "binary") lines.push("  --file <path>" + " ".repeat(17) + "raw request body, uploaded as-is");
   else if (op.hasBody) lines.push("  --data '<json>'" + " ".repeat(15) + "raw JSON body" + (op.bodyStyle === "fields" ? " (merged under field flags)" : ""));
-  if (op.select) lines.push("  --select '<selection>'" + " ".repeat(9) + "GraphQL selection set override, e.g. '{ id name }'");
+  if (op.select) lines.push("  --select '<selection>'" + " ".repeat(9) + "GraphQL selection set replacing the default, e.g. '{ id name }'");
   if (op.paginated) lines.push("  --all" + " ".repeat(25) + "stream every item from every page (NDJSON)");
   if (bundleProperty(op.outputSchema) !== null) lines.push("  --out <dir>" + " ".repeat(19) + "write the response's files ({path, content}) into a directory");
   if (op.httpMethod === "DELETE") lines.push("  --force" + " ".repeat(23) + "destructive: required without a terminal, skips the prompt with one");

@@ -26,7 +26,7 @@ const client = new TypeshipClient({ /* auth options above */ });
 - Every call returns `ApiResult<T, E>`: check `result.ok`, or `unwrap(result)` to throw the typed error. Nothing throws on HTTP errors by default.
 - Paginated methods return a `PagePromise`: `for await (const item of client.x.list())` walks every page.
 - Every method takes a last `{ timeoutMs, maxRetries, headers, signal }` argument for per-call overrides; every result carries `response: { status, headers, requestId }`.
-- Uploads take a `Blob` (a `File` for a filename); GraphQL operations take a raw selection set as their second argument.
+- Uploads take a `Blob` (a `File` for a filename).
 - `debug: true` (or a function) on the client logs one redacted line per request.
 
 ## Using the CLI
