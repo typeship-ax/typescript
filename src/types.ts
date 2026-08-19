@@ -29,7 +29,7 @@ export interface GenerationMeta {
   converted?: boolean;
   package_name: string;
   client_name: string;
-  targets: Array<"sdk" | "cli" | "mcp" | "agent">;
+  targets: Array<"sdk" | "cli" | "mcp">;
   resource_count?: number;
   operation_count?: number;
   schema_count?: number;
@@ -113,14 +113,10 @@ export interface Project {
   mcp_enabled?: boolean;
   /** Path of the hosted MCP endpoint while it is on; read-only. */
   mcp_url?: string | null;
-  /** Whether the hosted agent context URL is on. Requires the agent platform and Pro; turning the platform off turns this off. */
-  agent_context_enabled?: boolean;
-  /** Path of the hosted agent context (an always-current AGENTS.md) while it is on; read-only. */
-  agent_context_url?: string | null;
   /** Whether the webhook relay is on, letting the generated CLI's webhooks listen command mint relay sessions. Requires the cli platform and Pro; turning the platform off turns this off. */
   relay_enabled?: boolean;
-  /** Artifacts this project builds from its spec. sdk is always present and stands for the SDK in each of `languages`; cli, mcp, and agent are built on the TypeScript SDK and ship in its package, so they require typescript among the languages. Each SDK language and each of cli, mcp, and agent is one platform for billing. */
-  platforms: Array<"sdk" | "cli" | "mcp" | "agent">;
+  /** Artifacts this project builds from its spec. sdk is always present and stands for the SDK in each of `languages`; cli and mcp are built on the TypeScript SDK and ship in its package, so they require typescript among the languages. Each SDK language and each of cli and mcp is one platform for billing. */
+  platforms: Array<"sdk" | "cli" | "mcp">;
   /** Format: date-time */
   created_at: string;
 }
@@ -154,7 +150,7 @@ export interface CliBehavior {
 
 /** How the generated MCP server and the hosted endpoint behave. Part of Config. */
 export interface McpBehavior {
-  /** MCP tool shape. meta collapses per-operation tools into search_docs, read_docs, and execute so large APIs don't flood agent context; auto switches to meta above 100 operations. */
+  /** MCP tool shape. meta collapses per-operation tools into search_docs, read_docs, and execute so large APIs don't flood an agent's context window; auto switches to meta above 100 operations. */
   tool_mode?: "auto" | "operations" | "meta";
 }
 
@@ -167,7 +163,7 @@ export interface Config {
   pagination?: Record<string, PaginationRule | boolean>;
   cli?: CliBehavior;
   mcp?: McpBehavior;
-  /** The API's documentation site. Read through its llms.txt by the generated CLI's docs command, the MCP server's docs tools, and the agent context. Defaults to the spec's externalDocs URL. */
+  /** The API's documentation site. Read through its llms.txt by the generated CLI's docs command, the MCP server's docs tools, and the package's AGENTS.md. Defaults to the spec's externalDocs URL. */
   docs_url?: string | null;
 }
 

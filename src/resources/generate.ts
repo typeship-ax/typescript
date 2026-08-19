@@ -18,9 +18,9 @@ export class GenerateResource {
   async run(body: {
     spec: SpecInput;
     /** Artifacts to generate from the spec. Defaults to [sdk]. */
-    platforms?: Array<"sdk" | "cli" | "mcp" | "agent">;
+    platforms?: Array<"sdk" | "cli" | "mcp">;
     /**
-     * Language to generate. Python and Go produce the SDK only; the CLI, MCP server, and agent context are TypeScript artifacts and are skipped with a warning when requested alongside them.
+     * Language to generate. Python and Go produce the SDK only; the CLI and MCP server are TypeScript artifacts and are skipped with a warning when requested alongside them.
      * Default: "typescript"
      */
     language?: "typescript" | "python" | "go";

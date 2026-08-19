@@ -50,8 +50,8 @@ export class ProjectsResource {
     /** Spec location for a URL-sourced project. Provide this or source; a project with neither has nothing to generate. */
     spec_url?: string;
     source?: Source;
-    /** Artifacts to build. sdk is implied; cli, mcp, and agent require typescript among the languages. Free projects run one platform in total (one SDK language); more is a 402 until the account is on Pro. */
-    platforms?: Array<"sdk" | "cli" | "mcp" | "agent">;
+    /** Artifacts to build. sdk is implied; cli and mcp require typescript among the languages. Free projects run one platform in total (one SDK language); more is a 402 until the account is on Pro. */
+    platforms?: Array<"sdk" | "cli" | "mcp">;
     /** Languages to generate. Each is a separate package, a separate pull request, a separate hosted generation, and one platform for billing. Defaults to typescript alone. */
     languages?: Array<"typescript" | "python" | "go">;
     /** Per-language pull-request destination, keyed by language. */
@@ -66,8 +66,6 @@ export class ProjectsResource {
     mcp_enabled?: boolean;
     /** Requires the cli platform and Pro. */
     relay_enabled?: boolean;
-    /** Requires the agent platform and Pro. */
-    agent_context_enabled?: boolean;
     config?: Config | null;
   }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsCreateError>> {
     return this._core.request<Project, ProjectsCreateError>({
@@ -122,8 +120,8 @@ export class ProjectsResource {
     name?: string;
     spec_url?: string;
     source?: Source;
-    /** Artifacts to build; replaces the list. Dropping cli, mcp, or agent turns off the hosted feature it serves. cli, mcp, and agent require typescript among the languages. Turning a platform off stops generating it; nothing already delivered is removed. */
-    platforms?: Array<"sdk" | "cli" | "mcp" | "agent">;
+    /** Artifacts to build; replaces the list. Dropping cli or mcp turns off the hosted feature it serves. cli and mcp require typescript among the languages. Turning a platform off stops generating it; nothing already delivered is removed. */
+    platforms?: Array<"sdk" | "cli" | "mcp">;
     destination?: Destination | null;
     /** Languages to generate; replaces the list. Each is its own hosted generation and one platform for billing. */
     languages?: Array<"typescript" | "python" | "go">;
@@ -138,8 +136,6 @@ export class ProjectsResource {
     mcp_enabled?: boolean;
     /** Enable the webhook relay so the generated CLI's webhooks listen command works for this API's users. Requires the cli platform and Pro. */
     relay_enabled?: boolean;
-    /** Serve an always-current AGENTS.md for this API at a stable hosted URL. Requires the agent platform and Pro. */
-    agent_context_enabled?: boolean;
     /** Replaces the whole config. Pass null to clear it. */
     config?: Config | null;
   }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsUpdateError>> {
