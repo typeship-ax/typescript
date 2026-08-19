@@ -65,7 +65,7 @@ const CORE_BOOLEAN_FLAGS = new Set(["all", "version", "non-interactive", "debug"
 const BUILTIN_BOOLEAN_FLAGS: Record<string, string[]> = {
   login: ["with-token", "no-browser"],
   upgrade: ["check"],
-  mcp: ["claude", "cursor", "claude-desktop", "codex", "vscode", "windsurf", "gemini", "opencode", "zed", "all"],
+  mcp: ["claude", "cursor", "claude-desktop", "codex", "vscode", "windsurf", "gemini", "opencode", "zed", "all", "read-only"],
   docs: ["web"],
   init: ["all", "yes", "no-skills", "no-mcp", "no-agents-md"],
   auth: ["live"],
@@ -827,19 +827,23 @@ function claudeDesktopConfigPath(): string {
 /** The mcp entry for a client: the hosted endpoint when the API has one
  * (auth env var as a reference, never a literal), else the local stdio
  * server. --url overrides. */
-function mcpEntryFor(url: string | undefined): { entry: McpEntry; warnings: string[] } {
+function mcpEntryFor(url: string | undefined, readOnly = false): { entry: McpEntry; warnings: string[] } {
   const warnings: string[] = [];
   const hosted = url ?? MCP_URL ?? undefined;
   if (hosted) {
     const envVar = AUTH_SCALARS[0]?.env;
-    return { entry: { url: hosted, ...(envVar ? { headers: { Authorization: "Bearer ${" + envVar + "}" } } : {}) }, warnings };
+    // The hosted endpoint serves its read-only twin at <url>/readonly; a
+    // remote server of someone else's may not, so say so.
+    const target = readOnly ? hosted.replace(/\/+$/, "") + "/readonly" : hosted;
+    if (readOnly && url !== undefined && !MCP_URL) warnings.push("--read-only appended /readonly to the URL, which typeship-hosted endpoints serve; check that this server does too.");
+    return { entry: { url: target, ...(envVar ? { headers: { Authorization: "Bearer ${" + envVar + "}" } } : {}) }, warnings };
   }
   if (!HAS_MCP) {
     fail(2, "This package was generated without the MCP server target. Regenerate with it, or pass --url for a remote endpoint.");
   }
   const server = mcpServerPath();
   if (server.warning) warnings.push(server.warning);
-  return { entry: { command: "node", args: [server.path] }, warnings };
+  return { entry: { command: "node", args: [server.path, ...(readOnly ? ["--read-only"] : [])] }, warnings };
 }
 
 const MCP_CLIENT_FLAGS: Record<string, string> = {
@@ -860,6 +864,7 @@ async function cmdMcp(parsed: Parsed): Promise<void> {
       "  " + BIN + " mcp install --windsurf | --gemini | --opencode | --zed | --claude-desktop",
       "  " + BIN + " mcp install --cursor         Cursor (./.cursor/mcp.json; see note below)",
       "  " + BIN + " mcp --url <https://...>      use a remote MCP endpoint instead of the local server",
+      "  " + BIN + " mcp install --claude --read-only   register a read-only server (writes are not callable)",
       "",
       (MCP_URL ? "Default entry: the hosted endpoint " + MCP_URL + " with the auth env var as a reference (never a literal key)." : "Default entry: this package's local stdio server, which reads credentials saved by '" + BIN + " login' or the CLI's auth env vars."),
       "The old spelling '" + BIN + " mcp --claude' still works. --all skips Cursor until it speaks MCP 2026-07-28.",
@@ -875,7 +880,7 @@ async function cmdMcp(parsed: Parsed): Promise<void> {
       fail(2, "--url must be a valid URL");
     }
   }
-  const { entry, warnings } = mcpEntryFor(url);
+  const { entry, warnings } = mcpEntryFor(url, parsed.flags.get("read-only") === true);
   const cwd = process.cwd();
   const wanted = new Set<string>();
   for (const [flag, id] of Object.entries(MCP_CLIENT_FLAGS)) if (parsed.flags.get(flag) === true) wanted.add(id);

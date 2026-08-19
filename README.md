@@ -111,7 +111,9 @@ A zero-dependency stdio MCP server exposing every operation as a tool. Add to yo
 }
 ```
 
-Tool input schemas are derived from the spec, so agents see real parameter types and required fields.
+Tool input schemas are derived from the spec, so agents see real parameter types and required fields. Arguments are checked before anything reaches the API (unknown or mistyped ones come back as one `isError` result, nothing is dropped), every tool takes `fields` to keep only the result keys it needs, and errors carry a stable `code` and `next_steps`.
+
+Add `--read-only` to `args` (or set `TYPESHIP_MCP_READ_ONLY=1`) for a server that cannot write, `--tools accounts,reports` (or `TYPESHIP_MCP_TOOLS`) to expose a subset, and `TYPESHIP_MCP_MAX_RESULT_CHARS` to change the result size cap (64,000). `typeship mcp install --claude --read-only` writes the read-only entry for you.
 
 ## Configuration
 

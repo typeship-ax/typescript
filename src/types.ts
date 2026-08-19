@@ -172,6 +172,8 @@ export interface CliBehavior {
 export interface McpBehavior {
   /** MCP tool shape. meta collapses per-operation tools into search_docs, read_docs, and execute so large APIs don't flood an agent's context window; auto switches to meta above 100 operations. */
   tool_mode?: "auto" | "operations" | "meta";
+  /** Guidance appended to the MCP server's instructions, which agents read once when they connect (server/discover): what to call first, conventions the spec does not state, what not to do. Carried by the package's server and the hosted endpoint alike. */
+  instructions?: string | null;
 }
 
 /** Everything typeship needs beyond the spec, in one object: generation customization (globals, retries, pagination) and how the generated tooling behaves (cli, mcp, docs_url). Plain configuration. typeship never requires vendor extensions inside the spec itself. The same shape is accepted on a project and on POST /generate. */

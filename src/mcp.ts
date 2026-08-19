@@ -6,6 +6,10 @@
 // transports, zero dependencies:
 //   node mcp.js            stdio (newline-delimited JSON-RPC 2.0)
 //   node mcp.js --http     Streamable HTTP on PORT (default 3000)
+// Surface switches (flags or environment):
+//   --read-only / TYPESHIP_MCP_READ_ONLY=1     reads only; writes are not callable
+//   --tools a,b / TYPESHIP_MCP_TOOLS=a,b       only these resources or tools
+//   TYPESHIP_MCP_MAX_RESULT_CHARS=<n>          result size cap (default 64000)
 // handleHttp() is exported for serverless/worker runtimes.
 // In HTTP mode an incoming Authorization header is forwarded to the
 // upstream API (per-request passthrough); stdio resolves auth from the
@@ -17,10 +21,11 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { TypeshipClient, formatDebugEvent, type DebugEvent } from "./index.js";
-import { GLOBALS, OPS, buildArgs, missingRequired, type OpSpec } from "./ops.js";
+import { GLOBALS, OPS, buildArgs, type OpSpec } from "./ops.js";
 import {
-  SUPPORTED_PROTOCOL_VERSIONS, asJsonRpc, callSharedTool, checkRequestHeaders, dataOutcome, errorOutcome,
-  fetchDocsText, handleRpc, isRpcOutcome, mcpExposed, pageOutcome, takeCancelled, textError, toolDefinitions,
+  DEFAULT_MAX_RESULT_CHARS, SUPPORTED_PROTOCOL_VERSIONS, asJsonRpc, callSharedTool, checkRequestHeaders, dataOutcome, errorOutcome,
+  fetchDocsText, handleRpc, isRpcOutcome, pageOutcome, parseIncludeList, prepareCall, serverInstructions, takeCancelled, textError,
+  toolDefinitions, visibleOps,
   type DocsSource, type McpServer, type OpLike, type RpcOutcome, type ToolOutcome,
 } from "./mcp-protocol.js";
 
@@ -45,6 +50,18 @@ const DOCS_URL_DEFAULT: string | null = "https://typeship.dev";
 const TOOL_MODE: "operations" | "meta" = "operations";
 /** Authorization server for OAuth discovery (RFC 9728), from the spec. */
 const OAUTH_ISSUER: string | null = null;
+/** Project-supplied guidance appended to the server instructions. */
+const CUSTOM_INSTRUCTIONS: string | null = null;
+/** Surface switches: reads only, and/or a subset of resources or tools.
+ * Flags win over the environment. */
+const ARGV = process.argv.slice(2);
+const READ_ONLY = ARGV.includes("--read-only") || process.env["TYPESHIP_MCP_READ_ONLY"] === "1" || process.env["TYPESHIP_MCP_READ_ONLY"] === "true";
+const INCLUDE = parseIncludeList(ARGV.includes("--tools") ? ARGV[ARGV.indexOf("--tools") + 1] : process.env["TYPESHIP_MCP_TOOLS"]);
+const MAX_RESULT_CHARS = Number(process.env["TYPESHIP_MCP_MAX_RESULT_CHARS"]) || DEFAULT_MAX_RESULT_CHARS;
+/** One sentence on where credentials come from on each transport; goes
+ * into the instructions and into 401 results. */
+const AUTH_HINT_STDIO = "Credentials come from the MCP server's environment (TYPESHIP_TOKEN) or from 'typeship login'";
+const AUTH_HINT_HTTP = "Send the API credential as the Authorization header of each MCP request; it is forwarded to the API as is";
 /** The tool list is fixed at generation, so clients may cache it for an
  * hour and shared caches may hold it (identical for every caller). */
 const TOOLS_TTL_MS = 60 * 60 * 1000;
@@ -110,13 +127,17 @@ function getClient(): TypeshipClient {
 
 /** Run one operation through the generated SDK: the same client, the same
  * typed errors and pagination a hand-written caller would get. */
-async function callOperation(op: OpSpec, args: Record<string, unknown>, authHeader?: string): Promise<ToolOutcome> {
+async function callOperation(op: OpSpec, rawArgs: Record<string, unknown>, authHeader?: string): Promise<ToolOutcome> {
+  // Arguments are checked against the tool's schema first: unknown names,
+  // wrong types and missing requirements come back as one isError result,
+  // nothing reaches the API half-formed and nothing is dropped silently.
+  const prepared = prepareCall(op as unknown as OpLike, rawArgs, { maxChars: MAX_RESULT_CHARS });
+  if (!prepared.ok) return prepared.outcome;
+  const { args, fields, maxChars } = prepared.call;
   const values: Record<string, unknown> = {};
   for (const p of op.params) {
     if (args[p.name] !== undefined) values[p.name] = args[p.name];
   }
-  const missing = missingRequired(op, values).filter((name) => !(op.bodyStyle === "data" && name === "body" && args.body !== undefined));
-  if (missing.length > 0) return textError("Missing required argument(s): " + missing.join(", "));
   const callArgs = buildArgs(
     op,
     values,
@@ -124,22 +145,31 @@ async function callOperation(op: OpSpec, args: Record<string, unknown>, authHead
     typeof args.select === "string" ? args.select : undefined,
   );
   if (authHeader) callArgs.push({ headers: { Authorization: authHeader } });
+  const errorContext = {
+    authHint: authHeader !== undefined ? AUTH_HINT_HTTP : AUTH_HINT_STDIO,
+    docsUrl: docsSource.docsUrl(),
+    hadCredential: authHeader !== undefined || AUTH_SCALARS.some((a) => process.env[a.env] !== undefined) || readJson<{ scalars?: unknown; oauth?: unknown; basic?: unknown }>("credentials.json") !== null,
+  };
+  const shape = { fields, maxChars, pagination: op.pagination, args };
   try {
     const target = (getClient() as unknown as Record<string, Record<string, (...a: unknown[]) => unknown>>)[op.resource]!;
     const result = await (target[op.method]!(...callArgs) as Promise<{ ok: boolean; data?: unknown; error?: unknown }>);
-    if (!result.ok) return errorOutcome(result.error);
+    if (!result.ok) return errorOutcome(result.error, errorContext);
     if (op.paginated) {
       const page = result.data as { items: unknown[]; nextPageParams(): Record<string, unknown> | null };
-      return pageOutcome(page.items, page.nextPageParams());
+      return pageOutcome(page.items, page.nextPageParams(), shape);
     }
-    return dataOutcome(result.data);
+    return dataOutcome(result.data, shape);
   } catch (e) {
     return textError((e as Error).message ?? "Tool call failed");
   }
 }
 
-/** Uploads and event streams are CLI-only; see mcpExposed. */
-const MCP_OPS = OPS.filter((op) => mcpExposed(op as unknown as OpLike));
+/** The callable operations: uploads and event streams are CLI-only
+ * (mcpExposed), writes are out under --read-only, and --tools narrows to a
+ * subset. A hidden operation is unknown to tools/call and execute alike. */
+const MCP_OPS = visibleOps(OPS as unknown as OpLike[], { readOnly: READ_ONLY, include: INCLUDE }) as unknown as OpSpec[];
+const HIDDEN_WRITES = READ_ONLY ? visibleOps(OPS as unknown as OpLike[], { include: INCLUDE }).length - MCP_OPS.length : 0;
 
 const docsSource: DocsSource = {
   ops: MCP_OPS as unknown as OpLike[],
@@ -150,9 +180,18 @@ const docsSource: DocsSource = {
 /** The MCP server for one request context (the HTTP transport passes the
  * caller's Authorization through; stdio has none). */
 function serverFor(authHeader?: string): McpServer {
+  const website = docsSource.docsUrl();
   return {
-    serverInfo: { name: SERVER_NAME, title: "typeship", version: SERVER_VERSION },
-    instructions: "Every operation of " + "typeship" + " is a tool. Use search_docs to find operations and read_docs for an operation's full argument reference. Paginated tools return items, hasMore, and nextPage (the exact arguments for the following page).",
+    serverInfo: { name: SERVER_NAME, title: "typeship", version: SERVER_VERSION, ...(website ? { websiteUrl: website } : {}) },
+    instructions: serverInstructions({
+      title: "typeship",
+      toolCount: MCP_OPS.length,
+      mode: TOOL_MODE,
+      readOnly: READ_ONLY,
+      hiddenWrites: HIDDEN_WRITES,
+      authHint: authHeader !== undefined ? AUTH_HINT_HTTP : AUTH_HINT_STDIO,
+      custom: CUSTOM_INSTRUCTIONS,
+    }),
     toolsTtlMs: TOOLS_TTL_MS,
     listTools: () => toolDefinitions(docsSource.ops, TOOL_MODE),
     callTool: async (name, args) => {

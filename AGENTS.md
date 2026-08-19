@@ -35,7 +35,8 @@ const client = new TypeshipClient({ /* auth options above */ });
 - `typeship agent-guide --format json` explains the conventions; `typeship help --json` is the command surface as data; `typeship init --all` connects this machine (credential, MCP clients, an AGENTS.md block); `typeship doctor` checks it.
 
 ## MCP server
-- `typeship mcp install --all` writes the MCP server into every agent client found on the machine; it shares credentials with `typeship login` (or references the auth env var for a hosted endpoint).
+- `typeship mcp install --all` writes the MCP server into every agent client found on the machine; it shares credentials with `typeship login` (or references the auth env var for a hosted endpoint). `--read-only` registers a server that cannot write.
+- Tool arguments are checked against the schema before any request (unknown or mistyped arguments are one `isError` result with per-argument issues); pass `fields` (dotted paths) to keep only the result keys you need; errors carry `code` and `next_steps`.
 
 ## Documentation
 - The reference for this exact package: `api.md` (offline, always current with the code).

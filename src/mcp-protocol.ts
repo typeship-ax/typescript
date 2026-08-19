@@ -5,7 +5,10 @@
  * by typeship's hosted endpoint: JSON-RPC shape checks, the per-request _meta
  * rules, Streamable HTTP header validation, result wrapping, and the tool
  * surface (per-operation tools or the three-tool "meta" shape, plus the
- * search_docs / read_docs pair). Transport, credentials, and how a tool call
+ * search_docs / read_docs pair). Also the agent-facing contract of a tool
+ * call: argument validation and coercion against the tool's input schema,
+ * field projection, a size cap on results, and error results that carry a
+ * stable code and next steps. Transport, credentials, and how a tool call
  * reaches the API stay with the caller. Zero dependencies.
  *
  * Spec: https://modelcontextprotocol.io/specification/2026-07-28
@@ -21,12 +24,20 @@ export const META_VERSION = "io.modelcontextprotocol/protocolVersion";
 export const META_CLIENT_CAPS = "io.modelcontextprotocol/clientCapabilities";
 export const META_SERVER_INFO = "io.modelcontextprotocol/serverInfo";
 
+/** Results longer than this (in characters of JSON text) are cut down to
+ * whole items or whole keys with a note saying what was left out and how to
+ * ask for less. Roughly 16k tokens: under every major client's own cap, so
+ * the agent sees this explanation instead of a mid-JSON chop. */
+export const DEFAULT_MAX_RESULT_CHARS = 64_000;
+
 // ---- types -----------------------------------------------------------------
 
 export interface ServerInfo {
   name: string;
   title?: string;
   version: string;
+  /** The API's docs or home page, for clients that show one. */
+  websiteUrl?: string;
 }
 
 export interface ToolAnnotations {
@@ -58,6 +69,9 @@ export interface ToolOutcome {
  * protocol layer reads. */
 export interface OpLike {
   tool: string;
+  /** SDK resource and method names (accounts, list). */
+  resource?: string;
+  method?: string;
   httpMethod: string;
   path: string;
   summary?: string;
@@ -66,9 +80,12 @@ export interface OpLike {
   paginated: boolean;
   /** GraphQL ops accept a raw selection-set override. */
   select: boolean;
+  graphql?: { kind: string };
   params: { name: string; type: string; required: boolean; enum?: string[]; description?: string }[];
   inputSchema: Record<string, unknown>;
   outputSchema?: Record<string, unknown>;
+  /** Page-walking config (same shape as the SDK's PageConfig), when paginated. */
+  pagination?: { style: string; itemsField: string; cursorParam?: string; idField?: string; pageParam?: string; offsetParam?: string; limitParam?: string };
   /** Success body is a text/event-stream. */
   sse?: boolean;
   /** Wire encoding of the request body. */
@@ -272,7 +289,8 @@ export async function handleRpc(server: McpServer, incoming: unknown): Promise<R
       if (outcome === undefined) return rpcError(id, -32602, "Unknown tool: " + name, 400);
       if (server.afterToolCall) await server.afterToolCall(name, outcome, Date.now() - started);
       // structuredContent MUST conform to the tool's outputSchema, so only
-      // successful results carry it; error results keep their JSON in the text.
+      // successful, unprojected, untruncated results carry it; everything
+      // else keeps its JSON in the text.
       return complete({
         content: [{ type: "text", text: outcome.text }],
         ...(!outcome.isError && outcome.structured !== undefined && outcome.structured !== null && typeof outcome.structured === "object"
@@ -288,37 +306,83 @@ export async function handleRpc(server: McpServer, incoming: unknown): Promise<R
 
 // ---- tool surface ---------------------------------------------------------------
 
-/** Tool annotations from the HTTP method (spec: hints, untrusted by
- * clients). Clients such as Claude Code use readOnlyHint to auto-approve
- * reads and destructiveHint to confirm deletes. */
-export function annotationsFor(op: { httpMethod: string; summary?: string; tool: string }): ToolAnnotations {
+/** POST operations the IR named as reads: POST /search, POST /query, and
+ * friends are read-only in every way that matters to a client deciding
+ * whether to ask before calling. */
+const READ_METHOD_NAME = /^(list|search|query|get|find|count|lookup|retrieve|fetch|read|check|preview|validate|describe)(?![a-z])/i;
+/** Mutation names that destroy or disable what they touch. */
+const DESTRUCTIVE_NAME = /^(delete|remove|destroy|purge|archive|cancel|revoke|disable|deactivate|terminate|close|expire|reject)(?![a-z])/i;
+
+/** Is this operation a read (a GET/HEAD, a GraphQL query, or a POST the
+ * spec named like a search)? Drives readOnlyHint and the read-only surface. */
+export function isReadOperation(op: { httpMethod: string; method?: string; graphql?: { kind: string } }): boolean {
   const m = op.httpMethod.toUpperCase();
+  if (op.graphql) return op.graphql.kind === "query";
+  if (m === "GET" || m === "HEAD") return true;
+  return m === "POST" && op.method !== undefined && READ_METHOD_NAME.test(op.method);
+}
+
+/** Tool annotations (spec: hints, untrusted by clients). Clients such as
+ * Claude Code use readOnlyHint to auto-approve reads and destructiveHint to
+ * confirm writes that overwrite or remove. The server talks to one known
+ * API, not the open world, so openWorldHint is false. */
+export function annotationsFor(op: { httpMethod: string; summary?: string; tool: string; method?: string; graphql?: { kind: string } }): ToolAnnotations {
+  const m = op.httpMethod.toUpperCase();
+  const readOnly = isReadOperation(op);
+  const name = op.method ?? "";
+  let destructive: boolean;
+  if (readOnly) destructive = false;
+  else if (op.graphql) destructive = DESTRUCTIVE_NAME.test(name);
+  else destructive = m === "DELETE" || m === "PUT" || m === "PATCH" || DESTRUCTIVE_NAME.test(name);
+  const idempotent = readOnly || m === "PUT" || m === "DELETE";
   return {
     title: op.summary ?? op.tool,
-    readOnlyHint: m === "GET" || m === "HEAD",
-    destructiveHint: m === "DELETE",
-    idempotentHint: m === "GET" || m === "HEAD" || m === "PUT" || m === "DELETE",
-    openWorldHint: true,
+    readOnlyHint: readOnly,
+    destructiveHint: destructive,
+    idempotentHint: idempotent,
+    openWorldHint: false,
   };
+}
+
+/** The `fields` argument every tool takes unless the API already has one:
+ * dotted paths to keep in the result (per item for paginated tools). */
+export const FIELDS_ARGUMENT = "fields";
+
+function fieldsArgumentSchema(op: OpLike): Record<string, unknown> {
+  return {
+    type: "array",
+    items: { type: "string" },
+    description: "Result keys to keep, as dotted paths" + (op.paginated ? ", applied to each item" : "") + ' (e.g. ["id","name"]). Omit for the whole result. Keeps responses small.',
+  };
+}
+
+/** The input schema a tool advertises: the operation's own arguments plus
+ * `select` (GraphQL selection override) and `fields` (result projection)
+ * when those names are free. */
+export function toolInputSchema(op: OpLike): Record<string, unknown> {
+  const base = op.inputSchema.properties as Record<string, unknown> | undefined;
+  const properties: Record<string, unknown> = { ...(base ?? {}) };
+  if (op.select && properties.select === undefined) {
+    properties.select = { type: "string", description: 'GraphQL selection set override, e.g. "{ id name }"' };
+  }
+  if (properties[FIELDS_ARGUMENT] === undefined) properties[FIELDS_ARGUMENT] = fieldsArgumentSchema(op);
+  return { ...op.inputSchema, properties };
+}
+
+/** True when the tool's own schema has a `fields` parameter, so the
+ * projection argument is the API's, not ours. */
+export function hasOwnFieldsParam(op: OpLike): boolean {
+  return (op.inputSchema.properties as Record<string, unknown> | undefined)?.[FIELDS_ARGUMENT] !== undefined;
 }
 
 /** One tool per operation, as advertised by tools/list. */
 export function operationTool(op: OpLike): ToolDefinition {
-  const inputSchema = op.select
-    ? {
-        ...op.inputSchema,
-        properties: {
-          ...(op.inputSchema.properties as Record<string, unknown>),
-          select: { type: "string", description: 'GraphQL selection set override, e.g. "{ id name }"' },
-        },
-      }
-    : op.inputSchema;
   return {
     name: op.tool,
     title: op.summary ?? op.tool,
     description: op.toolDescription,
     annotations: annotationsFor(op),
-    inputSchema,
+    inputSchema: toolInputSchema(op),
     ...(op.outputSchema ? { outputSchema: op.outputSchema } : {}),
   };
 }
@@ -327,14 +391,14 @@ export const SEARCH_DOCS_TOOL: ToolDefinition = {
   name: "search_docs",
   description: "Search this API's reference (operations, parameters) and, when a docs site is configured, its guides.",
   inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] },
-  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 };
 
 export const READ_DOCS_TOOL: ToolDefinition = {
   name: "read_docs",
   description: 'Read a documentation page: an operation reference (a tool name, or dotted "resource.method") or a docs-site guide page by name or URL.',
   inputSchema: { type: "object", properties: { page: { type: "string" } }, required: ["page"] },
-  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 };
 
 export const EXECUTE_TOOL: ToolDefinition = {
@@ -348,8 +412,38 @@ export const EXECUTE_TOOL: ToolDefinition = {
     },
     required: ["operation"],
   },
-  annotations: { openWorldHint: true },
+  annotations: { openWorldHint: false },
 };
+
+/** Which operations a server exposes, beyond the uploads/streams rule. */
+export interface SurfaceOptions {
+  /** Hide every operation that is not a read (isReadOperation). */
+  readOnly?: boolean;
+  /** Keep only these: resource names, tool names, or dotted resource.method. */
+  include?: string[];
+}
+
+/** The operations a server serves under these options: the callable set,
+ * not just the listed one, so a hidden write is not reachable by name or
+ * through execute either. Deterministic (spec) order. */
+export function visibleOps<T extends OpLike>(ops: T[], options: SurfaceOptions = {}): T[] {
+  let out = ops.filter(mcpExposed);
+  if (options.readOnly) out = out.filter(isReadOperation);
+  if (options.include && options.include.length > 0) {
+    const wanted = new Set(options.include.map((s) => s.trim().toLowerCase()).filter(Boolean));
+    out = out.filter((op) =>
+      wanted.has(op.tool.toLowerCase()) ||
+      (op.resource !== undefined && wanted.has(op.resource.toLowerCase())) ||
+      (op.resource !== undefined && op.method !== undefined && wanted.has((op.resource + "." + op.method).toLowerCase())));
+  }
+  return out;
+}
+
+/** Parse a comma-separated include list (from an env var or a flag). */
+export function parseIncludeList(value: string | undefined | null): string[] | undefined {
+  const list = (value ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  return list.length > 0 ? list : undefined;
+}
 
 /**
  * The tool list for a mode: every operation plus the docs pair, or the
@@ -367,6 +461,14 @@ export function toolDefinitions(ops: OpLike[], mode: "operations" | "meta"): Too
   return [...ops.map(operationTool), SEARCH_DOCS_TOOL, READ_DOCS_TOOL];
 }
 
+/** How big a tools/list is, as agents pay for it. Characters of JSON and a
+ * rough token count (one token per four characters, the usual estimate for
+ * JSON). Generation and `<bin> mcp` report it. */
+export function toolsListSize(tools: ToolDefinition[]): { tools: number; chars: number; approxTokens: number } {
+  const chars = JSON.stringify(tools).length;
+  return { tools: tools.length, chars, approxTokens: Math.round(chars / 4) };
+}
+
 /** Resolve an operation by tool name or dotted resource.method. */
 export function findOperation(ops: OpLike[], wanted: string): OpLike | undefined {
   return ops.find((o) => o.tool === wanted)
@@ -378,27 +480,487 @@ export function missingArguments(op: OpLike, args: Record<string, unknown>): str
   return op.params.filter((p) => p.required && args[p.name] === undefined).map((p) => p.name);
 }
 
+// ---- server instructions ----------------------------------------------------------
+
+export interface InstructionsInput {
+  title: string;
+  /** Operations the server serves (after read-only / include filtering). */
+  toolCount: number;
+  mode: "operations" | "meta";
+  readOnly?: boolean;
+  /** Write operations hidden by read-only mode. */
+  hiddenWrites?: number;
+  /** One sentence on where credentials come from, for this transport. */
+  authHint?: string | null;
+  /** Project-supplied text, appended verbatim. */
+  custom?: string | null;
+}
+
+/** The server/discover instructions: what the tools are, how arguments and
+ * results behave, where credentials come from, plus whatever the project
+ * adds. One paragraph; agents read it once per session. */
+export function serverInstructions(input: InstructionsInput): string {
+  const parts: string[] = [];
+  parts.push(input.mode === "meta"
+    ? input.title + " as MCP tools: search_docs, read_docs and execute over " + input.toolCount + " operations. Start with search_docs to find an operation, read_docs <tool> for its full argument reference, then execute it by name."
+    : input.title + " as MCP tools: one tool per operation (" + input.toolCount + "), plus search_docs to find operations and read_docs <tool> for an operation's full argument reference.");
+  parts.push("Arguments use the API's wire names; an unknown, mistyped or missing argument returns an isError result listing each problem (nothing is dropped silently), and obvious forms are coerced (\"true\" to boolean, \"3\" to number, enum case).");
+  parts.push("Paginated tools return items, hasMore and nextPage (the exact arguments for the following page). Pass fields (dotted paths) to keep only the result keys you need; oversized results are cut to whole items or keys with a truncated note saying how to ask for less.");
+  parts.push("Errors carry error, code, message, status, the API's body and next_steps.");
+  if (input.authHint) parts.push(input.authHint.trim().replace(/[.]?$/, "."));
+  if (input.readOnly) {
+    parts.push("This server is read-only: " + (input.hiddenWrites ? input.hiddenWrites + " write operations are not available here." : "write operations are not available here."));
+  }
+  if (input.custom && input.custom.trim()) parts.push(input.custom.trim());
+  return parts.join(" ");
+}
+
+// ---- argument validation + coercion ---------------------------------------------
+
+export interface ArgumentIssue {
+  code: "UNKNOWN_ARGUMENT" | "INVALID_ARGUMENT" | "MISSING_ARGUMENT";
+  argument: string;
+  message: string;
+}
+
+/** Everything a tool call needs after its arguments were checked: the
+ * arguments to send (coerced, projection stripped), and how to shape the
+ * result. */
+export interface PreparedCall {
+  args: Record<string, unknown>;
+  /** Dotted paths from the `fields` argument, null for the whole result. */
+  fields: string[][] | null;
+  maxChars: number;
+}
+
+const normalizeName = (name: string): string => name.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+function editDistance(a: string, b: string): number {
+  const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let diag = prev[0]!;
+    prev[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = prev[j]!;
+      prev[j] = Math.min(prev[j]! + 1, prev[j - 1]! + 1, diag + (a[i - 1] === b[j - 1] ? 0 : 1));
+      diag = tmp;
+    }
+  }
+  return prev[b.length]!;
+}
+
+/** The closest accepted name: same letters ignoring case/punctuation first,
+ * then a small edit distance. Undefined when nothing is close. */
+export function closestName(name: string, known: string[]): string | undefined {
+  const exact = known.filter((k) => normalizeName(k) === normalizeName(name));
+  if (exact.length === 1) return exact[0];
+  if (exact.length > 1) return undefined;
+  let best: { name: string; d: number } | undefined;
+  for (const k of known) {
+    const d = editDistance(name.toLowerCase(), k.toLowerCase());
+    if (d <= Math.max(1, Math.floor(k.length / 4)) && (best === undefined || d < best.d)) best = { name: k, d };
+  }
+  return best?.name;
+}
+
+function schemaTypes(schema: Record<string, unknown>): string[] {
+  const t = schema.type;
+  if (typeof t === "string") return [t];
+  if (Array.isArray(t)) return t.filter((x): x is string => typeof x === "string");
+  return [];
+}
+
+/**
+ * Coerce one value toward its schema when the intent is unambiguous: the
+ * strings agents produce for booleans and numbers, a JSON string for an
+ * object or array, a scalar for a one-element array, an enum member in the
+ * wrong case. Returns the value to send, or a message when it can't be made
+ * to fit. Untyped schemas (unions, anything) pass through.
+ */
+export function coerceValue(value: unknown, schema: Record<string, unknown>): { value: unknown } | { error: string } {
+  if (value === null || value === undefined) return { value };
+  const types = schemaTypes(schema);
+  const enumValues = Array.isArray(schema.enum) ? schema.enum : undefined;
+  const accepts = (t: string) => types.length === 0 || types.includes(t);
+  const kind = Array.isArray(value) ? "array" : typeof value;
+
+  let out: unknown = value;
+  if (types.length > 0) {
+    if (kind === "boolean" && !accepts("boolean")) {
+      if (accepts("string")) out = String(value);
+      else return { error: "expected " + types.join(" or ") + ", got boolean" };
+    } else if (kind === "number" && !accepts("number") && !accepts("integer")) {
+      if (accepts("string")) out = String(value);
+      else if (accepts("array")) out = [value];
+      else return { error: "expected " + types.join(" or ") + ", got number" };
+    } else if (kind === "number" && accepts("integer") && !accepts("number") && !Number.isInteger(value)) {
+      return { error: "expected an integer, got " + String(value) };
+    } else if (kind === "string" && !accepts("string")) {
+      const s = (value as string).trim();
+      if (accepts("boolean") && /^(true|false|yes|no|1|0)$/i.test(s)) out = /^(true|yes|1)$/i.test(s);
+      else if ((accepts("integer") || accepts("number")) && s !== "" && !Number.isNaN(Number(s))) {
+        const n = Number(s);
+        if (accepts("integer") && !accepts("number") && !Number.isInteger(n)) return { error: "expected an integer, got \"" + s + "\"" };
+        out = n;
+      } else if ((accepts("object") || accepts("array")) && /^[[{]/.test(s)) {
+        try {
+          const parsed: unknown = JSON.parse(s);
+          const parsedKind = Array.isArray(parsed) ? "array" : parsed === null ? "null" : typeof parsed;
+          if (!accepts(parsedKind)) return { error: "expected " + types.join(" or ") + ", got a JSON " + parsedKind + " in a string" };
+          out = parsed;
+        } catch {
+          return { error: "expected " + types.join(" or ") + ", got a string that is not valid JSON" };
+        }
+      } else if (accepts("array")) {
+        out = [value];
+      } else {
+        return { error: "expected " + types.join(" or ") + ", got string" };
+      }
+    } else if (kind === "object" && !accepts("object")) {
+      if (accepts("array")) out = [value];
+      else return { error: "expected " + types.join(" or ") + ", got object" };
+    } else if (kind === "array" && !accepts("array")) {
+      return { error: "expected " + types.join(" or ") + ", got array" };
+    }
+  }
+
+  // Array items: coerce each against the items schema when it has one.
+  if (Array.isArray(out) && schema.items && typeof schema.items === "object" && !Array.isArray(schema.items)) {
+    const itemSchema = schema.items as Record<string, unknown>;
+    const items: unknown[] = [];
+    for (let i = 0; i < out.length; i++) {
+      const r = coerceValue(out[i], itemSchema);
+      if ("error" in r) return { error: "item " + i + ": " + r.error };
+      items.push(r.value);
+    }
+    out = items;
+  }
+
+  if (enumValues && typeof out === "string" && !enumValues.includes(out)) {
+    const match = enumValues.filter((e) => typeof e === "string" && e.toLowerCase() === (out as string).toLowerCase());
+    if (match.length === 1) out = match[0];
+    else return { error: "must be one of " + enumValues.map((e) => JSON.stringify(e)).join(", ") + ", got " + JSON.stringify(out) };
+  }
+  return { value: out };
+}
+
+function parseFields(value: unknown): string[][] | { error: string } {
+  const raw = typeof value === "string" ? value.split(",") : Array.isArray(value) ? value : null;
+  if (raw === null) return { error: "expected an array of field paths, e.g. [\"id\",\"name\"]" };
+  const paths: string[][] = [];
+  for (const entry of raw) {
+    if (typeof entry !== "string") return { error: "expected an array of strings" };
+    const path = entry.trim();
+    if (path !== "") paths.push(path.split("."));
+  }
+  return paths;
+}
+
+/**
+ * Check a tool call's arguments against the tool's input schema before
+ * anything reaches the API. Unknown names are matched to the accepted one
+ * when only case or punctuation differs (accountId -> account_id) and
+ * rejected with a suggestion otherwise; values are coerced where the
+ * intent is clear and rejected where it isn't; required arguments must be
+ * present. Every problem is reported at once, as one isError result, so a
+ * single round trip fixes the call. Nothing is dropped silently.
+ */
+export function prepareCall(
+  op: OpLike,
+  rawArgs: Record<string, unknown>,
+  options: { maxChars?: number } = {},
+): { ok: true; call: PreparedCall } | { ok: false; outcome: ToolOutcome } {
+  const schema = toolInputSchema(op);
+  const properties = (schema.properties ?? {}) as Record<string, Record<string, unknown>>;
+  const known = Object.keys(properties);
+  const issues: ArgumentIssue[] = [];
+  const args: Record<string, unknown> = {};
+
+  for (const [name, value] of Object.entries(rawArgs)) {
+    if (value === undefined) continue;
+    if (properties[name] !== undefined) {
+      args[name] = value;
+      continue;
+    }
+    const close = closestName(name, known);
+    if (close !== undefined && normalizeName(close) === normalizeName(name) && rawArgs[close] === undefined) {
+      args[close] = value;
+      continue;
+    }
+    const accepted = known.length <= 20 ? " Accepted: " + known.join(", ") + "." : " read_docs \"" + op.tool + "\" lists the " + known.length + " accepted arguments.";
+    issues.push({
+      code: "UNKNOWN_ARGUMENT",
+      argument: name,
+      message: "Unknown argument \"" + name + "\"" + (close !== undefined ? "; did you mean \"" + close + "\"?" : ".") + accepted,
+    });
+  }
+
+  let fields: string[][] | null = null;
+  if (!hasOwnFieldsParam(op) && args[FIELDS_ARGUMENT] !== undefined) {
+    const parsed = parseFields(args[FIELDS_ARGUMENT]);
+    if ("error" in parsed) issues.push({ code: "INVALID_ARGUMENT", argument: FIELDS_ARGUMENT, message: "fields: " + parsed.error });
+    else fields = parsed.length > 0 ? parsed : null;
+    delete args[FIELDS_ARGUMENT];
+  }
+
+  for (const [name, value] of Object.entries(args)) {
+    const propSchema = properties[name];
+    if (!propSchema) continue;
+    const r = coerceValue(value, propSchema);
+    if ("error" in r) issues.push({ code: "INVALID_ARGUMENT", argument: name, message: name + ": " + r.error });
+    else args[name] = r.value;
+  }
+
+  const required = Array.isArray(schema.required) ? (schema.required as string[]) : [];
+  for (const name of required) {
+    if (args[name] === undefined) {
+      issues.push({ code: "MISSING_ARGUMENT", argument: name, message: "Missing required argument \"" + name + "\"" + (properties[name]?.description ? ": " + String(properties[name]!.description).split("\n")[0] : ".") });
+    }
+  }
+
+  if (issues.length > 0) return { ok: false, outcome: argumentsError(op, issues) };
+  return { ok: true, call: { args, fields, maxChars: options.maxChars ?? DEFAULT_MAX_RESULT_CHARS } };
+}
+
+/** The isError result for bad arguments: one stable code, one issue per
+ * argument, and the way out. */
+export function argumentsError(op: { tool: string }, issues: ArgumentIssue[]): ToolOutcome {
+  const structured = {
+    error: "InvalidArguments",
+    code: "INVALID_ARGUMENTS",
+    message: issues.length + (issues.length === 1 ? " problem" : " problems") + " with the arguments to " + op.tool + "; nothing was sent to the API.",
+    issues,
+    next_steps: [
+      "Fix the arguments listed in issues and call " + op.tool + " again.",
+      "read_docs {\"page\": \"" + op.tool + "\"} lists every argument with its type and whether it is required.",
+    ],
+  };
+  return { text: JSON.stringify(structured), isError: true, structured };
+}
+
+// ---- results: projection, size cap, envelopes ------------------------------------
+
+/** Keep only `paths` of a value: arrays item by item, objects by dotted
+ * path; scalars untouched. Same rule as the CLI's --fields. */
+export function projectFields(value: unknown, paths: string[][] | null): unknown {
+  if (paths === null) return value;
+  if (Array.isArray(value)) return value.map((v) => projectFields(v, paths));
+  if (value === null || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const path of paths) {
+    let cursor: unknown = value;
+    for (const key of path) {
+      if (cursor === null || typeof cursor !== "object" || Array.isArray(cursor)) { cursor = undefined; break; }
+      cursor = (cursor as Record<string, unknown>)[key];
+    }
+    if (cursor === undefined) continue;
+    let target = out;
+    for (const key of path.slice(0, -1)) {
+      const next = target[key];
+      if (next === undefined || next === null || typeof next !== "object" || Array.isArray(next)) target[key] = {};
+      target = target[key] as Record<string, unknown>;
+    }
+    target[path[path.length - 1]!] = cursor;
+  }
+  return out;
+}
+
+/** How a result was shaped; every field optional so callers can pass what they have. */
+export interface ResultOptions {
+  fields?: string[][] | null;
+  maxChars?: number;
+  /** For paginated results that must be cut: the op's pagination config and
+   * the call's arguments let some styles resume exactly where the cut fell. */
+  pagination?: OpLike["pagination"];
+  args?: Record<string, unknown>;
+}
+
+const fieldsHint = (perItem: boolean) => "Pass fields (dotted paths" + (perItem ? ", applied per item" : "") + ") to keep only the keys you need.";
+
+/** How many leading items fit under `budget` characters once serialized
+ * compactly with commas between them. At least one. */
+function itemsThatFit(items: unknown[], budget: number): number {
+  let used = 0;
+  let k = 0;
+  for (const item of items) {
+    const size = JSON.stringify(item).length + 1;
+    if (k > 0 && used + size > budget) break;
+    used += size;
+    k++;
+  }
+  return Math.max(1, Math.min(k, items.length));
+}
+
 /** The result shape for a paginated tool: one page, a continuation signal,
- * and the exact arguments that fetch the next page. */
-export function pageOutcome(items: unknown[], nextPage: Record<string, unknown> | null): ToolOutcome {
-  const structured = { items, hasMore: nextPage !== null, ...(nextPage !== null ? { nextPage } : {}) };
-  return { text: JSON.stringify(structured, null, 2), isError: false, structured };
+ * and the exact arguments that fetch the next page. Over the size cap, the
+ * page is cut to whole items with a `truncated` note; offset and
+ * last-id styles resume at the cut, cursor and page styles say what the
+ * caller must do instead. */
+export function pageOutcome(items: unknown[], nextPage: Record<string, unknown> | null, options: ResultOptions = {}): ToolOutcome {
+  const fields = options.fields ?? null;
+  const maxChars = options.maxChars ?? DEFAULT_MAX_RESULT_CHARS;
+  const shown = projectFields(items, fields) as unknown[];
+  const full = { items: shown, hasMore: nextPage !== null, ...(nextPage !== null ? { nextPage } : {}) };
+  const text = JSON.stringify(full);
+  if (text.length <= maxChars) {
+    return { text, isError: false, ...(fields === null ? { structured: full } : {}) };
+  }
+
+  const overhead = JSON.stringify({ items: [], hasMore: true, nextPage: nextPage ?? {}, truncated: { omitted: 0, of: 0, reason: "x".repeat(160), next_steps: ["x".repeat(220), "x".repeat(120)] } }).length;
+  const k = itemsThatFit(shown, Math.max(0, maxChars - overhead));
+  const omitted = shown.length - k;
+  const pg = options.pagination;
+  const args = options.args ?? {};
+  let resume: Record<string, unknown> | null = null;
+  if (pg?.style === "offset" && pg.offsetParam) {
+    const start = Number(args[pg.offsetParam]) || 0;
+    resume = { ...(nextPage ?? args), [pg.offsetParam]: start + k };
+  } else if (pg?.style === "cursorFromLastId" && pg.cursorParam && pg.idField) {
+    const last = (items[k - 1] as Record<string, unknown> | undefined)?.[pg.idField];
+    if (last !== undefined && last !== null) resume = { ...(nextPage ?? args), [pg.cursorParam]: last };
+  }
+  const steps: string[] = [];
+  if (resume !== null) {
+    steps.push("nextPage resumes at the first omitted item, so following it loses nothing.");
+  } else {
+    steps.push("nextPage continues after this whole page, so the omitted items are skipped by it; call again with the same arguments" + (pg?.limitParam ? " and " + pg.limitParam + "=" + k : " and a smaller page size") + " to see them.");
+  }
+  steps.push(fieldsHint(true));
+  const structured = {
+    items: shown.slice(0, k),
+    hasMore: resume !== null ? true : nextPage !== null,
+    ...(resume !== null ? { nextPage: resume } : nextPage !== null ? { nextPage } : {}),
+    truncated: {
+      omitted,
+      of: shown.length,
+      reason: "This page is " + text.length.toLocaleString("en-US") + " characters; results are capped at " + maxChars.toLocaleString("en-US") + ". The first " + k + " of " + shown.length + " items are shown.",
+      next_steps: steps,
+    },
+  };
+  // A cut page is still the advertised shape (truncated is in the
+  // outputSchema), but a projected one may not be; structuredContent only
+  // when it conforms.
+  return { text: JSON.stringify(structured), isError: false, ...(fields === null ? { structured } : {}) };
 }
 
-export function dataOutcome(data: unknown): ToolOutcome {
-  const structured = data ?? { ok: true };
-  return { text: typeof structured === "string" ? structured : JSON.stringify(structured, null, 2), isError: false, structured };
+/** Placeholder for a value cut from an oversized object result. */
+const omittedMarker = (key: string, chars: number) =>
+  "[omitted: " + chars.toLocaleString("en-US") + " characters. Pass fields=[\"" + key + "\"] to fetch this key alone.]";
+
+export function dataOutcome(data: unknown, options: ResultOptions = {}): ToolOutcome {
+  const fields = options.fields ?? null;
+  const maxChars = options.maxChars ?? DEFAULT_MAX_RESULT_CHARS;
+  const value = data === undefined || data === null ? { ok: true } : projectFields(data, fields);
+  if (typeof value === "string") {
+    if (value.length <= maxChars) return { text: value, isError: false, structured: value };
+    return { text: value.slice(0, maxChars) + "\n\n[truncated: " + (value.length - maxChars).toLocaleString("en-US") + " more characters; results are capped at " + maxChars.toLocaleString("en-US") + ".]", isError: false };
+  }
+  const text = JSON.stringify(value);
+  if (text.length <= maxChars) {
+    return { text, isError: false, ...(fields === null ? { structured: value } : {}) };
+  }
+
+  if (Array.isArray(value)) {
+    const k = itemsThatFit(value, maxChars - 400);
+    const note = "\n\n[truncated: showing " + k + " of " + value.length + " items; the result is " + text.length.toLocaleString("en-US") + " characters and results are capped at " + maxChars.toLocaleString("en-US") + ". " + fieldsHint(true) + "]";
+    return { text: JSON.stringify(value.slice(0, k)) + note, isError: false };
+  }
+  if (typeof value === "object") {
+    // Drop the largest top-level values first, each replaced by a marker
+    // that names the argument that fetches it alone, until it fits.
+    const entries = Object.entries(value as Record<string, unknown>).map(([key, v]) => ({ key, v, size: JSON.stringify(v)?.length ?? 4 }));
+    const bySize = [...entries].sort((a, b) => b.size - a.size);
+    const cut = new Map<string, number>();
+    let size = text.length;
+    for (const e of bySize) {
+      if (size <= maxChars) break;
+      cut.set(e.key, e.size);
+      size -= e.size - (omittedMarker(e.key, e.size).length + 2);
+    }
+    const out: Record<string, unknown> = {};
+    for (const e of entries) out[e.key] = cut.has(e.key) ? omittedMarker(e.key, e.size) : e.v;
+    out.truncated = {
+      omitted_keys: [...cut.keys()],
+      reason: "The result is " + text.length.toLocaleString("en-US") + " characters; results are capped at " + maxChars.toLocaleString("en-US") + ".",
+      next_steps: [fieldsHint(false)],
+    };
+    return { text: JSON.stringify(out), isError: false };
+  }
+  return { text, isError: false, structured: value };
 }
 
-/** A typed API error as the agent should see it: name, message, status, body. */
-export function errorOutcome(error: unknown): ToolOutcome {
+/** Stable codes an agent can branch on (the same vocabulary as the
+ * generated CLI's error envelope). Additive only. */
+export type ErrorCode =
+  | "NO_AUTH" | "AUTH_INVALID" | "PLAN_LIMIT" | "NOT_FOUND" | "INVALID_REQUEST" | "RATE_LIMITED"
+  | "SERVER_ERROR" | "NETWORK_ERROR" | "VALIDATION_FAILED" | "INVALID_ARGUMENTS" | "NOT_AVAILABLE" | "CALL_FAILED";
+
+export interface ErrorContext {
+  /** One sentence on how to supply a credential on this transport. */
+  authHint?: string | null;
+  /** The API's docs site, for docs_url. */
+  docsUrl?: string | null;
+  /** True when a credential was sent with the request (401 means it was rejected). */
+  hadCredential?: boolean;
+}
+
+function extractRetryAfter(e: { headers?: unknown; body?: unknown }): string | undefined {
+  const headers = e.headers as { get?: (name: string) => string | null } | undefined;
+  const fromHeader = headers?.get?.("retry-after");
+  if (fromHeader) return fromHeader;
+  const match = /retry after (\d+)s/i.exec(JSON.stringify(e.body ?? ""));
+  return match?.[1];
+}
+
+/** Classify an SDK error result by status: the code and what to do next. */
+export function classifyError(error: unknown, context: ErrorContext = {}): { code: ErrorCode; nextSteps: string[] } {
+  const e = (error ?? {}) as { name?: string; message?: string; status?: number; body?: unknown; violations?: unknown };
+  const message = e.message ?? String(error);
+  if (e.violations !== undefined) return { code: "VALIDATION_FAILED", nextSteps: ["Fix the fields named in violations and call again."] };
+  if (e.name === "TransportError" || (typeof e.status !== "number" && /fetch|ECONN|ENOTFOUND|timed out|TLS|abort/i.test(message))) {
+    return { code: "NETWORK_ERROR", nextSteps: ["The API could not be reached (network, DNS, TLS or timeout). Retry once with backoff; do not loop."] };
+  }
+  const status = typeof e.status === "number" ? e.status : 0;
+  const auth = context.authHint ? context.authHint.trim().replace(/[.]?$/, ".") : null;
+  if (status === 401) {
+    return context.hadCredential
+      ? { code: "AUTH_INVALID", nextSteps: ["The credential was rejected; it may be expired or for another environment." + (auth ? " " + auth : "")] }
+      : { code: "NO_AUTH", nextSteps: ["No credential was sent." + (auth ? " " + auth : "")] };
+  }
+  if (status === 403) return { code: "AUTH_INVALID", nextSteps: ["The credential lacks access to this operation; it is not a retryable error."] };
+  if (status === 402) return { code: "PLAN_LIMIT", nextSteps: ["The account's plan stops here; the body may name where to lift the limit. Do not retry the same call as is."] };
+  if (status === 404) return { code: "NOT_FOUND", nextSteps: ["Check the id; list the resource first to find the right one."] };
+  if (status === 429) {
+    const retryAfter = extractRetryAfter(e);
+    return { code: "RATE_LIMITED", nextSteps: [retryAfter ? "Wait " + retryAfter + " seconds, then call again." : "Back off and retry once; the request was already retried with the server's Retry-After."] };
+  }
+  if (status === 400 || status === 409 || status === 413 || status === 422) {
+    return { code: "INVALID_REQUEST", nextSteps: ["Read body for the field the API named, fix that argument and call again."] };
+  }
+  if (status >= 500) return { code: "SERVER_ERROR", nextSteps: ["Retry once with backoff. If it persists, report the request id from body."] };
+  return { code: "CALL_FAILED", nextSteps: [] };
+}
+
+/** A typed API error as the agent should see it: name, a stable code, the
+ * message, status, the API's body, where to read more, and what to do. */
+export function errorOutcome(error: unknown, context: ErrorContext = {}): ToolOutcome {
   const e = error as { name?: string; message?: string; status?: number; body?: unknown };
-  const structured = { error: e?.name ?? "Error", message: e?.message, status: e?.status, body: e?.body };
-  return { text: JSON.stringify(structured, null, 2), isError: true, structured };
+  const { code, nextSteps } = classifyError(error, context);
+  const structured = {
+    error: e?.name ?? "Error",
+    code,
+    message: e?.message,
+    ...(typeof e?.status === "number" ? { status: e.status } : {}),
+    ...(e?.body !== undefined ? { body: e.body } : {}),
+    ...(context.docsUrl ? { docs_url: context.docsUrl } : {}),
+    next_steps: nextSteps,
+  };
+  return { text: JSON.stringify(structured), isError: true, structured };
 }
 
-export function textError(text: string): ToolOutcome {
-  return { text, isError: true };
+export function textError(text: string, code: ErrorCode = "CALL_FAILED", nextSteps: string[] = []): ToolOutcome {
+  const structured = { error: "Error", code, message: text, next_steps: nextSteps };
+  return { text: JSON.stringify(structured), isError: true, structured };
 }
 
 // ---- docs tools: spec reference + docs-site prose (llms.txt) --------------------
@@ -436,6 +998,9 @@ export function referenceText(op: OpLike): string {
         (p.description ? ": " + p.description.trim().split("\n")[0] : ""),
       );
     }
+  }
+  if (!hasOwnFieldsParam(op)) {
+    lines.push("", "Also: fields (array of dotted paths) keeps only those keys of the result" + (op.paginated ? ", per item" : "") + ".");
   }
   return lines.join("\n");
 }
@@ -485,7 +1050,7 @@ export async function docsRead(source: DocsSource, page: string): Promise<ToolOu
   if (text === null) {
     return textError(source.docsUrl() === null
       ? "No docs site is configured for this server, and no operation matches \"" + page + "\"."
-      : "Couldn't fetch \"" + page + "\". Use search_docs to find pages.");
+      : "Couldn't fetch \"" + page + "\". Use search_docs to find pages.", "NOT_FOUND", ["search_docs finds operations and guide pages."]);
   }
   return { text, isError: false };
 }
@@ -493,7 +1058,8 @@ export async function docsRead(source: DocsSource, page: string): Promise<ToolOu
 /**
  * Dispatch for the shared tools (search_docs, read_docs, execute); returns
  * undefined for anything else so the caller can run its own tools.
- * `runOperation` is how an execute call reaches the API.
+ * `runOperation` is how an execute call reaches the API; `source.ops` is
+ * the callable set, so a hidden operation is unknown here too.
  */
 export async function callSharedTool(
   name: string,
@@ -502,15 +1068,15 @@ export async function callSharedTool(
   runOperation: (op: OpLike, args: Record<string, unknown>) => Promise<ToolOutcome>,
 ): Promise<ToolOutcome | undefined> {
   if (name === "search_docs") {
-    return typeof args.query === "string" ? docsSearch(source, args.query) : textError("search_docs requires a query string");
+    return typeof args.query === "string" ? docsSearch(source, args.query) : argumentsError({ tool: name }, [{ code: "MISSING_ARGUMENT", argument: "query", message: "search_docs requires a query string." }]);
   }
   if (name === "read_docs") {
-    return typeof args.page === "string" ? docsRead(source, args.page) : textError("read_docs requires a page string");
+    return typeof args.page === "string" ? docsRead(source, args.page) : argumentsError({ tool: name }, [{ code: "MISSING_ARGUMENT", argument: "page", message: "read_docs requires a page string." }]);
   }
   if (name === "execute") {
-    if (typeof args.operation !== "string") return textError("execute requires an operation name");
+    if (typeof args.operation !== "string") return argumentsError({ tool: name }, [{ code: "MISSING_ARGUMENT", argument: "operation", message: "execute requires an operation name." }]);
     const target = findOperation(source.ops, args.operation);
-    if (!target) return textError("Unknown operation: " + args.operation + ". Use search_docs to find operations.");
+    if (!target) return textError("Unknown operation: " + args.operation + ".", "NOT_FOUND", ["search_docs finds operations by name, path or description."]);
     const opArgs = args.arguments !== null && typeof args.arguments === "object" && !Array.isArray(args.arguments)
       ? (args.arguments as Record<string, unknown>)
       : {};
