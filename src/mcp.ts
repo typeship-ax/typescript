@@ -52,6 +52,8 @@ const TOOL_MODE: "operations" | "meta" = "operations";
 const OAUTH_ISSUER: string | null = null;
 /** Project-supplied guidance appended to the server instructions. */
 const CUSTOM_INSTRUCTIONS: string | null = null;
+/** The tool that returns the caller (the CLI's whoami target), named in the instructions. */
+const IDENTITY_TOOL: string | null = "account_me";
 /** Surface switches: reads only, and/or a subset of resources or tools.
  * Flags win over the environment. */
 const ARGV = process.argv.slice(2);
@@ -190,6 +192,7 @@ function serverFor(authHeader?: string): McpServer {
       readOnly: READ_ONLY,
       hiddenWrites: HIDDEN_WRITES,
       authHint: authHeader !== undefined ? AUTH_HINT_HTTP : AUTH_HINT_STDIO,
+      identityTool: MCP_OPS.some((o) => o.tool === IDENTITY_TOOL) ? IDENTITY_TOOL : null,
       custom: CUSTOM_INSTRUCTIONS,
     }),
     toolsTtlMs: TOOLS_TTL_MS,

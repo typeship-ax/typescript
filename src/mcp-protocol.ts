@@ -390,10 +390,13 @@ export function operationTool(op: OpLike): ToolDefinition {
   };
 }
 
+/** Reference matches per search_docs page. */
+export const SEARCH_PAGE_SIZE = 15;
+
 export const SEARCH_DOCS_TOOL: ToolDefinition = {
   name: "search_docs",
-  description: "Search this API's reference (operations, parameters) and, when a docs site is configured, its guides.",
-  inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] },
+  description: "Search this API's reference (operations, parameters) and, when a docs site is configured, its guides. Best matches first; page through with page.",
+  inputSchema: { type: "object", properties: { query: { type: "string" }, page: { type: "integer", minimum: 1, description: "Page of reference matches (15 per page), default 1" } }, required: ["query"] },
   annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 };
 
@@ -495,6 +498,8 @@ export interface InstructionsInput {
   hiddenWrites?: number;
   /** One sentence on where credentials come from, for this transport. */
   authHint?: string | null;
+  /** The tool that returns the caller (the CLI's whoami target), when the API has one. */
+  identityTool?: string | null;
   /** Project-supplied text, appended verbatim. */
   custom?: string | null;
 }
@@ -511,6 +516,7 @@ export function serverInstructions(input: InstructionsInput): string {
   parts.push("Paginated tools return items, hasMore and nextPage (the exact arguments for the following page). Pass fields (dotted paths) to keep only the result keys you need; oversized results are cut to whole items or keys with a truncated note saying how to ask for less.");
   parts.push("Errors carry error, code, message, status, the API's body and next_steps.");
   if (input.authHint) parts.push(input.authHint.trim().replace(/[.]?$/, "."));
+  if (input.identityTool) parts.push("Call " + input.identityTool + " first to learn which account the credential belongs to.");
   if (input.readOnly) {
     parts.push("This server is read-only: " + (input.hiddenWrites ? input.hiddenWrites + " write operations are not available here." : "write operations are not available here."));
   }
@@ -1016,15 +1022,56 @@ export function referenceText(op: OpLike): string {
   return lines.join("\n");
 }
 
-export async function docsSearch(source: DocsSource, query: string): Promise<ToolOutcome> {
+/** Query terms: lowercase words of two or more characters, with the
+ * snake/kebab/camel seams split so "createAccount" finds accounts_create. */
+function searchTerms(query: string): string[] {
+  return [...new Set(query.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length >= 2))];
+}
+
+/** Relevance of one operation to the terms: the tool name counts most,
+ * then summary, path and argument names, then the description. The whole
+ * query as a phrase in the name or summary is a strong signal. */
+export function searchScore(op: OpLike, query: string): number {
+  const terms = searchTerms(query);
+  if (terms.length === 0) return 0;
+  const tool = op.tool.toLowerCase();
+  const toolWords = tool.split("_");
+  const summary = (op.summary ?? "").toLowerCase();
+  const path = op.path.toLowerCase();
+  const params = op.params.map((p) => p.name.toLowerCase());
+  const description = (op.description ?? "").toLowerCase();
+  let score = 0;
+  for (const term of terms) {
+    if (toolWords.includes(term)) score += 10;
+    else if (tool.includes(term)) score += 6;
+    if (summary.split(/[^a-z0-9]+/).includes(term)) score += 5;
+    else if (summary.includes(term)) score += 3;
+    if (path.includes(term)) score += 3;
+    if (params.some((p) => p === term)) score += 3;
+    else if (params.some((p) => p.includes(term))) score += 1;
+    if (description.includes(term)) score += 1;
+  }
+  const phrase = query.trim().toLowerCase();
+  if (phrase.length >= 3 && (tool.includes(phrase.replace(/[^a-z0-9]+/g, "_")) || summary.includes(phrase))) score += 8;
+  return score;
+}
+
+export async function docsSearch(source: DocsSource, query: string, page = 1): Promise<ToolOutcome> {
   const term = query.toLowerCase();
   const sections: string[] = [];
-  const refMatches = source.ops.filter((op) =>
-    (op.tool + " " + op.path + " " + (op.summary ?? "") + " " + (op.description ?? "") + " " +
-      op.params.map((p) => p.name).join(" ")).toLowerCase().includes(term));
-  if (refMatches.length > 0) {
-    sections.push("Reference matches:\n" + refMatches.slice(0, 15).map((op) =>
-      "- " + op.tool + ": " + (op.summary ?? op.httpMethod + " " + op.path)).join("\n"));
+  const ranked = source.ops
+    .map((op) => ({ op, score: searchScore(op, query) }))
+    .filter((r) => r.score > 0)
+    .sort((a, b) => b.score - a.score || a.op.tool.localeCompare(b.op.tool));
+  const pageIndex = Math.max(1, Math.floor(page)) - 1;
+  const slice = ranked.slice(pageIndex * SEARCH_PAGE_SIZE, (pageIndex + 1) * SEARCH_PAGE_SIZE);
+  if (slice.length > 0) {
+    const more = ranked.length - (pageIndex + 1) * SEARCH_PAGE_SIZE;
+    sections.push("Reference matches (best first" + (ranked.length > SEARCH_PAGE_SIZE ? ", page " + (pageIndex + 1) + " of " + Math.ceil(ranked.length / SEARCH_PAGE_SIZE) : "") + "):\n" +
+      slice.map((r) => "- " + r.op.tool + ": " + (r.op.summary ?? r.op.httpMethod + " " + r.op.path)).join("\n") +
+      (more > 0 ? "\n(" + more + " more; pass page: " + (pageIndex + 2) + ")" : ""));
+  } else if (ranked.length > 0) {
+    sections.push("No reference matches on page " + (pageIndex + 1) + "; there are " + Math.ceil(ranked.length / SEARCH_PAGE_SIZE) + " pages.");
   }
   const prose = await fetchDocs(source, "llms-full.txt");
   if (prose !== null) {
@@ -1079,7 +1126,9 @@ export async function callSharedTool(
   runOperation: (op: OpLike, args: Record<string, unknown>) => Promise<ToolOutcome>,
 ): Promise<ToolOutcome | undefined> {
   if (name === "search_docs") {
-    return typeof args.query === "string" ? docsSearch(source, args.query) : argumentsError({ tool: name }, [{ code: "MISSING_ARGUMENT", argument: "query", message: "search_docs requires a query string." }]);
+    if (typeof args.query !== "string") return argumentsError({ tool: name }, [{ code: "MISSING_ARGUMENT", argument: "query", message: "search_docs requires a query string." }]);
+    const page = typeof args.page === "number" ? args.page : typeof args.page === "string" && /^\d+$/.test(args.page) ? Number(args.page) : 1;
+    return docsSearch(source, args.query, page);
   }
   if (name === "read_docs") {
     return typeof args.page === "string" ? docsRead(source, args.page) : argumentsError({ tool: name }, [{ code: "MISSING_ARGUMENT", argument: "page", message: "read_docs requires a page string." }]);
