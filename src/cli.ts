@@ -7,7 +7,7 @@
 
 import { spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir, hostname } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -172,7 +172,7 @@ function colorEnabled(stream: { isTTY?: boolean }, parsed: Parsed): boolean {
   return stream.isTTY === true && process.env.TERM !== "dumb";
 }
 
-const ANSI = { bold: "1", dim: "2", cyan: "36", yellow: "33", green: "32" } as const;
+const ANSI = { bold: "1", dim: "2", cyan: "36", yellow: "33", green: "32", red: "31" } as const;
 
 function paintOut(code: keyof typeof ANSI, text: string): string {
   return COLOR_OUT ? "\x1b[" + ANSI[code] + "m" + text + "\x1b[0m" : text;
@@ -184,6 +184,33 @@ function paintErr(code: keyof typeof ANSI, text: string): string {
 
 function out(value: unknown): void {
   process.stdout.write(JSON.stringify(value, null, 2) + "\n");
+}
+
+/** --fields a,b.c: the dotted paths to keep in API results (null = everything). Set in main(). */
+let FIELDS: string[][] | null = null;
+
+/** Keep only FIELDS of a result: arrays item by item, objects by dotted path; scalars untouched. */
+function project(value: unknown): unknown {
+  if (FIELDS === null) return value;
+  if (Array.isArray(value)) return value.map(project);
+  if (value === null || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const path of FIELDS) {
+    let cursor: unknown = value;
+    for (const key of path) {
+      if (cursor === null || typeof cursor !== "object" || Array.isArray(cursor)) { cursor = undefined; break; }
+      cursor = (cursor as Record<string, unknown>)[key];
+    }
+    if (cursor === undefined) continue;
+    let target = out;
+    for (const key of path.slice(0, -1)) {
+      const next = target[key];
+      if (next === undefined || next === null || typeof next !== "object" || Array.isArray(next)) target[key] = {};
+      target = target[key] as Record<string, unknown>;
+    }
+    target[path[path.length - 1]!] = cursor;
+  }
+  return out;
 }
 
 /** Thrown after scheduling exit so sync callers stop; main() swallows it. */
@@ -206,13 +233,52 @@ function flushExit(code: number): Promise<never> {
  */
 function failWith(input: EnvelopeInput): never {
   const body = envelope({ docsUrl: DOCS_URL_DEFAULT, ...input });
-  const payload = JSON.stringify(body, null, 2) + "\n";
-  process.stderr.write(payload, () => process.exit(exitCodeFor(input.code)));
+  const code = exitCodeFor(input.code);
+  const payload = HUMAN_ERRORS ? humanError(body, code) : JSON.stringify(body, null, 2) + "\n";
+  process.stderr.write(payload, () => process.exit(code));
   throw new ExitPending();
 }
 
-/** Legacy shape: exit 2 is usage, everything else is a failed command. */
-function fail(code: number, message: string, extra?: unknown): never {
+/** Set once argv is parsed: a person at a terminal reads prose; pipes, CI,
+ * and agents get the JSON envelope, byte for byte. */
+let HUMAN_ERRORS = false;
+
+/**
+ * The same envelope as prose for a terminal:
+ *   acme: No such account
+ *     Check the id; list the resource first.
+ *     NOT_FOUND · HTTP 404 · exit 1 · pipe stderr or --mode agent for JSON
+ */
+function humanError(body: ReturnType<typeof envelope>, code: number): string {
+  const lines: string[] = [];
+  const issue = body.issues[0];
+  lines.push(paintErr("red", BIN + ":") + " " + (issue?.message ?? "failed"));
+  for (const extra of body.issues.slice(1)) lines.push("  " + extra.message);
+  for (const step of body.next_steps ?? []) lines.push("  " + step);
+  const detail = body.detail as { status?: number; body?: unknown; violations?: unknown } | undefined;
+  if (detail?.violations !== undefined) {
+    for (const v of (detail.violations as { path?: string; message?: string }[]).slice(0, 8)) lines.push("  " + paintErr("dim", (v.path ? v.path + ": " : "") + (v.message ?? "")));
+  } else if (detail?.body !== undefined) {
+    // The API's own body, when the message above did not already come from
+    // it; the request id always, for support tickets.
+    const compact = typeof detail.body === "string" ? detail.body : JSON.stringify(detail.body);
+    const firstWords = (issue?.message ?? "").slice(0, 40);
+    if (compact && compact !== "{}" && !(firstWords && compact.includes(firstWords))) lines.push("  " + paintErr("dim", "API said: " + (compact.length > 300 ? compact.slice(0, 297) + "…" : compact)));
+    const requestId = (detail.body as { request_id?: unknown; requestId?: unknown } | null)?.request_id ?? (detail.body as { requestId?: unknown } | null)?.requestId;
+    if (typeof requestId === "string") lines.push("  " + paintErr("dim", "request id: " + requestId));
+  }
+  const tags = [issue?.code ?? "ERROR", ...(typeof detail?.status === "number" && detail.status > 0 ? ["HTTP " + detail.status] : []), "exit " + code, "pipe stderr or --mode agent for JSON"];
+  lines.push("  " + paintErr("dim", tags.join(" · ")));
+  return lines.join("\n") + "\n";
+}
+
+/** The --help a usage error points at: the command's own once one is resolved. */
+let USAGE_HINT = BIN + " --help";
+
+/** Legacy shape: exit 2 is usage, everything else is a failed command. The
+ * message states the problem; what to do next goes in next_steps (the
+ * usage pointer by default, for exit 2). */
+function fail(code: number, message: string, extra?: unknown, nextSteps?: string[]): never {
   const usageCode: IssueCode = /^Unknown command/.test(message) ? "UNKNOWN_COMMAND"
     : /^Unknown flag/.test(message) ? "UNKNOWN_FLAG"
     : /^(Missing required|Expected \d+ argument)/.test(message) ? "MISSING_ARGUMENT"
@@ -221,7 +287,7 @@ function fail(code: number, message: string, extra?: unknown): never {
     code: code === 2 ? usageCode : "COMMAND_FAILED",
     message,
     ...(extra !== undefined ? { detail: extra } : {}),
-    nextSteps: code === 2 ? ["Run '" + BIN + " --help' or '" + BIN + " <resource> <command> --help' for the flags this command takes."] : [],
+    nextSteps: nextSteps ?? (code === 2 ? ["Run '" + USAGE_HINT + "' for the flags this command takes."] : []),
   });
 }
 
@@ -877,6 +943,7 @@ function commandSummaries(): CommandSummary[] {
     ...(op.summary ? { summary: op.summary } : {}),
     paginated: op.paginated,
     destructive: op.httpMethod === "DELETE",
+    auth: op.auth,
     flags: op.params.filter((p) => p.kind !== "path").map((p) => ({ flag: p.flag, type: p.type, ...(p.items ? { items: p.items } : {}), ...(p.enum ? { enum: p.enum } : {}), required: p.required, ...(p.description ? { description: p.description.split("\n")[0] } : {}) })),
   }));
 }
@@ -904,12 +971,13 @@ function helpJson(): Record<string, unknown> {
         ...(c.summary ? { summary: c.summary } : {}),
         paginated: c.paginated,
         destructive: c.destructive,
+        auth: c.auth,
         positional: OPS.find((o) => o.command[0] === resource && o.command[1] === c.command)!.params.filter((p) => p.kind === "path").map((p) => p.name),
         flags: c.flags,
       })),
     })),
     builtins: BUILTIN_COMMANDS,
-    global_flags: ["--help", "--version", "--debug", "--non-interactive", "--mode agent|human", "--yes", "--force", "--color on|off|auto", "--base-url <url>", "--data '<json>'", "--all", "--validate", "--out <dir>", ...AUTH_SCALARS.map((a) => "--" + a.flag + " <value>")],
+    global_flags: ["--help", "--version", "--debug", "--non-interactive", "--mode agent|human", "--yes", "--force", "--color on|off|auto", "--base-url <url>", "--data '<json>' | @<file> | -", "--fields <a,b.c>", "--all", "--validate", "--out <dir>", ...AUTH_SCALARS.map((a) => "--" + a.flag + " <value>")],
     auth_env_vars: agentContext().authEnvVars,
   };
 }
@@ -1163,8 +1231,19 @@ async function cmdUpgrade(parsed: Parsed): Promise<void> {
     out({ ok: true, current: VERSION, latest, message: "Already up to date." });
     await flushExit(0);
   }
+  // How this binary was installed decides how it upgrades; "npm install -g"
+  // over a pnpm, bun, or npx install would leave two copies or none.
+  let self = process.argv[1] ?? "";
+  try { self = realpathSync(self); } catch { /* keep the literal path */ }
+  const manager = /[\\/]_npx[\\/]/.test(self) ? "npx" : /[\\/]pnpm[\\/]/.test(self) ? "pnpm" : /[\\/]\.bun[\\/]/.test(self) ? "bun" : /[\\/]yarn[\\/]/.test(self) ? "yarn" : "npm";
+  if (manager === "npx") fail(1, "This run came through npx, which fetches the latest version each time; there is nothing to upgrade in place.");
+  if (manager !== "npm") {
+    const command = manager === "pnpm" ? "pnpm add -g " + PKG_NAME + "@" + latest : manager === "bun" ? "bun add -g " + PKG_NAME + "@" + latest : "yarn global add " + PKG_NAME + "@" + latest;
+    failWith({ status: "action_required", code: "COMMAND_FAILED", message: PKG_NAME + " was installed with " + manager + ", so npm can't upgrade it in place.", nextSteps: ["Run: " + command] });
+  }
   process.stderr.write("Upgrading " + PKG_NAME + " " + VERSION + " -> " + latest + "\n");
-  const install = spawnSync("npm", ["install", "-g", PKG_NAME + "@" + latest], { stdio: ["ignore", "inherit", "inherit"] });
+  // Windows resolves npm to npm.cmd, which only a shell can start.
+  const install = spawnSync("npm", ["install", "-g", PKG_NAME + "@" + latest], { stdio: ["ignore", "inherit", "inherit"], shell: process.platform === "win32" });
   if (install.status !== 0) {
     fail(1, "npm install failed (exit " + String(install.status) + "). Try: npm install -g " + PKG_NAME + "@latest");
   }
@@ -1181,7 +1260,7 @@ const TOP_WORDS = ["login", "logout", "whoami", "config", "mcp", "upgrade", "doc
 function completionScript(): string {
   const fn = "_" + BIN.replace(/-/g, "_") + "_complete";
   const resources = [...new Set(OPS.map((o) => o.command[0]))];
-  const globalFlags = "--help --version --non-interactive --color --base-url --data --all" +
+  const globalFlags = "--help --version --non-interactive --color --base-url --data --fields --all --validate --debug --mode --yes --force --out" +
     AUTH_SCALARS.map((a) => " --" + a.flag).join("");
   const lines: string[] = [];
   lines.push(fn + "() {");
@@ -1746,34 +1825,59 @@ function flagTable(params: ParamSpec[], extras: [string, string][]): string[] {
   return lines;
 }
 
-function printRoot(): void {
+/** Display order for a resource's commands: the CRUD verbs first, then the rest in spec order. */
+const VERB_ORDER = ["list", "get", "create", "update", "delete"];
+function displayOrder(list: OpSpec[]): OpSpec[] {
+  const rank = (o: OpSpec) => { const i = VERB_ORDER.indexOf(o.command[1]); return i === -1 ? VERB_ORDER.length : i; };
+  return [...list].map((o, i) => ({ o, i })).sort((a, b) => rank(a.o) - rank(b.o) || a.i - b.i).map((x) => x.o);
+}
+
+/** "Label: text" wrapped to the terminal with the continuation indented under the text. */
+function labeled(label: string, text: string, width: number, indent: number): string[] {
+  const first = label.padEnd(indent);
+  const wrapped = wrapText(text, width - indent);
+  return wrapped.map((line, i) => (i === 0 ? first + line : " ".repeat(indent) + line));
+}
+
+function printRoot(stream: NodeJS.WriteStream = process.stdout): void {
   const byResource = new Map<string, OpSpec[]>();
   for (const op of OPS) {
     const list = byResource.get(op.command[0]) ?? [];
     list.push(op);
     byResource.set(op.command[0], list);
   }
+  const width = termWidth();
   const lines: string[] = [];
   lines.push(paintOut("bold", BIN) + ": " + "typeship" + " (v" + "1.0.0" + ")");
   lines.push("");
   lines.push(paintOut("bold", "Usage:") + " " + BIN + " <resource> <command> [args] [--flags]");
   lines.push("");
   lines.push(paintOut("bold", "Resources:"));
+  // Big APIs get a digest per resource; the resource's own help has the full list.
+  const digest = OPS.length > 120;
+  const col = Math.min(30, Math.max(...[...byResource.keys()].map((r) => r.length)) + 4);
   for (const [resource, list] of byResource) {
-    lines.push("  " + padPaint("cyan", resource, 24) + list.map((o) => o.command[1]).join(", "));
+    const names = displayOrder(list).map((o) => o.command[1]);
+    const text = digest && names.length > 6
+      ? names.slice(0, 6).join(", ") + ", … " + (names.length - 6) + " more (" + BIN + " " + resource + ")"
+      : names.join(", ");
+    const wrapped = wrapText(text, width - 2 - col);
+    lines.push("  " + padPaint("cyan", resource, col) + wrapped[0]);
+    for (const more of wrapped.slice(1)) lines.push(" ".repeat(2 + col) + more);
   }
   lines.push("");
-  lines.push(paintOut("bold", "Global flags:") + " -v/--version, -h/--help, --debug, --non-interactive, --color on|off|auto, --base-url, --data '<json>', --all (paginated lists), --validate (schema-check bodies)" +
-    (AUTH_SCALARS.length > 0 ? ", " + AUTH_SCALARS.map((a) => "--" + a.flag).join(", ") : ""));
-  lines.push("Auth env vars: " + [
+  const flagsText = "-v/--version, -h/--help, --debug, --non-interactive, --color on|off|auto, --base-url <url>, --data '<json>', --fields <a,b.c>, --all (paginated lists), --validate (schema-check bodies)" +
+    (AUTH_SCALARS.length > 0 ? ", " + AUTH_SCALARS.map((a) => "--" + a.flag + " <value>").join(", ") : "");
+  lines.push(...labeled(paintOut("bold", "Global flags:") + " ", flagsText, width, 14).map((l, i) => (i === 0 ? l : l)));
+  lines.push(...labeled("Auth env vars: ", [
     ...AUTH_SCALARS.map((a) => a.env),
     ...(BASIC ? [BASIC.envUser, BASIC.envPass] : []),
     "TYPESHIP_BASE_URL",
-  ].join(", "));
-  lines.push("Account: " + BIN + " login | logout | whoami | auth check  (stored at " + credsPath() + ")");
-  lines.push("Setup: " + BIN + " init (connect this machine)" + " | " + BIN + " config (defaults)" + (HAS_MCP || MCP_URL ? " | " + BIN + " mcp install --all (agent clients)" : "") + " | " + BIN + " doctor | " + BIN + " upgrade | " + BIN + " completion <shell>");
-  lines.push("Agents: " + BIN + " agent-guide | " + BIN + " help --json | --mode agent | --yes/--force | --out <dir>  (JSON errors: {status, issues[{code}], next_steps})");
-  lines.push("Docs: " + BIN + " docs [<resource> <command> | search <term> | read <page> | --web]");
+  ].join(", "), width, 15));
+  lines.push(...labeled("Account: ", BIN + " login | logout | whoami | auth check  (stored at " + credsPath() + ")", width, 9));
+  lines.push(...labeled("Setup: ", BIN + " init (connect this machine)" + " | " + BIN + " config (defaults)" + (HAS_MCP || MCP_URL ? " | " + BIN + " mcp install --all (agent clients)" : "") + " | " + BIN + " doctor | " + BIN + " upgrade | " + BIN + " completion <shell>", width, 7));
+  lines.push(...labeled("Agents: ", BIN + " agent-guide | " + BIN + " help --json | --mode agent | --yes/--force | --out <dir>  (JSON errors: {status, issues[{code}], next_steps})", width, 8));
+  lines.push(...labeled("Docs: ", BIN + " docs [<resource> <command> | search <term> | read <page> | --web]", width, 6));
   if (RELAY) lines.push("Webhooks: " + BIN + " webhooks listen --forward-to <url>  (local event forwarding)");
   if (SUPPORT_URL) lines.push("Feedback: " + BIN + " feedback  (opens the provider's issue tracker)");
   if (EXCLUDED_OPS > 0 && HAS_MCP) {
@@ -1781,18 +1885,18 @@ function printRoot(): void {
     lines.push("Note: " + EXCLUDED_OPS + " operation(s) with uploads or event streams are CLI/SDK-only, not MCP tools.");
   }
   lines.push("");
-  lines.push("Run '" + BIN + " <resource> <command> --help' for flags.");
-  process.stdout.write(lines.join("\n") + "\n");
+  lines.push("Run '" + BIN + " <resource>' for a resource's commands, '" + BIN + " <resource> <command> --help' for flags.");
+  stream.write(lines.join("\n") + "\n");
 }
 
-function printResource(resource: string): void {
-  const list = OPS.filter((o) => o.command[0] === resource);
+function printResource(resource: string, stream: NodeJS.WriteStream = process.stdout): void {
+  const list = displayOrder(OPS.filter((o) => o.command[0] === resource));
   const lines: string[] = ["Commands for " + resource + ":", ""];
   const width = termWidth();
   const col = Math.min(64, Math.max(...list.map((o) => usageLine(o).length)) + 2);
   for (const op of list) {
     const usage = usageLine(op);
-    const wrapped = wrapText(helpSentence(op.summary) || wireOf(op), width - 2 - col);
+    const wrapped = wrapText((helpSentence(op.summary) || wireOf(op)) + authNote(op), width - 2 - col);
     if (usage.length + 2 > col) {
       lines.push("  " + usage);
       for (const line of wrapped) lines.push(" ".repeat(2 + col) + line);
@@ -1802,7 +1906,7 @@ function printResource(resource: string): void {
     }
   }
   lines.push("", "Run '" + BIN + " " + resource + " <command> --help' for flags.");
-  process.stdout.write(lines.join("\n") + "\n");
+  stream.write(lines.join("\n") + "\n");
 }
 
 /** Flags the CLI itself adds to an API command, as [flag, description] rows. */
@@ -1812,6 +1916,7 @@ function commandExtras(op: OpSpec): [string, string][] {
   else if (op.hasBody) extras.push(["--data '<json>'", "raw JSON body" + (op.bodyStyle === "fields" ? " (merged under field flags)" : "") + "; @<file> reads a file, - reads stdin"]);
   if (op.select) extras.push(["--select '<selection>'", "GraphQL selection set replacing the default, e.g. '{ id name }'"]);
   if (op.paginated) extras.push(["--all", "stream every item from every page (NDJSON)"]);
+  extras.push(["--fields <a,b.c>", "keep only these fields of the result" + (op.paginated ? " (per item)" : "")]);
   if (bundleProperty(op.outputSchema) !== null) extras.push(["--out <dir>", "write the response's files ({path, content}) into a directory"]);
   if (op.httpMethod === "DELETE") extras.push(["--force", "destructive: required without a terminal, skips the prompt with one"]);
   return extras;
@@ -1837,11 +1942,17 @@ function exampleLine(op: OpSpec): string {
   return parts.join(" ");
 }
 
+/** " (no auth needed)" for an anonymous operation in an API that otherwise authenticates. */
+function authNote(op: OpSpec): string {
+  const apiHasAuth = AUTH_SCALARS.length > 0 || BASIC !== null || OAUTH_TOKEN_URL !== null;
+  return apiHasAuth && op.auth === "none" ? " (no auth needed)" : apiHasAuth && op.auth === "optional" ? " (auth optional)" : "";
+}
+
 function printOp(op: OpSpec): void {
   const lines: string[] = [];
   lines.push(paintOut("bold", usageLine(op)));
   if (op.summary) lines.push(helpSentence(op.summary));
-  lines.push(wireOf(op));
+  lines.push(wireOf(op) + authNote(op));
   lines.push("");
   const rows = op.params.filter((p) => p.kind !== "path");
   const extras = commandExtras(op);
@@ -1974,6 +2085,18 @@ function coerce(spec: ParamSpec, raw: string | boolean, repeated?: string[]): un
 /** Whether the last client built carried any credential; failApi tells NO_AUTH from AUTH_INVALID with it. */
 let LAST_CLIENT_HAD_CREDENTIAL = false;
 
+/** Where a credential would come from, without sending it: "flags", "env:<VAR>", "login", or null. */
+function credentialSource(flags: Map<string, string | boolean>): string | null {
+  if (AUTH_SCALARS.some((a) => typeof flags.get(a.flag) === "string")) return "flags";
+  if (BASIC && typeof flags.get("username") === "string" && typeof flags.get("password") === "string") return "flags";
+  const envScalar = AUTH_SCALARS.find((a) => process.env[a.env] !== undefined);
+  if (envScalar) return "env:" + envScalar.env;
+  if (BASIC && process.env[BASIC.envUser] !== undefined && process.env[BASIC.envPass] !== undefined) return "env:" + BASIC.envUser;
+  const stored = readCreds();
+  if (stored && (stored.scalars || stored.basic || stored.oauth)) return "login";
+  return null;
+}
+
 /** Base URL resolution: --base-url > env > config base-url > config environment > spec default. */
 function resolveBaseUrl(flags: Map<string, string | boolean>): string | undefined {
   const config = readConfig();
@@ -2072,6 +2195,10 @@ async function main(): Promise<void> {
   const [resourceCmd, methodCmd] = parsed.positionals;
   COLOR_OUT = colorEnabled(process.stdout, parsed);
   COLOR_ERR = colorEnabled(process.stderr, parsed);
+  // Prose errors for a person: stderr is a terminal (or --mode human says
+  // to behave as if), and nothing asked for JSON.
+  const forcedHuman = parsed.flags.get("mode") === "human" || parsed.flags.get("mode") === "interactive" || process.env["TYPESHIP_MODE"] === "human";
+  HUMAN_ERRORS = (process.stderr.isTTY === true || forcedHuman) && !isAgentMode(parsed) && parsed.flags.get("format") !== "json" && parsed.flags.get("json") !== true;
   await maybeUpdateNotice(resourceCmd, explicitNonInteractive(parsed));
 
   if (resourceCmd === "init") { await cmdInit(parsed); }
@@ -2100,24 +2227,25 @@ async function main(): Promise<void> {
     await cmdWhoami(parsed);
   }
 
-  if (!resourceCmd) { printRoot(); await flushExit(parsed.help ? 0 : 2); }
+  // Help on request goes to stdout and exits 0; help because the command
+  // was incomplete is a usage error: stderr, exit 2, like every other one.
+  if (!resourceCmd) { printRoot(parsed.help ? process.stdout : process.stderr); await flushExit(parsed.help ? 0 : 2); }
   const resourceExists = OPS.some((o) => o.command[0] === resourceCmd);
   if (!resourceExists) {
     const suggestion = didYouMean(resourceCmd, [...new Set(OPS.map((o) => o.command[0])), ...BUILTIN_COMMANDS]);
-    fail(2, "Unknown command: " + resourceCmd + "."
-      + (suggestion ? " Did you mean '" + BIN + " " + suggestion + "'?" : "")
-      + " Run '" + BIN + " --help' for commands.");
+    fail(2, "Unknown command: " + resourceCmd + "." + (suggestion ? " Did you mean '" + BIN + " " + suggestion + "'?" : ""),
+      undefined, ["Run '" + BIN + " --help' for the commands."]);
   }
-  if (!methodCmd) { printResource(resourceCmd); await flushExit(parsed.help ? 0 : 2); }
+  if (!methodCmd) { printResource(resourceCmd, parsed.help ? process.stdout : process.stderr); await flushExit(parsed.help ? 0 : 2); }
 
   const op = findOp(resourceCmd, methodCmd);
   if (!op) {
     const suggestion = didYouMean(methodCmd, OPS.filter((o) => o.command[0] === resourceCmd).map((o) => o.command[1]));
-    fail(2, "Unknown command: " + resourceCmd + " " + methodCmd + "."
-      + (suggestion ? " Did you mean '" + BIN + " " + resourceCmd + " " + suggestion + "'?" : "")
-      + " Run '" + BIN + " " + resourceCmd + "' for the list.");
+    fail(2, "Unknown command: " + resourceCmd + " " + methodCmd + "." + (suggestion ? " Did you mean '" + BIN + " " + resourceCmd + " " + suggestion + "'?" : ""),
+      undefined, ["Run '" + BIN + " " + resourceCmd + "' for its commands."]);
   }
   if (parsed.help) { printOp(op); await flushExit(0); }
+  USAGE_HINT = BIN + " " + op.command[0] + " " + op.command[1] + " --help";
 
   const pathSpecs = op.params.filter((p) => p.kind === "path");
   const pathValues = parsed.positionals.slice(2);
@@ -2147,7 +2275,7 @@ async function main(): Promise<void> {
   // Mirrors opReservedFlags() in the generator: API parameters never use these
   // names (colliding ones are emitted as --<kind>-<name>), so an unknown flag
   // check can be exact.
-  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "debug", "validate", "non-interactive", "color", "version", "help", "yes", "force", "mode", "format", "json", "out", ...AUTH_SCALARS.map((a) => a.flag), ...(BASIC ? ["username", "password"] : []), ...GLOBALS.map((g) => g.flag)]);
+  const RESERVED_FLAGS = new Set(["data", "all", "select", "base-url", "debug", "validate", "non-interactive", "color", "version", "help", "yes", "force", "mode", "format", "json", "out", "fields", ...AUTH_SCALARS.map((a) => a.flag), ...(BASIC ? ["username", "password"] : []), ...GLOBALS.map((g) => g.flag)]);
   for (const spec of op.params) {
     if (spec.kind === "path") continue;
     const raw = parsed.flags.get(spec.flag);
@@ -2167,9 +2295,7 @@ async function main(): Promise<void> {
     if (key === "file" && op.bodyKind === "binary") continue;
     if (!op.params.some((p) => p.flag === key)) {
       const suggestion = didYouMean(key, [...op.params.filter((p) => p.kind !== "path").map((p) => p.flag), ...RESERVED_FLAGS]);
-      fail(2, "Unknown flag --" + key + "."
-        + (suggestion ? " Did you mean --" + suggestion + "?" : "")
-        + " Run with --help for flags.");
+      fail(2, "Unknown flag --" + key + "." + (suggestion ? " Did you mean --" + suggestion + "?" : ""));
     }
   }
 
@@ -2186,11 +2312,35 @@ async function main(): Promise<void> {
       : "Missing required: --data '<json>' (this operation's request body is required)");
   }
 
+  // --fields id,name,owner.email keeps only those paths of the result (per item for lists).
+  const fieldsRaw = parsed.flags.get("fields");
+  if (fieldsRaw === true) fail(2, "--fields expects a comma-separated list of field paths, e.g. --fields id,name");
+  if (typeof fieldsRaw === "string") {
+    FIELDS = fieldsRaw.split(",").map((f) => f.trim()).filter((f) => f !== "").map((f) => f.split("."));
+    if (FIELDS.length === 0) fail(2, "--fields expects at least one field path");
+  }
+
   // --out <dir> materializes a file-shaped response (see cli-agent.ts bundleProperty).
   const bundleField = bundleProperty(op.outputSchema);
   const outDir = typeof parsed.flags.get("out") === "string" ? (parsed.flags.get("out") as string) : undefined;
   if (outDir !== undefined && bundleField === null) {
     fail(2, "--out applies to commands whose response carries files ({path, content}); " + op.command.join(" ") + " does not.");
+  }
+
+  // The spec says this operation needs a credential and none resolved:
+  // say so now, locally, instead of sending a request to learn it.
+  if (op.auth === "required" && (AUTH_SCALARS.length > 0 || BASIC || OAUTH_TOKEN_URL) && credentialSource(parsed.flags) === null) {
+    failWith({
+      status: "action_required",
+      code: "NO_AUTH",
+      message: op.command.join(" ") + " needs a credential (" + wireOf(op) + " is authenticated) and none was found.",
+      nextSteps: [
+        ...AUTH_SCALARS.map((a) => "Set " + a.env + " in the environment, pass --" + a.flag + " <value>, or run '" + BIN + " login'."),
+        ...(BASIC ? ["Set " + BASIC.envUser + " and " + BASIC.envPass + ", or pass --username and --password."] : []),
+        ...(AUTH_SCALARS.length === 0 && !BASIC ? ["Run '" + BIN + " login'."] : []),
+        "'" + BIN + " auth check' shows what the CLI would send.",
+      ],
+    });
   }
 
   // Destructive commands need --force. A person gets asked; an agent gets
@@ -2220,7 +2370,7 @@ async function main(): Promise<void> {
   if (op.paginated && parsed.flags.get("all") === true) {
     try {
       for await (const item of callResult as AsyncIterable<unknown>) {
-        process.stdout.write(JSON.stringify(item) + "\n");
+        process.stdout.write(JSON.stringify(project(item)) + "\n");
       }
       await flushExit(0);
     } catch (e) {
@@ -2234,7 +2384,7 @@ async function main(): Promise<void> {
       // Server-sent events as NDJSON, one line per event, until the stream ends.
       try {
         for await (const event of result.data as AsyncIterable<{ event?: string; id?: string; data: string }>) {
-          process.stdout.write(JSON.stringify(event) + "\n");
+          process.stdout.write(JSON.stringify(project(event)) + "\n");
         }
       } catch (e) {
         failApi(e, LAST_CLIENT_HAD_CREDENTIAL);
@@ -2257,7 +2407,7 @@ async function main(): Promise<void> {
       const page = result.data as { items: unknown[]; hasNextPage(): boolean; nextPageParams(): Record<string, unknown> | null };
       const next = page.nextPageParams();
       out({
-        items: page.items,
+        items: project(page.items),
         hasMore: next !== null,
         ...(next !== null ? { nextPage: next, nextCommand: nextCommandFor(op, pathValues, next) } : {}),
       });
@@ -2268,9 +2418,9 @@ async function main(): Promise<void> {
       const files = (data[bundleField] as { path: string; content: string }[] | undefined) ?? [];
       const written = writeBundle(outDir, files);
       const { [bundleField]: _omitted, ...rest } = data;
-      out({ ...rest, out: written });
+      out({ ...(project(rest) as Record<string, unknown>), out: written });
     } else {
-      out(result.data ?? { ok: true });
+      out(project(result.data ?? { ok: true }));
     }
     await flushExit(0);
   }

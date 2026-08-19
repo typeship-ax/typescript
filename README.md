@@ -74,17 +74,22 @@ if (page.ok) {
 
 ## CLI
 
-Every operation is a command that mirrors the SDK exactly (`npm run build` once, or run via tsx):
+The package ships a command-line tool, `typeship`: every operation as a command with typed flags, JSON on stdout, exit codes 0/1/2 (ok / failed / usage). Install it globally, or run it from a clone (`npm install && npm run build`, then `node dist/cli.js`).
 
 ```sh
+npm install -g typeship
+typeship login                      # stores a credential (or set TYPESHIP_TOKEN)
 typeship projects list
-typeship <resource> <command> --help     # flags, types, required markers
-typeship projects list --all   # stream every page as NDJSON
+typeship projects create --name "<name>"
+typeship projects list --all | jq -r '.id'   # every page, one item per line
+typeship <resource> <command> --help     # flags, types, an example
 ```
 
-Body fields become flags (`--name x --currency usd`); nested values take JSON; `--data '<json>'` sets the whole body. Flags only — no prompts, CI-safe, exit codes 0/1/2.
+Path parameters are positional; everything else is a flag named after the wire field (`--name`, `--limit`). Array fields take a comma list or the flag repeated, object fields take JSON, and `--data '<json>'` (or `--data @file`, `--data -`) sets the whole body. `--fields id,name` keeps only those fields of the result. Paginated commands print one page with the command that fetches the next; `--all` streams every item as NDJSON. Destructive commands ask, or take `--force`. Errors are one JSON envelope on stderr (`{status, issues[{code}], next_steps}`) when piped, prose on a terminal.
 
-Auth via env (`TYPESHIP_TOKEN`, `TYPESHIP_BASE_URL`) or flags (`--token`, `--base-url`).
+Auth: `typeship login` stores a credential under `~/.config/typeship/`; the environment (`TYPESHIP_TOKEN`) and flags (`--token`) win over it. `TYPESHIP_BASE_URL` / `--base-url` pick the endpoint.
+
+Also: `typeship init` connects a machine: credential, MCP config for the agent clients it finds, an AGENTS.md block; `typeship mcp install --all` registers the MCP server with Claude Code, Cursor, Codex, VS Code and the rest; `typeship docs <resource> <command>` prints the full reference, `typeship docs search <term>` searches it; `typeship completion bash|zsh`, `typeship doctor`, `typeship upgrade`, `typeship agent-guide` and `typeship help --json` for agents. Run `typeship --help` for the map.
 
 ## MCP server
 

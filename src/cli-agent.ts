@@ -94,9 +94,13 @@ export function classifyApiError(
   context: { bin: string; hadCredential: boolean; docsUrl: string | null },
 ): EnvelopeInput {
   const e = (error ?? {}) as { name?: string; message?: string; status?: number; body?: unknown; violations?: unknown };
-  const base = e.name && e.message ? e.name + ": " + e.message : String(error);
+  // The message is the API's own words when it sent any, else the SDK's
+  // (the spec's response description). The error class name rides in
+  // detail, not in front of the message: "NotFoundError: No such account
+  // (no such account)" said one thing three times.
+  const base = e.message ? e.message : String(error);
   if (e.violations !== undefined) {
-    return { code: "VALIDATION_FAILED", message: base, detail: { violations: e.violations }, nextSteps: ["Fix the fields named in detail.violations, or drop --validate to send the body as is."] };
+    return { code: "VALIDATION_FAILED", message: base, detail: { ...(e.name ? { error: e.name } : {}), violations: e.violations }, nextSteps: ["Fix the fields named in detail.violations, or drop --validate to send the body as is."] };
   }
   if (e.name === "TransportError" || (typeof e.status !== "number" && /fetch|ECONN|ENOTFOUND|timed out|TLS|abort/i.test(base))) {
     return {
@@ -112,13 +116,14 @@ export function classifyApiError(
   const body = e.body as { errors?: { code?: string; message?: string }[]; error?: unknown; message?: unknown } | undefined;
   const apiCode = body?.errors?.[0]?.code;
   const apiMessage = body?.errors?.[0]?.message ?? (typeof body?.message === "string" ? body.message : undefined) ?? (typeof body?.error === "string" ? body.error : undefined);
-  const detail = { status, ...(e.body !== undefined ? { body: e.body } : {}) };
-  const message = apiMessage ? base + " (" + apiMessage + ")" : base;
+  const detail = { status, ...(e.name ? { error: e.name } : {}), ...(e.body !== undefined ? { body: e.body } : {}) };
+  const same = apiMessage !== undefined && (apiMessage.toLowerCase() === base.toLowerCase() || base.toLowerCase().includes(apiMessage.toLowerCase()) || apiMessage.toLowerCase().includes(base.toLowerCase()));
+  const message = apiMessage === undefined ? base : same ? apiMessage : apiMessage + " (" + base + ")";
   const upgradeUrl = extractUrl(e.body, ["upgrade_url", "upgradeUrl", "signup_url", "claim_url"]);
   if (status === 401) {
     return context.hadCredential
       ? { code: "AUTH_INVALID", message, detail, nextSteps: ["The credential was rejected. Check it is current: '" + context.bin + " auth check', then '" + context.bin + " login --help' to store a new one."] }
-      : { status: "action_required", code: "NO_AUTH", message, detail, nextSteps: ["No credential was sent. Set the auth env var, pass --token, or run '" + context.bin + " login'.", "'" + context.bin + " auth check --format json' shows what the CLI would send."] };
+      : { status: "action_required", code: "NO_AUTH", message, detail, nextSteps: ["No credential was sent. Set the auth env var, pass --token, or run '" + context.bin + " login'.", "'" + context.bin + " auth check' shows what the CLI would send."] };
   }
   if (status === 403) return { code: "AUTH_INVALID", message, detail, nextSteps: ["The credential lacks access to this operation."] };
   if (status === 402) {
@@ -432,6 +437,8 @@ export interface CommandSummary {
   summary?: string;
   paginated: boolean;
   destructive: boolean;
+  /** required | optional | none — what the spec's security says. */
+  auth?: "required" | "optional" | "none";
   flags: CommandFlagSummary[];
 }
 
@@ -463,7 +470,7 @@ export function compactIndex(commands: CommandSummary[]): string {
   return commands
     .map((c) => {
       const required = c.flags.filter((f) => f.required).map((f) => "--" + f.flag + (f.type === "boolean" ? "" : " <" + flagTypeLabel(f) + ">"));
-      return c.resource + " " + c.command + " | " + c.method + " " + c.path + (required.length ? " | " + required.join(" ") : "") + (c.summary ? " | " + c.summary : "");
+      return c.resource + " " + c.command + " | " + c.method + " " + c.path + (required.length ? " | " + required.join(" ") : "") + (c.summary ? " | " + c.summary : "") + (c.auth === "none" ? " | no auth" : "");
     })
     .join("\n");
 }
@@ -508,7 +515,7 @@ export function agentGuide(ctx: AgentContext, commands: CommandSummary[]): Recor
     skills_install: ctx.skillsRepo ? "npx skills add " + ctx.skillsRepo : null,
     auth_env_vars: ctx.authEnvVars,
     conventions: {
-      output: "JSON on stdout; --all streams NDJSON for paginated lists; SSE operations stream NDJSON events.",
+      output: "JSON on stdout; --fields a,b.c keeps only those paths (per item for lists); --all streams NDJSON for paginated lists; SSE operations stream NDJSON events.",
       errors: "JSON envelope on stderr: {status: 'error'|'action_required', issues: [{code, message}], docs_url?, next_steps: [], detail?}. Branch on issues[].code.",
       exit_codes: { "0": "ok", "1": "the request or command failed", "2": "usage: wrong flags, missing arguments, or a confirmation was required" },
       agent_mode: "--mode agent, " + ctx.envPrefix + "_MODE=agent, or no terminal on stdin and stdout: no prompts, no browsers, --yes implied for non-destructive stops.",
@@ -519,7 +526,7 @@ export function agentGuide(ctx: AgentContext, commands: CommandSummary[]): Recor
     builtins: ctx.builtins,
     next_steps: [
       ...(ctx.authEnvVars.length ? ["Set " + ctx.authEnvVars[0] + " in the environment or run '" + ctx.bin + " login'."] : []),
-      "Run '" + ctx.bin + " auth check --format json'.",
+      "Run '" + ctx.bin + " auth check'.",
       "Run '" + ctx.bin + " help --json' for the command index, or read the AGENTS.md block '" + ctx.bin + " init' writes.",
       ...(ctx.hasMcp ? ["Run '" + ctx.bin + " mcp install --all' if this session has an MCP-capable client."] : []),
     ],
@@ -539,7 +546,8 @@ export function installSkills(repo: string | null, options: { global?: boolean; 
   if (!repo) return { status: "skipped", repo: null, detail: "No skills repository is configured for this CLI." };
   const args = ["-y", "skills", "add", repo, "-y", ...(options.global === false ? [] : ["-g"])];
   if (options.agent) args.push("-a", options.agent);
-  const result = spawnSync("npx", args, { encoding: "utf8", timeout: 120_000, stdio: ["ignore", "pipe", "pipe"] });
+  // Windows resolves npx to npx.cmd, which only a shell can start.
+  const result = spawnSync("npx", args, { encoding: "utf8", timeout: 120_000, stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32" });
   if (result.error || result.status !== 0) {
     return { status: "failed", repo, detail: (result.stderr || result.stdout || result.error?.message || "npx skills add failed").toString().trim().slice(-400) };
   }
