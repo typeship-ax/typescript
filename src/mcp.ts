@@ -16,17 +16,17 @@
 // environment, then from credentials/config saved by the CLI's `login`
 // and `config` commands (same files, so one login covers both bins).
 
-import { readFileSync, realpathSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { TypeshipClient, formatDebugEvent, type DebugEvent } from "./index.js";
 import { GLOBALS, OPS, buildArgs, type OpSpec } from "./ops.js";
 import {
-  DEFAULT_MAX_RESULT_CHARS, SUPPORTED_PROTOCOL_VERSIONS, asJsonRpc, callSharedTool, checkRequestHeaders, dataOutcome, errorOutcome,
-  fetchDocsText, handleRpc, isRpcOutcome, pageOutcome, parseIncludeList, prepareCall, serverInstructions, takeCancelled, textError,
-  toolDefinitions, visibleOps,
-  type DocsSource, type McpServer, type OpLike, type RpcOutcome, type ToolOutcome,
+  DEFAULT_MAX_RESULT_CHARS, SUPPORTED_PROTOCOL_VERSIONS, argumentsError, asJsonRpc, binaryOutcome, callSharedTool, checkRequestHeaders,
+  dataOutcome, errorOutcome, fetchDocsText, handleRpc, isRpcOutcome, pageOutcome, parseIncludeList, prepareCall, serverInstructions,
+  takeCancelled, textError, toolDefinitions, visibleOps,
+  type ArgumentIssue, type DocsSource, type McpServer, type OpLike, type RpcOutcome, type ToolOutcome,
 } from "./mcp-protocol.js";
 
 const BIN = "typeship";
@@ -140,10 +140,24 @@ async function callOperation(op: OpSpec, rawArgs: Record<string, unknown>, authH
   for (const p of op.params) {
     if (args[p.name] !== undefined) values[p.name] = args[p.name];
   }
+  // File arguments are local paths on this machine; unreadable ones are
+  // argument errors, reported before anything is sent.
+  const fileIssues: ArgumentIssue[] = [];
+  let rawBody: unknown = op.bodyStyle === "data" ? args.body : undefined;
+  if (LOCAL_PROCESS) {
+    for (const p of op.params) {
+      if (p.type !== "file" || typeof values[p.name] !== "string") continue;
+      try { values[p.name] = fileArgument(values[p.name] as string); } catch (e) { fileIssues.push({ code: "INVALID_ARGUMENT", argument: p.name, message: p.name + ": cannot read " + String(values[p.name]) + " (" + (e as Error).message + ")" }); }
+    }
+    if (op.bodyKind === "binary" && typeof rawBody === "string") {
+      try { rawBody = fileArgument(rawBody); } catch (e) { fileIssues.push({ code: "INVALID_ARGUMENT", argument: "body", message: "body: cannot read " + String(rawBody) + " (" + (e as Error).message + ")" }); }
+    }
+  }
+  if (fileIssues.length > 0) return argumentsError(op, fileIssues);
   const callArgs = buildArgs(
     op,
     values,
-    op.bodyStyle === "data" ? args.body : undefined,
+    rawBody,
     typeof args.select === "string" ? args.select : undefined,
   );
   if (authHeader) callArgs.push({ headers: { Authorization: authHeader } });
@@ -161,17 +175,40 @@ async function callOperation(op: OpSpec, rawArgs: Record<string, unknown>, authH
       const page = result.data as { items: unknown[]; nextPageParams(): Record<string, unknown> | null };
       return pageOutcome(page.items, page.nextPageParams(), shape);
     }
+    // A binary body (the SDK hands back a Blob): an image block, or a file
+    // on disk, never "{}".
+    if (result.data instanceof Blob) return binaryOutcome(result.data, { tool: op.tool, ...(LOCAL_PROCESS ? { saveBinary } : {}) });
     return dataOutcome(result.data, shape);
   } catch (e) {
     return textError((e as Error).message ?? "Tool call failed");
   }
 }
 
-/** The callable operations: uploads and event streams are CLI-only
- * (mcpExposed), writes are out under --read-only, and --tools narrows to a
- * subset. A hidden operation is unknown to tools/call and execute alike. */
-const MCP_OPS = visibleOps(OPS as unknown as OpLike[], { readOnly: READ_ONLY, include: INCLUDE }) as unknown as OpSpec[];
-const HIDDEN_WRITES = READ_ONLY ? visibleOps(OPS as unknown as OpLike[], { include: INCLUDE }).length - MCP_OPS.length : 0;
+/** Running as a process on this machine (stdio, or --http launched here),
+ * as opposed to imported by a worker: the server can read and write local
+ * files, so uploads are tools and binaries are saved to disk. */
+const LOCAL_PROCESS = invokedDirectly();
+/** The callable operations: event streams are CLI-only, uploads are tools
+ * only on a local server (mcpExposed), writes are out under --read-only,
+ * and --tools narrows to a subset. A hidden operation is unknown to
+ * tools/call and execute alike. */
+const MCP_OPS = visibleOps(OPS as unknown as OpLike[], { readOnly: READ_ONLY, include: INCLUDE, uploads: LOCAL_PROCESS }) as unknown as OpSpec[];
+const HIDDEN_WRITES = READ_ONLY ? visibleOps(OPS as unknown as OpLike[], { include: INCLUDE, uploads: LOCAL_PROCESS }).length - MCP_OPS.length : 0;
+const HAS_UPLOADS = MCP_OPS.some((op) => op.bodyKind === "multipart" || op.bodyKind === "binary");
+
+/** A local file as an upload part (multipart field or raw body). */
+function fileArgument(path: string): File {
+  return new File([readFileSync(path)], basename(path));
+}
+
+/** Where binary responses land on a local server: a per-server temp dir. */
+function saveBinary(bytes: Uint8Array, _mediaType: string, suggestedName: string): string {
+  const dir = join(tmpdir(), SERVER_NAME);
+  mkdirSync(dir, { recursive: true });
+  const path = join(dir, Date.now().toString(36) + "-" + suggestedName);
+  writeFileSync(path, bytes);
+  return path;
+}
 
 const docsSource: DocsSource = {
   ops: MCP_OPS as unknown as OpLike[],
@@ -193,6 +230,7 @@ function serverFor(authHeader?: string): McpServer {
       hiddenWrites: HIDDEN_WRITES,
       authHint: authHeader !== undefined ? AUTH_HINT_HTTP : AUTH_HINT_STDIO,
       identityTool: MCP_OPS.some((o) => o.tool === IDENTITY_TOOL) ? IDENTITY_TOOL : null,
+      uploads: HAS_UPLOADS,
       custom: CUSTOM_INSTRUCTIONS,
     }),
     toolsTtlMs: TOOLS_TTL_MS,

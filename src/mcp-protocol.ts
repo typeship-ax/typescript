@@ -60,12 +60,20 @@ export interface ToolDefinition {
   annotations?: ToolAnnotations;
 }
 
+/** A content block of a tool result (the subset this server emits). */
+export type ContentBlock =
+  | { type: "text"; text: string }
+  | { type: "image"; data: string; mimeType: string }
+  | { type: "resource"; resource: { uri: string; mimeType?: string; blob?: string; text?: string } };
+
 /** What a tool call produced: text for every client, the JSON value behind
- * it for structuredContent, and whether it is a tool execution error. */
+ * it for structuredContent, whether it is a tool execution error, and,
+ * for binary results, the content blocks that replace the one text block. */
 export interface ToolOutcome {
   text: string;
   isError: boolean;
   structured?: unknown;
+  content?: ContentBlock[];
 }
 
 /** The subset of an operation spec (ops.ts / the hosted manifest) the
@@ -95,11 +103,19 @@ export interface OpLike {
   bodyKind?: string | null;
 }
 
-/** Ops that can be MCP tools: an agent can't hand a tool a local file, and
- * a tool result is one value, not a stream, so uploads and event streams
- * stay CLI/SDK-only. */
-export function mcpExposed(op: OpLike): boolean {
-  return op.sse !== true && op.bodyKind !== "multipart" && op.bodyKind !== "binary";
+/** Does the operation take a file (multipart form or raw binary body)? */
+export function isUploadOp(op: OpLike): boolean {
+  return op.bodyKind === "multipart" || op.bodyKind === "binary";
+}
+
+/** Ops that can be MCP tools. A tool result is one value, not a stream, so
+ * event streams stay CLI/SDK-only everywhere. Uploads need a local file:
+ * they are tools on a server running on the agent's machine (stdio, or a
+ * locally launched HTTP server), where a file argument is a path the server
+ * reads, and not on a remote endpoint, which can't see the agent's disk. */
+export function mcpExposed(op: OpLike, options: { uploads?: boolean } = {}): boolean {
+  if (op.sse === true) return false;
+  return options.uploads === true || !isUploadOp(op);
 }
 
 export interface JsonRpcMessage {
@@ -295,7 +311,7 @@ export async function handleRpc(server: McpServer, incoming: unknown): Promise<R
       // successful, unprojected, untruncated results carry it; everything
       // else keeps its JSON in the text.
       return complete({
-        content: [{ type: "text", text: outcome.text }],
+        content: outcome.content ?? [{ type: "text", text: outcome.text }],
         ...(!outcome.isError && outcome.structured !== undefined && outcome.structured !== null && typeof outcome.structured === "object"
           ? { structuredContent: outcome.structured }
           : {}),
@@ -421,19 +437,21 @@ export const EXECUTE_TOOL: ToolDefinition = {
   annotations: { openWorldHint: false },
 };
 
-/** Which operations a server exposes, beyond the uploads/streams rule. */
+/** Which operations a server exposes, beyond the streams rule. */
 export interface SurfaceOptions {
   /** Hide every operation that is not a read (isReadOperation). */
   readOnly?: boolean;
   /** Keep only these: resource names, tool names, or dotted resource.method. */
   include?: string[];
+  /** Expose upload operations (the server runs where the files are). */
+  uploads?: boolean;
 }
 
 /** The operations a server serves under these options: the callable set,
  * not just the listed one, so a hidden write is not reachable by name or
  * through execute either. Deterministic (spec) order. */
 export function visibleOps<T extends OpLike>(ops: T[], options: SurfaceOptions = {}): T[] {
-  let out = ops.filter(mcpExposed);
+  let out = ops.filter((op) => mcpExposed(op, { uploads: options.uploads }));
   if (options.readOnly) out = out.filter(isReadOperation);
   if (options.include && options.include.length > 0) {
     const wanted = new Set(options.include.map((s) => s.trim().toLowerCase()).filter(Boolean));
@@ -500,6 +518,8 @@ export interface InstructionsInput {
   authHint?: string | null;
   /** The tool that returns the caller (the CLI's whoami target), when the API has one. */
   identityTool?: string | null;
+  /** Upload operations are exposed (local server): their file arguments take paths. */
+  uploads?: boolean;
   /** Project-supplied text, appended verbatim. */
   custom?: string | null;
 }
@@ -517,6 +537,7 @@ export function serverInstructions(input: InstructionsInput): string {
   parts.push("Errors carry error, code, message, status, the API's body and next_steps.");
   if (input.authHint) parts.push(input.authHint.trim().replace(/[.]?$/, "."));
   if (input.identityTool) parts.push("Call " + input.identityTool + " first to learn which account the credential belongs to.");
+  if (input.uploads) parts.push("Upload operations take a local file path for each file argument; this server reads the file and sends it. Binary responses are saved to disk and the result names the path; images come back as an image block.");
   if (input.readOnly) {
     parts.push("This server is read-only: " + (input.hiddenWrites ? input.hiddenWrites + " write operations are not available here." : "write operations are not available here."));
   }
@@ -904,6 +925,82 @@ export function dataOutcome(data: unknown, options: ResultOptions = {}): ToolOut
     return { text: JSON.stringify(out), isError: false };
   }
   return { text, isError: false, structured: value };
+}
+
+// ---- binary results -------------------------------------------------------------
+
+/** Images up to this many bytes come back as an image content block the
+ * model can look at; larger ones follow the binary path. */
+export const MAX_IMAGE_BYTES = 4_000_000;
+/** Without a place to save, a binary up to this size is embedded as a
+ * base64 resource block; beyond it, the result describes the file. */
+export const MAX_EMBED_BYTES = 1_000_000;
+
+export interface BinaryOptions {
+  /** Where a binary can be written when the server runs on the agent's
+   * machine: return the saved path. Absent on remote servers. */
+  saveBinary?: (bytes: Uint8Array, mediaType: string, suggestedName: string) => Promise<string> | string;
+  /** Tool name, for resource URIs and file names. */
+  tool?: string;
+}
+
+function toBase64(bytes: Uint8Array): string {
+  const B = (globalThis as { Buffer?: { from(b: Uint8Array): { toString(e: string): string } } }).Buffer;
+  if (B) return B.from(bytes).toString("base64");
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
+}
+
+const EXTENSIONS: Record<string, string> = {
+  "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp", "image/svg+xml": "svg",
+  "application/pdf": "pdf", "application/zip": "zip", "application/gzip": "gz", "text/csv": "csv",
+  "application/json": "json", "text/plain": "txt", "application/octet-stream": "bin",
+};
+
+/** A file extension for a media type (bin when unknown). */
+export function extensionFor(mediaType: string): string {
+  const base = mediaType.split(";")[0]!.trim().toLowerCase();
+  return EXTENSIONS[base] ?? base.split("/")[1]?.replace(/[^a-z0-9]+/g, "") ?? "bin";
+}
+
+/**
+ * A binary response as the agent should get it: an image block for images
+ * the model can look at, a saved file (path, type, size) when the server
+ * can write one, an embedded resource for small binaries otherwise, and
+ * a description when it is too large to carry. Never "{}".
+ */
+export async function binaryOutcome(blob: Blob, options: BinaryOptions = {}): Promise<ToolOutcome> {
+  const mediaType = (blob.type || "application/octet-stream").split(";")[0]!.trim().toLowerCase();
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const name = (options.tool ?? "result") + "." + extensionFor(mediaType);
+  const summary: Record<string, unknown> = { media_type: mediaType, bytes: bytes.length };
+  if (mediaType.startsWith("image/") && bytes.length <= MAX_IMAGE_BYTES) {
+    return {
+      text: JSON.stringify(summary),
+      isError: false,
+      content: [{ type: "image", data: toBase64(bytes), mimeType: mediaType }, { type: "text", text: JSON.stringify(summary) }],
+    };
+  }
+  if (options.saveBinary) {
+    const path = await options.saveBinary(bytes, mediaType, name);
+    const saved = { ...summary, saved_to: path, next_steps: ["The file is on the machine running this MCP server; read it from saved_to."] };
+    return { text: JSON.stringify(saved), isError: false };
+  }
+  if (bytes.length <= MAX_EMBED_BYTES) {
+    return {
+      text: JSON.stringify(summary),
+      isError: false,
+      content: [
+        { type: "resource", resource: { uri: "result://" + name, mimeType: mediaType, blob: toBase64(bytes) } },
+        { type: "text", text: JSON.stringify(summary) },
+      ],
+    };
+  }
+  return {
+    text: JSON.stringify({ ...summary, omitted: true, next_steps: ["The response is a " + mediaType + " of " + bytes.length.toLocaleString("en-US") + " bytes, too large to return through a remote MCP server. Fetch it with the SDK or CLI, or through the package's local MCP server, which saves binaries to disk."] }),
+    isError: false,
+  };
 }
 
 /** Stable codes an agent can branch on (the same vocabulary as the
