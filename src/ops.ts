@@ -18,6 +18,8 @@ export interface ParamSpec {
   enum?: string[];
   /** Element type of an "array" param: what each repeated/comma value coerces to. */
   items?: { type: "string" | "number" | "boolean" | "object" | "json"; enum?: string[] };
+  /** A date-shaped string: the CLI and MCP server resolve relative forms (-P7D, today). */
+  format?: "date" | "date-time";
   description?: string;
   /** Settable once on the client (globals option); optional per call. */
   global?: boolean;

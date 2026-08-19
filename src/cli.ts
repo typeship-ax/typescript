@@ -18,6 +18,7 @@ import {
   exitCodeFor, findMcpClient, installSkills, mcpConfigured, pendingClaims, recordClaim, summarizeDoctor, upsertAgentBlock, writeBundle, writeMcpConfig,
   type AgentContext, type CommandSummary, type DoctorCheck, type EnvelopeInput, type IssueCode, type McpEntry, type McpWriteResult,
 } from "./cli-agent.js";
+import { relativeDate } from "./dates.js";
 
 
 const BIN = "typeship";
@@ -1835,6 +1836,7 @@ function helpSentence(description: string | undefined): string {
 /** Type column text for a param: string, number, string[], a|b|c, enum, object, json, path. */
 function typeLabel(p: ParamSpec): string {
   if (p.type === "file") return "path (uploaded)";
+  if (p.format && p.type === "string") return p.format;
   const inlineEnum = (values: string[] | undefined) => values && values.join("|").length <= 24 ? values.join("|") : undefined;
   if (p.type === "array") {
     const items = p.items ?? { type: "json" as const };
@@ -2029,6 +2031,10 @@ function printOp(op: OpSpec): void {
     const sample = arrayFlag.items?.enum ? arrayFlag.items.enum.slice(0, 2).join(",") : arrayFlag.items?.type === "number" ? "1,2" : "a,b";
     lines.push("", "Array flags take a comma list (--" + arrayFlag.flag + " " + sample + "), the flag repeated, or a JSON array.");
   }
+  const dateFlag = rows.find((p) => p.format && p.type === "string");
+  if (dateFlag) {
+    lines.push("", "Date flags take ISO 8601 or a relative form (--" + dateFlag.flag + " -7d, -P7D, \"7 days ago\", today, now); relative values resolve against the clock.");
+  }
   process.stdout.write(lines.join("\n") + "\n");
 }
 
@@ -2138,6 +2144,13 @@ function coerce(spec: ParamSpec, raw: string | boolean, repeated?: string[]): un
     try { parsed = JSON.parse(text); } catch (e) { fail(2, "--" + spec.flag + " expects a JSON object, e.g. --" + spec.flag + " '{\"key\": \"value\"}' (" + (e as Error).message + ")"); }
     if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) fail(2, "--" + spec.flag + " expects a JSON object, got: " + text);
     return parsed;
+  }
+  if (spec.format && spec.type === "string") {
+    // Relative dates (-7d, 7 days ago, today) resolve against the clock;
+    // absolute values pass through for the API to judge.
+    const resolved = relativeDate(text, spec.format);
+    if (resolved && "error" in resolved) fail(2, "--" + spec.flag + ": " + resolved.error);
+    if (resolved) return resolved.value;
   }
   return coerceScalar(spec.flag, spec.type === "json" ? "json" : spec.type === "number" ? "number" : "string", spec.enum, text);
 }

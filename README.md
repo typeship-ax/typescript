@@ -85,7 +85,7 @@ typeship projects list --all | jq -r '.id'   # every page, one item per line
 typeship <resource> <command> --help     # flags, types, an example
 ```
 
-Path parameters are positional; everything else is a flag named after the wire field (`--name`, `--limit`). Array fields take a comma list or the flag repeated, object fields take JSON, and `--data '<json>'` (or `--data @file`, `--data -`) sets the whole body. `--fields id,name` keeps only those fields of the result. Paginated commands print one page with the command that fetches the next; `--all` streams every item as NDJSON. Destructive commands ask, or take `--force`. Errors are one JSON envelope on stderr (`{status, issues[{code}], next_steps}`) when piped, prose on a terminal.
+Path parameters are positional; everything else is a flag named after the wire field (`--name`, `--limit`). Array fields take a comma list or the flag repeated, object fields take JSON, and `--data '<json>'` (or `--data @file`, `--data -`) sets the whole body. `--fields id,name` keeps only those fields of the result. Date flags take relative forms (`-7d`, `"7 days ago"`, `today`) as well as ISO 8601. Paginated commands print one page with the command that fetches the next; `--all` streams every item as NDJSON. Destructive commands ask, or take `--force`. Errors are one JSON envelope on stderr (`{status, issues[{code}], next_steps}`) when piped, prose on a terminal.
 
 Auth: `typeship login` stores a credential under `~/.config/typeship/`; the environment (`TYPESHIP_TOKEN`) and flags (`--token`) win over it. `TYPESHIP_BASE_URL` / `--base-url` pick the endpoint.
 

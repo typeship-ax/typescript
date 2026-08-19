@@ -6,13 +6,16 @@
  * rules, Streamable HTTP header validation, result wrapping, and the tool
  * surface (per-operation tools or the three-tool "meta" shape, plus the
  * search_docs / read_docs pair). Also the agent-facing contract of a tool
- * call: argument validation and coercion against the tool's input schema,
- * field projection, a size cap on results, and error results that carry a
- * stable code and next steps. Transport, credentials, and how a tool call
- * reaches the API stay with the caller. Zero dependencies.
+ * call: argument validation and coercion against the tool's input schema
+ * (relative dates via ./dates), field projection, a size cap on results,
+ * and error results that carry a stable code and next steps. Transport,
+ * credentials, and how a tool call reaches the API stay with the caller.
+ * No external dependencies.
  *
  * Spec: https://modelcontextprotocol.io/specification/2026-07-28
  */
+
+import { dateKindOf, relativeDate } from "./dates.js";
 
 export const MCP_PROTOCOL_VERSION = "2026-07-28";
 /** Revisions served. Legacy (initialize-handshake) revisions are not; an
@@ -579,6 +582,14 @@ function schemaTypes(schema: Record<string, unknown>): string[] {
  */
 export function coerceValue(value: unknown, schema: Record<string, unknown>): { value: unknown } | { error: string } {
   if (value === null || value === undefined) return { value };
+  // Date-shaped arguments take relative forms (-P7D, 7 days ago, today),
+  // resolved here so the API sees an absolute value.
+  const dateKind = dateKindOf(schema.format);
+  if (dateKind && typeof value === "string") {
+    const resolved = relativeDate(value, dateKind);
+    if (resolved && "error" in resolved) return { error: resolved.error };
+    if (resolved) value = resolved.value;
+  }
   const types = schemaTypes(schema);
   const enumValues = Array.isArray(schema.enum) ? schema.enum : undefined;
   const accepts = (t: string) => types.length === 0 || types.includes(t);
