@@ -109,3 +109,18 @@ test("projects.generate POST /projects/{project_id}/generations", async () => {
     mock.close();
   }
 });
+
+test("projects.mcpUsage GET /projects/{project_id}/mcp_usage", async () => {
+  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"object\":\"mcp_usage\",\"project_id\":\"example\",\"mcp_url\":\"example\",\"days\":1,\"calls\":1,\"errors\":1,\"rate_limited\":1,\"avg_duration_ms\":1,\"by_tool\":[{\"tool\":\"example\",\"calls\":1,\"errors\":1}]}" });
+  try {
+    const client = new TypeshipClient({ baseUrl: mock.url, bearerToken: "test-token" });
+    const result = await client.projects.mcpUsage("test-project_id", undefined);
+    assert.equal(result.ok, true, JSON.stringify(result));
+    const request = mock.requests[0];
+    assert.equal(request.method, "GET");
+    assert.equal(request.path.split("?")[0], "/projects/test-project_id/mcp_usage");
+    assert.equal(request.headers["authorization"], "Bearer test-token");
+  } finally {
+    mock.close();
+  }
+});

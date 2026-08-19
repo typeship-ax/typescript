@@ -8,7 +8,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { TypeshipClient, formatDebugEvent, type DebugEvent } from "./index.js";
 import { GLOBALS, OPS, buildArgs, findOp, missingRequired, type OpSpec, type ParamSpec } from "./ops.js";
@@ -38,6 +38,9 @@ const OAUTH_TOKEN_PARAMS: Record<string, string> = {};
 interface Parsed {
   positionals: string[];
   flags: Map<string, string | boolean>;
+  /** Every value of a flag given more than once (`--ids a --ids b`);
+   * flags keeps the last one for scalar callers. */
+  repeated: Map<string, string[]>;
   help: boolean;
 }
 
@@ -69,7 +72,17 @@ function isBooleanFlag(name: string, positionals: string[]): boolean {
 function parseArgv(argv: string[]): Parsed {
   const positionals: string[] = [];
   const flags = new Map<string, string | boolean>();
+  const repeated = new Map<string, string[]>();
   let help = false;
+  const setFlag = (name: string, value: string | boolean) => {
+    if (typeof value === "string" && flags.has(name)) {
+      const previous = flags.get(name);
+      const list = repeated.get(name) ?? (typeof previous === "string" ? [previous] : []);
+      list.push(value);
+      repeated.set(name, list);
+    }
+    flags.set(name, value);
+  };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
     if (arg === "--help" || arg === "-h") { help = true; continue; }
@@ -77,15 +90,15 @@ function parseArgv(argv: string[]): Parsed {
     if (arg.startsWith("--")) {
       const eq = arg.indexOf("=");
       if (eq !== -1) {
-        flags.set(arg.slice(2, eq), arg.slice(eq + 1));
+        setFlag(arg.slice(2, eq), arg.slice(eq + 1));
       } else if (isBooleanFlag(arg.slice(2), positionals)) {
         const next = argv[i + 1];
-        if (next === "true" || next === "false") { flags.set(arg.slice(2), next); i++; }
+        if (next === "true" || next === "false") { setFlag(arg.slice(2), next); i++; }
         else flags.set(arg.slice(2), true);
       } else {
         const next = argv[i + 1];
         if (next !== undefined && !next.startsWith("--")) {
-          flags.set(arg.slice(2), next);
+          setFlag(arg.slice(2), next);
           i++;
         } else {
           flags.set(arg.slice(2), true);
@@ -95,7 +108,7 @@ function parseArgv(argv: string[]): Parsed {
       positionals.push(arg);
     }
   }
-  return { positionals, flags, help };
+  return { positionals, flags, repeated, help };
 }
 
 function nonInteractive(parsed: Parsed): boolean {
@@ -570,7 +583,7 @@ async function cmdMcp(parsed: Parsed): Promise<void> {
       "  " + BIN + " mcp --claude                 write ./.mcp.json (Claude Code)",
       "  " + BIN + " mcp --cursor                 write ./.cursor/mcp.json",
       "  " + BIN + " mcp --claude-desktop         write the Claude Desktop config",
-      "  " + BIN + " mcp --url <https://...>      use a remote MCP endpoint instead of the local server",
+      "  " + BIN + " mcp --url <https://...>      use a remote MCP endpoint instead of the local server (--claude, --cursor; Claude Desktop takes remote servers as connectors in the app)",
       "",
       "The local server reads credentials saved by '" + BIN + " login', or the same auth env vars as the CLI.",
     ];
@@ -599,7 +612,15 @@ async function cmdMcp(parsed: Parsed): Promise<void> {
   const targets: string[] = [];
   if (parsed.flags.get("claude") === true) targets.push(join(process.cwd(), ".mcp.json"));
   if (parsed.flags.get("cursor") === true) targets.push(join(process.cwd(), ".cursor", "mcp.json"));
-  if (parsed.flags.get("claude-desktop") === true) targets.push(claudeDesktopConfigPath());
+  if (parsed.flags.get("claude-desktop") === true) {
+    // Claude Desktop's config file only launches stdio servers; remote
+    // servers are added in the app as connectors. Writing a URL entry there
+    // would be a silent no-op, so say so instead.
+    if (url) {
+      fail(2, "Claude Desktop reads only stdio servers from its config file; add a remote server as a connector in Claude Desktop (Settings > Connectors > Add custom connector) with " + url + ". Or drop --url to register this package's local server.");
+    }
+    targets.push(claudeDesktopConfigPath());
+  }
 
   if (targets.length === 0) {
     out({
@@ -1176,9 +1197,9 @@ function printRoot(): void {
   lines.push("Docs: " + BIN + " docs [<resource> <command> | search <term> | read <page> | --web]");
   if (RELAY) lines.push("Webhooks: " + BIN + " webhooks listen --forward-to <url>  (local event forwarding)");
   if (SUPPORT_URL) lines.push("Feedback: " + BIN + " feedback  (opens the provider's issue tracker)");
-  if (EXCLUDED_OPS > 0) {
+  if (EXCLUDED_OPS > 0 && HAS_MCP) {
     lines.push("");
-    lines.push("Note: " + EXCLUDED_OPS + " operation(s) with binary/multipart bodies are SDK-only.");
+    lines.push("Note: " + EXCLUDED_OPS + " operation(s) with uploads or event streams are CLI/SDK-only, not MCP tools.");
   }
   lines.push("");
   lines.push("Run '" + BIN + " <resource> <command> --help' for flags.");
@@ -1204,7 +1225,7 @@ function printOp(op: OpSpec): void {
   if (rows.length > 0) {
     lines.push(paintOut("bold", "Flags:"));
     for (const p of rows) {
-      let type: string = p.type;
+      let type: string = p.type === "file" ? "path (uploaded)" : p.type;
       if (p.enum) type = p.enum.join("|");
       lines.push(
         "  " + padPaint("cyan", "--" + p.flag, 30) + type.padEnd(18) +
@@ -1212,13 +1233,28 @@ function printOp(op: OpSpec): void {
       );
     }
   }
-  if (op.hasBody) lines.push("  --data '<json>'" + " ".repeat(15) + "raw JSON body" + (op.bodyStyle === "fields" ? " (merged under field flags)" : ""));
+  if (op.hasBody && op.bodyKind === "binary") lines.push("  --file <path>" + " ".repeat(17) + "raw request body, uploaded as-is");
+  else if (op.hasBody) lines.push("  --data '<json>'" + " ".repeat(15) + "raw JSON body" + (op.bodyStyle === "fields" ? " (merged under field flags)" : ""));
   if (op.select) lines.push("  --select '<selection>'" + " ".repeat(9) + "GraphQL selection set override, e.g. '{ id name }'");
   if (op.paginated) lines.push("  --all" + " ".repeat(25) + "stream every item from every page (NDJSON)");
+  if (op.sse) lines.push("  (streams: one JSON line per server-sent event until the stream ends)");
   process.stdout.write(lines.join("\n") + "\n");
 }
 
+/** A local file as an upload part; the SDK's multipart encoder takes Blobs. */
+function fileFromPath(flag: string, path: string): File {
+  try {
+    return new File([readFileSync(path)], basename(path));
+  } catch (e) {
+    return fail(2, "--" + flag + ": cannot read " + path + " (" + (e as Error).message + ")");
+  }
+}
+
 function coerce(spec: ParamSpec, raw: string | boolean): unknown {
+  if (spec.type === "file") {
+    if (raw === true) fail(2, "--" + spec.flag + " expects a file path");
+    return fileFromPath(spec.flag, String(raw));
+  }
   if (spec.type === "boolean") {
     if (raw === true || raw === "true") return true;
     if (raw === "false") return false;
@@ -1378,6 +1414,9 @@ async function main(): Promise<void> {
   if (typeof dataRaw === "string") {
     try { dataBody = JSON.parse(dataRaw); } catch (e) { fail(2, "--data is not valid JSON: " + (e as Error).message); }
   }
+  // A binary body (an upload that isn't a form) comes from --file.
+  const fileRaw = parsed.flags.get("file");
+  if (op.bodyKind === "binary" && typeof fileRaw === "string") dataBody = fileFromPath("file", fileRaw);
 
   // Mirrors opReservedFlags() in the generator: API parameters never use these
   // names (colliding ones are emitted as --<kind>-<name>), so an unknown flag
@@ -1386,10 +1425,17 @@ async function main(): Promise<void> {
   for (const spec of op.params) {
     if (spec.kind === "path") continue;
     const raw = parsed.flags.get(spec.flag);
-    if (raw !== undefined) values[spec.name] = coerce(spec, raw);
+    if (raw === undefined) continue;
+    // A flag given more than once is an array (JSON-typed params only:
+    // arrays and loosely typed fields); each value is coerced on its own.
+    const all = parsed.repeated.get(spec.flag);
+    values[spec.name] = all !== undefined && spec.type === "json"
+      ? all.map((v) => coerce(spec, v))
+      : coerce(spec, raw);
   }
   for (const key of parsed.flags.keys()) {
     if (RESERVED_FLAGS.has(key)) continue;
+    if (key === "file" && op.bodyKind === "binary") continue;
     if (!op.params.some((p) => p.flag === key)) {
       const suggestion = didYouMean(key, [...op.params.filter((p) => p.kind !== "path").map((p) => p.flag), ...RESERVED_FLAGS]);
       fail(2, "Unknown flag --" + key + "."
@@ -1402,6 +1448,14 @@ async function main(): Promise<void> {
     !(op.bodyStyle === "fields" && dataBody !== undefined && typeof dataBody === "object" && dataBody !== null && name in (dataBody as object)),
   );
   if (missing.length > 0) fail(2, "Missing required: " + missing.map((m) => "--" + (op.params.find((p) => p.name === m)?.flag ?? m)).join(", "));
+  // A body that isn't a plain object (array, string, union) has no field
+  // flags; when the spec requires it, --data is the only way to send it.
+  const rawBodyRequired = op.bodyStyle === "data" && ((op.inputSchema.required as string[] | undefined) ?? []).includes("body");
+  if (rawBodyRequired && dataBody === undefined) {
+    fail(2, op.bodyKind === "binary"
+      ? "Missing required: --file <path> (this operation's request body is required)"
+      : "Missing required: --data '<json>' (this operation's request body is required)");
+  }
 
   const client = await makeClient(parsed.flags);
   const selectValue = typeof parsed.flags.get("select") === "string" ? (parsed.flags.get("select") as string) : undefined;
@@ -1422,6 +1476,17 @@ async function main(): Promise<void> {
 
   const result = await (callResult as Promise<{ ok: boolean; data?: unknown; error?: unknown }>);
   if (result.ok) {
+    if (op.sse) {
+      // Server-sent events as NDJSON, one line per event, until the stream ends.
+      try {
+        for await (const event of result.data as AsyncIterable<{ event?: string; id?: string; data: string }>) {
+          process.stdout.write(JSON.stringify(event) + "\n");
+        }
+      } catch (e) {
+        fail(1, (e as Error).message ?? "Stream failed", serializeError(e));
+      }
+      await flushExit(0);
+    }
     if (op.paginated) {
       const page = result.data as { items: unknown[]; hasNextPage(): boolean };
       out({ items: page.items, hasMore: page.hasNextPage() });

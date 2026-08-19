@@ -256,6 +256,28 @@ export interface ApiKey {
   created_at: string;
 }
 
+export interface McpUsage {
+  object: "mcp_usage";
+  project_id: string;
+  /** The hosted endpoint URL, or null when it is off. */
+  mcp_url?: string | null;
+  /** The window these numbers cover. */
+  days: number;
+  /** Tool calls served */
+  calls: number;
+  /** Calls whose result was a tool error (API failures */
+  errors: number;
+  /** Calls turned away by the per-caller or per-endpoint limit. */
+  rate_limited: number;
+  /** Mean upstream request time across served calls. */
+  avg_duration_ms: number;
+  by_tool: Array<{
+    tool: string;
+    calls: number;
+    errors: number;
+  }>;
+}
+
 export interface SpecVersion {
   id: string;
   object: "spec_version";

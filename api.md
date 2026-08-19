@@ -124,6 +124,22 @@ regenerate on push.
 Returns: `{ data: Array<Generation | GenerationFailure>; }`
 Errors: `UnauthorizedError` (401), `PaymentRequiredError` (402), `NotFoundError` (404), `UnprocessableEntityError` (422)
 
+### `client.projects.mcpUsage(project_id, params)`
+
+Retrieve hosted MCP endpoint usage for a project
+
+`GET /projects/{project_id}/mcp_usage`
+
+What the project's hosted MCP endpoint has served over the last `days` (default 30, max 90): tool calls, calls that returned an error, calls turned away by the rate limit, mean upstream latency, and a per-tool breakdown. The same numbers the console shows next to the endpoint URL. Zeroes when the endpoint is off or unused.
+
+| Parameter | In | Type | Required | Description |
+| --- | --- | --- | --- | --- |
+| `project_id` | path | `string` | yes |  |
+| `days` | query | `number` | no | Window in days, 1 to 90. |
+
+Returns: `McpUsage`
+Errors: `BadRequestError` (400), `UnauthorizedError` (401), `NotFoundError` (404)
+
 ## generations
 
 ### `client.generations.get(generation_id)`

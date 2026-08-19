@@ -9,6 +9,7 @@ import type {
   Destination,
   Generation,
   GenerationFailure,
+  McpUsage,
   Project,
   Source,
   SpecPatch,
@@ -199,6 +200,24 @@ export class ProjectsResource {
       options,
     });
   }
+
+  /**
+   * Retrieve hosted MCP endpoint usage for a project
+   * 
+   * What the project's hosted MCP endpoint has served over the last `days` (default 30, max 90): tool calls, calls that returned an error, calls turned away by the rate limit, mean upstream latency, and a per-tool breakdown. The same numbers the console shows next to the endpoint URL. Zeroes when the endpoint is off or unused.
+   * `GET /projects/{project_id}/mcp_usage`
+   */
+  async mcpUsage(projectId: string, params?: ProjectsMcpUsageParams, options?: RequestOptions): Promise<ApiResult<McpUsage, ProjectsMcpUsageError>> {
+    return this._core.request<McpUsage, ProjectsMcpUsageError>({
+      method: "GET",
+      path: `/projects/${encodeURIComponent(String(projectId))}/mcp_usage`,
+      query: { days: params?.days },
+      errors: { "400": BadRequestError, "401": UnauthorizedError, "404": NotFoundError },
+      idempotent: true,
+      schemaKey: "projects.mcpUsage",
+      options,
+    });
+  }
 }
 
 export interface ProjectsListParams {
@@ -233,4 +252,12 @@ export type ProjectsListGenerationsError = UnauthorizedError | NotFoundError | U
 
 /** Every error `generate` can produce, as a discriminated union. */
 export type ProjectsGenerateError = UnauthorizedError | PaymentRequiredError | NotFoundError | UnprocessableEntityError | UnexpectedApiError | TransportError | ValidationError;
+
+export interface ProjectsMcpUsageParams {
+  /** Window in days, 1 to 90. */
+  days?: number;
+}
+
+/** Every error `mcpUsage` can produce, as a discriminated union. */
+export type ProjectsMcpUsageError = BadRequestError | UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
 
