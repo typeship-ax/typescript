@@ -14,8 +14,8 @@ import { fileURLToPath } from "node:url";
 import { TypeshipClient, formatDebugEvent, type DebugEvent } from "./index.js";
 import { GLOBALS, OPS, buildArgs, findOp, missingRequired, type OpSpec, type ParamSpec } from "./ops.js";
 import {
-  MCP_CLIENTS, agentGuide, agentBlock, agentInstructionsFile, agentMode, bundleProperty, classifyApiError, detectHarness, envelope,
-  exitCodeFor, findMcpClient, installSkills, mcpConfigured, summarizeDoctor, upsertAgentBlock, writeBundle, writeMcpConfig,
+  MCP_CLIENTS, agentGuide, agentBlock, agentInstructionsFile, agentMode, bundleProperty, claimProperty, classifyApiError, detectHarness, envelope,
+  exitCodeFor, findMcpClient, installSkills, mcpConfigured, pendingClaims, recordClaim, summarizeDoctor, upsertAgentBlock, writeBundle, writeMcpConfig,
   type AgentContext, type CommandSummary, type DoctorCheck, type EnvelopeInput, type IssueCode, type McpEntry, type McpWriteResult,
 } from "./cli-agent.js";
 
@@ -1023,6 +1023,8 @@ async function cmdDoctor(parsed: Parsed): Promise<void> {
     const detected = MCP_CLIENTS.filter((c) => c.detect(cwd) && !c.incompatible).map((c) => c.id);
     checks.push({ name: "mcp_clients", ok: detected.length === 0 || configured.length > 0, detail: "detected: " + (detected.join(", ") || "none") + "; configured: " + (configured.join(", ") || "none"), ...(detected.length > 0 && configured.length === 0 ? { fix: "Run '" + BIN + " mcp install --all'." } : {}) });
   }
+  const claims = pendingClaims(process.cwd(), BIN);
+  if (claims.length > 0) checks.push({ name: "unclaimed", ok: false, detail: claims.length + " unclaimed generation(s) in ." + BIN + "/claims.json", fix: "Claim them: " + claims.map((c) => c.url).join(", ") });
   const summary = summarizeDoctor(checks);
   out({ ...summary, harness: detectHarness(), agent_mode: isAgentMode(parsed) });
   await flushExit(summary.status === "ok" ? 0 : 1);
@@ -1996,6 +1998,15 @@ async function main(): Promise<void> {
         failApi(e, LAST_CLIENT_HAD_CREDENTIAL);
       }
       await flushExit(0);
+    }
+    // A claim-shaped response (claim.url): say where to claim it, and leave
+    // a breadcrumb so a later session or doctor can list what is unclaimed.
+    if (claimProperty(op.outputSchema)) {
+      const claim = (result.data as { claim?: { url?: string; expires_at?: string } | null } | undefined)?.claim;
+      if (claim && typeof claim.url === "string") {
+        const file = recordClaim(process.cwd(), BIN, { url: claim.url, ...(claim.expires_at ? { expires_at: claim.expires_at } : {}), command: BIN + " " + process.argv.slice(2).join(" "), created_at: new Date().toISOString() });
+        process.stderr.write(paintErr("dim", "Unclaimed: a signed-in person can turn this into a project at " + claim.url + (claim.expires_at ? " (until " + claim.expires_at + ")" : "") + ". Noted in " + file + ".") + "\n");
+      }
     }
     if (op.paginated) {
       const page = result.data as { items: unknown[]; hasNextPage(): boolean };

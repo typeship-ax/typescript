@@ -48,6 +48,12 @@ export interface GenerationResult {
   warnings: string[];
   meta: GenerationMeta;
   limits?: GenerationLimits;
+  /** Anonymous, URL-sourced generations only. A link a signed-in person can open to turn this run into a project in their organization (same spec, language, platforms, config). Lasts seven days. Null for inline specs; absent on keyed calls. */
+  claim?: null | {
+    url: string;
+    /** Format: date-time */
+    expires_at: string;
+  };
 }
 
 /** Present when the generation was capped: by the free plan, or because the call was anonymous. Absent on uncapped generations. */

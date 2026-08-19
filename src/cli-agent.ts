@@ -565,6 +565,64 @@ export function writeBundle(dir: string, files: { path: string; content: string 
   return { dir, written: paths.length, paths };
 }
 
+// ---- claims ----------------------------------------------------------------------------
+
+/**
+ * A response that carries a claim: an object property `claim` with a string
+ * `url` (typeship's anonymous generate is one). The CLI tells the person
+ * where to claim and leaves a breadcrumb in the working directory so a
+ * later session (or `doctor`) can list what is still unclaimed.
+ */
+export function claimProperty(outputSchema: Record<string, unknown> | undefined): boolean {
+  type Variant = { properties?: Record<string, unknown>; oneOf?: Variant[]; anyOf?: Variant[] };
+  const props = outputSchema?.properties as Record<string, Variant> | undefined;
+  const claim = props?.claim;
+  if (!claim) return false;
+  const hasUrl = (v: Variant): boolean => Boolean(v.properties && "url" in v.properties) || (v.oneOf ?? v.anyOf ?? []).some(hasUrl);
+  return hasUrl(claim);
+}
+
+export interface ClaimBreadcrumb {
+  url: string;
+  expires_at?: string;
+  command: string;
+  created_at: string;
+}
+
+export function breadcrumbFile(cwd: string, bin: string): string {
+  return join(cwd, "." + bin, "claims.json");
+}
+
+/** Append a claim to .<bin>/claims.json (git-ignored when a .gitignore exists). */
+export function recordClaim(cwd: string, bin: string, crumb: ClaimBreadcrumb): string {
+  const file = breadcrumbFile(cwd, bin);
+  let list: ClaimBreadcrumb[] = [];
+  try {
+    list = JSON.parse(readFileSync(file, "utf8")) as ClaimBreadcrumb[];
+  } catch { /* none yet */ }
+  list.push(crumb);
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, JSON.stringify(list, null, 2) + "\n");
+  const gitignore = join(cwd, ".gitignore");
+  if (existsSync(gitignore)) {
+    const text = readFileSync(gitignore, "utf8");
+    const line = "." + bin + "/";
+    if (!text.split("\n").some((l) => l.trim() === line || l.trim() === "." + bin)) writeFileSync(gitignore, text.trimEnd() + "\n" + line + "\n");
+  }
+  return file;
+}
+
+/** Claims on file that have not expired. */
+export function pendingClaims(cwd: string, bin: string): ClaimBreadcrumb[] {
+  try {
+    const list = JSON.parse(readFileSync(breadcrumbFile(cwd, bin), "utf8")) as ClaimBreadcrumb[];
+    const now = Date.now();
+    return list.filter((c) => !c.expires_at || new Date(c.expires_at).getTime() > now);
+  } catch {
+    return [];
+  }
+}
+
 // ---- doctor --------------------------------------------------------------------------
 
 export interface DoctorCheck {
