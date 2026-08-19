@@ -101,6 +101,7 @@ function parseArgv(argv: string[]): Parsed {
     const arg = argv[i]!;
     if (arg === "--help" || arg === "-h") { help = true; continue; }
     if (arg === "-v") { flags.set("version", true); continue; }
+    if (arg === "-y") { flags.set("yes", true); continue; }
     if (arg === "-k" && argv[i + 1] !== undefined) { setFlag("k", argv[i + 1]!); i++; continue; }
     if (arg.startsWith("--")) {
       const eq = arg.indexOf("=");
@@ -1257,14 +1258,35 @@ async function cmdUpgrade(parsed: Parsed): Promise<void> {
 
 const TOP_WORDS = ["login", "logout", "whoami", "config", "mcp", "upgrade", "docs", "webhooks", "feedback", "completion", "help", "version", "init", "agent-guide", "auth", "doctor"];
 
+/** Every flag an API command accepts, with the values a flag completes to (enums, on|off|auto, agent|human). */
+function completionFlagsFor(op: OpSpec): { flags: string[]; values: Record<string, string[]> } {
+  const flags = [...op.params.filter((p) => p.kind !== "path").map((p) => "--" + p.flag), ...COMPLETION_GLOBAL_FLAGS];
+  const values: Record<string, string[]> = { "--color": ["on", "off", "auto"], "--mode": ["agent", "human"] };
+  for (const p of op.params) {
+    const enumValues = p.type === "array" ? p.items?.enum : p.enum;
+    if (enumValues && enumValues.length > 0) values["--" + p.flag] = enumValues;
+    if (p.type === "boolean") values["--" + p.flag] = ["true", "false"];
+  }
+  return { flags, values };
+}
+
+const COMPLETION_GLOBAL_FLAGS = ["--help", "--version", "--non-interactive", "--color", "--base-url", "--data", "--fields", "--all", "--validate", "--debug", "--mode", "--yes", "--force", "--out", ...AUTH_SCALARS.map((a) => "--" + a.flag)];
+const BUILTIN_WORDS: Record<string, string[]> = {
+  config: ["list", "get", "set", "unset", "path"],
+  completion: ["bash", "zsh", "fish"],
+  auth: ["check"],
+  mcp: ["install"],
+  webhooks: ["listen", "fake"],
+};
+
+/** bash (and zsh via bashcompinit): resources, commands, flags, and the values a flag takes. */
 function completionScript(): string {
   const fn = "_" + BIN.replace(/-/g, "_") + "_complete";
   const resources = [...new Set(OPS.map((o) => o.command[0]))];
-  const globalFlags = "--help --version --non-interactive --color --base-url --data --fields --all --validate --debug --mode --yes --force --out" +
-    AUTH_SCALARS.map((a) => " --" + a.flag).join("");
   const lines: string[] = [];
   lines.push(fn + "() {");
   lines.push('  local cur="${COMP_WORDS[COMP_CWORD]}"');
+  lines.push('  local prev="${COMP_WORDS[COMP_CWORD-1]}"');
   lines.push('  local first="${COMP_WORDS[1]}"');
   lines.push('  local second="${COMP_WORDS[2]}"');
   lines.push('  if [ "$COMP_CWORD" -eq 1 ]; then');
@@ -1276,20 +1298,52 @@ function completionScript(): string {
     const cmds = OPS.filter((o) => o.command[0] === resource).map((o) => o.command[1]).join(" ");
     lines.push("      " + resource + ') COMPREPLY=($(compgen -W "' + cmds + '" -- "$cur")); return ;;');
   }
-  lines.push('      config) COMPREPLY=($(compgen -W "list get set unset path" -- "$cur")); return ;;');
-  lines.push('      completion) COMPREPLY=($(compgen -W "bash zsh" -- "$cur")); return ;;');
+  for (const [word, subs] of Object.entries(BUILTIN_WORDS)) lines.push("      " + word + ') COMPREPLY=($(compgen -W "' + subs.join(" ") + '" -- "$cur")); return ;;');
   lines.push('      docs) COMPREPLY=($(compgen -W "search read ' + resources.join(" ") + '" -- "$cur")); return ;;');
   lines.push("    esac");
   lines.push("  fi");
+  lines.push('  if [ "$first" = "config" ] && [ "$COMP_CWORD" -eq 3 ]; then COMPREPLY=($(compgen -W "' + CONFIG_KEYS.join(" ") + '" -- "$cur")); return; fi');
+  lines.push('  if [ "$first" = "mcp" ] && [ "$second" = "install" ]; then COMPREPLY=($(compgen -W "' + Object.keys(MCP_CLIENT_FLAGS).map((f) => "--" + f).join(" ") + ' --all --url" -- "$cur")); return; fi');
   lines.push('  case "$first $second" in');
   for (const op of OPS) {
-    const flags = op.params.filter((p) => p.kind !== "path").map((p) => "--" + p.flag).join(" ");
-    lines.push('    "' + op.command[0] + " " + op.command[1] + '") COMPREPLY=($(compgen -W "' + (flags ? flags + " " : "") + globalFlags + '" -- "$cur")); return ;;');
+    const { flags, values } = completionFlagsFor(op);
+    lines.push('    "' + op.command[0] + " " + op.command[1] + '")');
+    lines.push('      case "$prev" in');
+    for (const [flag, options] of Object.entries(values)) lines.push("        " + flag + ') COMPREPLY=($(compgen -W "' + options.join(" ") + '" -- "$cur")); return ;;');
+    lines.push("      esac");
+    lines.push('      COMPREPLY=($(compgen -W "' + flags.join(" ") + '" -- "$cur")); return ;;');
   }
   lines.push("  esac");
-  lines.push('  COMPREPLY=($(compgen -W "' + globalFlags + '" -- "$cur"))');
+  lines.push('  COMPREPLY=($(compgen -W "' + COMPLETION_GLOBAL_FLAGS.join(" ") + '" -- "$cur"))');
   lines.push("}");
   lines.push("complete -F " + fn + " " + BIN);
+  return lines.join("\n");
+}
+
+/** fish: the same table as "complete" rules. */
+function fishCompletionScript(): string {
+  const resources = [...new Set(OPS.map((o) => o.command[0]))];
+  const q = (text: string) => "'" + text.replace(/'/g, "\\'") + "'";
+  const lines: string[] = ["complete -c " + BIN + " -f"];
+  const top = [...TOP_WORDS, ...resources];
+  lines.push("complete -c " + BIN + " -n '__fish_use_subcommand' -a " + q(top.join(" ")));
+  for (const resource of resources) {
+    const cmds = OPS.filter((o) => o.command[0] === resource);
+    lines.push("complete -c " + BIN + " -n '__fish_seen_subcommand_from " + resource + "; and not __fish_seen_subcommand_from " + cmds.map((o) => o.command[1]).join(" ") + "' -a " + q(cmds.map((o) => o.command[1]).join(" ")));
+    for (const op of cmds) {
+      const { flags, values } = completionFlagsFor(op);
+      const seen = "__fish_seen_subcommand_from " + resource + "; and __fish_seen_subcommand_from " + op.command[1];
+      for (const flag of flags) {
+        const options = values[flag];
+        lines.push("complete -c " + BIN + " -n " + q(seen) + " -l " + flag.slice(2) + (options ? " -x -a " + q(options.join(" ")) : " -r"));
+      }
+    }
+  }
+  for (const [word, subs] of Object.entries(BUILTIN_WORDS)) {
+    lines.push("complete -c " + BIN + " -n '__fish_seen_subcommand_from " + word + "; and not __fish_seen_subcommand_from " + subs.join(" ") + "' -a " + q(subs.join(" ")));
+  }
+  lines.push("complete -c " + BIN + " -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set unset' -a " + q(CONFIG_KEYS.join(" ")));
+  lines.push("complete -c " + BIN + " -n '__fish_seen_subcommand_from docs' -a " + q(["search", "read", ...resources].join(" ")));
   return lines.join("\n");
 }
 
@@ -1297,17 +1351,18 @@ async function cmdCompletion(parsed: Parsed): Promise<void> {
   const shell = parsed.positionals[1];
   if (parsed.help || shell === undefined) {
     const lines = [
-      BIN + " completion <bash|zsh> — print a shell completion script",
+      BIN + " completion <bash|zsh|fish> — print a shell completion script: resources, commands, flags, and enum values",
       "",
       '  bash: add to ~/.bashrc:   eval "$(' + BIN + ' completion bash)"',
       '  zsh:  add to ~/.zshrc:    eval "$(' + BIN + ' completion zsh)"',
+      "  fish: " + BIN + " completion fish > ~/.config/fish/completions/" + BIN + ".fish",
     ];
     process.stdout.write(lines.join("\n") + "\n");
     await flushExit(parsed.help ? 0 : 2);
   }
-  if (shell !== "bash" && shell !== "zsh") fail(2, "completion expects bash or zsh");
-  const script = shell === "zsh"
-    ? "autoload -U +X bashcompinit && bashcompinit\n" + completionScript()
+  if (shell !== "bash" && shell !== "zsh" && shell !== "fish") fail(2, "completion expects bash, zsh, or fish");
+  const script = shell === "fish" ? fishCompletionScript()
+    : shell === "zsh" ? "autoload -U +X bashcompinit && bashcompinit\n" + completionScript()
     : completionScript();
   process.stdout.write(script + "\n");
   await flushExit(0);
@@ -1876,7 +1931,7 @@ function printRoot(stream: NodeJS.WriteStream = process.stdout): void {
   ].join(", "), width, 15));
   lines.push(...labeled("Account: ", BIN + " login | logout | whoami | auth check  (stored at " + credsPath() + ")", width, 9));
   lines.push(...labeled("Setup: ", BIN + " init (connect this machine)" + " | " + BIN + " config (defaults)" + (HAS_MCP || MCP_URL ? " | " + BIN + " mcp install --all (agent clients)" : "") + " | " + BIN + " doctor | " + BIN + " upgrade | " + BIN + " completion <shell>", width, 7));
-  lines.push(...labeled("Agents: ", BIN + " agent-guide | " + BIN + " help --json | --mode agent | --yes/--force | --out <dir>  (JSON errors: {status, issues[{code}], next_steps})", width, 8));
+  lines.push(...labeled("Agents: ", BIN + " agent-guide | " + BIN + " help --json | --mode agent | -y/--yes/--force | --out <dir>  (JSON errors: {status, issues[{code}], next_steps})", width, 8));
   lines.push(...labeled("Docs: ", BIN + " docs [<resource> <command> | search <term> | read <page> | --web]", width, 6));
   if (RELAY) lines.push("Webhooks: " + BIN + " webhooks listen --forward-to <url>  (local event forwarding)");
   if (SUPPORT_URL) lines.push("Feedback: " + BIN + " feedback  (opens the provider's issue tracker)");
@@ -1918,7 +1973,7 @@ function commandExtras(op: OpSpec): [string, string][] {
   if (op.paginated) extras.push(["--all", "stream every item from every page (NDJSON)"]);
   extras.push(["--fields <a,b.c>", "keep only these fields of the result" + (op.paginated ? " (per item)" : "")]);
   if (bundleProperty(op.outputSchema) !== null) extras.push(["--out <dir>", "write the response's files ({path, content}) into a directory"]);
-  if (op.httpMethod === "DELETE") extras.push(["--force", "destructive: required without a terminal, skips the prompt with one"]);
+  if (op.httpMethod === "DELETE") extras.push(["--force, -y", "destructive: required without a terminal, skips the prompt with one"]);
   return extras;
 }
 
@@ -2139,13 +2194,18 @@ async function makeClient(flags: Map<string, string | boolean>): Promise<Typeshi
     if (value !== undefined) options[g.option] = value;
   }
   LAST_CLIENT_HAD_CREDENTIAL = AUTH_SCALARS.some((a) => options[a.option] !== undefined) || options.basicAuth !== undefined || options.bearerToken !== undefined;
-  // Who is calling: the CLI, under which agent harness, in agent mode. The
-  // API can read it back for usage by surface; it carries no secrets.
+  // Who is calling: the CLI, under which agent harness, and whether an
+  // agent is driving. "agent" means a harness was detected or the caller
+  // said so (--mode agent / env); a bare non-TTY run (CI, a pipeline) is
+  // "non-interactive", so usage by surface does not count CI as agents.
+  // The API can read it back; it carries no secrets.
   const harness = detectHarness();
-  const agent = agentMode({ flagMode: flags.get("mode"), envMode: process.env["TYPESHIP_MODE"], stdoutIsTTY: process.stdout.isTTY === true, stdinIsTTY: process.stdin.isTTY === true });
+  const explicitAgent = flags.get("mode") === "agent" || process.env["TYPESHIP_MODE"] === "agent";
+  const behaving = agentMode({ flagMode: flags.get("mode"), envMode: process.env["TYPESHIP_MODE"], stdoutIsTTY: process.stdout.isTTY === true, stdinIsTTY: process.stdin.isTTY === true });
+  const caller = harness || explicitAgent ? "; agent" : behaving ? "; non-interactive" : "";
   options.defaultHeaders = {
     ...(options.defaultHeaders as Record<string, string> | undefined),
-    "User-Agent": PKG_NAME + "-cli/" + VERSION + " (typeship" + (harness ? "; harness=" + harness : "") + (agent ? "; agent" : "") + ")",
+    "User-Agent": PKG_NAME + "-cli/" + VERSION + " (typeship" + (harness ? "; harness=" + harness : "") + caller + ")",
   };
   return new TypeshipClient(options as never);
 }
@@ -2189,7 +2249,10 @@ async function main(): Promise<void> {
     fail(2, "--format json is the only format; output is always JSON.");
   }
   if (parsed.flags.has("version") || parsed.positionals[0] === "version") {
-    process.stdout.write(BIN + " " + VERSION + " (" + "typeship" + " " + API_VERSION + ", generated by typeship)\n");
+    // "typeship 1.0.0 (typeship 1.0.0, ...)" said the name three times; when
+    // the API's title is the bin, name the API version as such.
+    const apiLabel = API_TITLE.toLowerCase().replace(/[^a-z0-9]/g, "") === BIN.toLowerCase().replace(/[^a-z0-9]/g, "") ? "API " + API_VERSION : API_TITLE + " " + API_VERSION;
+    process.stdout.write(BIN + " " + VERSION + " (" + apiLabel + ", generated by typeship)\n");
     await flushExit(0);
   }
   const [resourceCmd, methodCmd] = parsed.positionals;

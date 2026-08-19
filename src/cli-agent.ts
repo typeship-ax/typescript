@@ -134,7 +134,7 @@ export function classifyApiError(
     const retryAfter = extractRetryAfter(e);
     return { status: "action_required", code: "RATE_LIMITED", message, detail, nextSteps: [retryAfter ? "Wait " + retryAfter + " seconds, then run the same command again." : "Back off and retry once; the SDK already retried with the server's Retry-After."] };
   }
-  if (status === 422 && apiCode === "spec_error") return { code: "SPEC_INVALID", message, detail, nextSteps: ["The spec cannot be used as is; the message quotes the generator.", context.docsUrl ? "Look the message up: '" + context.bin + " docs search \"" + (apiMessage ?? "").slice(0, 60).replace(/"/g, "'") + "\"'." : "Fix the spec and run again."] };
+  if (status === 422 && apiCode === "spec_error") return { code: "SPEC_INVALID", message, detail, nextSteps: ["The API rejected the spec it was given; the message says why.", context.docsUrl ? "Look the message up: '" + context.bin + " docs search \"" + (apiMessage ?? "").slice(0, 60).replace(/"/g, "'") + "\"'." : "Fix the spec and run again."] };
   if (status === 400 || status === 422 || status === 409 || status === 413) return { code: "INVALID_REQUEST", message, detail, nextSteps: ["Read detail.body for the field the API named; run the command with --help for its flags."] };
   if (status >= 500) return { code: "SERVER_ERROR", message, detail, nextSteps: ["Retry once with backoff. If it persists, report the request id in detail.body."] };
   return { code: "COMMAND_FAILED", message, detail };
