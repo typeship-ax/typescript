@@ -39,6 +39,18 @@ export interface GenerationMeta {
   /** Pull request opened by this regeneration, when one was. */
   pr_url?: string | null;
   pr_number?: number | null;
+  /** Markdown changelog entry for this regeneration, from the API surface diff. Absent on a first generation or when nothing changed. */
+  changelog?: string;
+  /** Breaking changes in the diff; removed methods and fields, changed types, inputs that became required. */
+  breaking_count?: number;
+  /** What the diff was measured against; "destination" means the .typeship/surface.json merged in the destination repository. */
+  baseline?: "destination" | "last-generation" | "none";
+  /** The typeship/semver verdict on the regeneration pull request; failure means breaking changes without a major version bump. */
+  semver?: "success" | "failure";
+  /** The verdict in one line, as the commit status describes it. */
+  semver_note?: string;
+  /** The package version the destination had before this regeneration. */
+  previous_version?: string;
   file_count?: number;
   total_lines?: number;
 }
