@@ -307,13 +307,18 @@ export async function handleRpc(server: McpServer, incoming: unknown): Promise<R
       const outcome = await server.callTool(name, args);
       if (outcome === undefined) return rpcError(id, -32602, "Unknown tool: " + name, 400);
       if (server.afterToolCall) await server.afterToolCall(name, outcome, Date.now() - started);
-      // structuredContent MUST conform to the tool's outputSchema, so only
-      // successful, unprojected, untruncated results carry it; everything
-      // else keeps its JSON in the text.
+      // A tool that declares an outputSchema MUST return structuredContent,
+      // and clients enforce it: a successful result without it fails the
+      // whole call. So every successful object result carries it, projected
+      // or cut or not — the emitted outputSchema is loosened to match (no
+      // `required`, no closed objects). Arrays and strings cannot be
+      // structuredContent (the spec wants an object) and such tools declare
+      // no outputSchema; errors keep their JSON in the text.
+      const structured = outcome.structured;
       return complete({
         content: outcome.content ?? [{ type: "text", text: outcome.text }],
-        ...(!outcome.isError && outcome.structured !== undefined && outcome.structured !== null && typeof outcome.structured === "object"
-          ? { structuredContent: outcome.structured }
+        ...(!outcome.isError && structured !== undefined && structured !== null && typeof structured === "object" && !Array.isArray(structured)
+          ? { structuredContent: structured }
           : {}),
         isError: outcome.isError,
       });
@@ -841,7 +846,7 @@ export function pageOutcome(items: unknown[], nextPage: Record<string, unknown> 
   const full = { items: shown, hasMore: nextPage !== null, ...(nextPage !== null ? { nextPage } : {}) };
   const text = JSON.stringify(full);
   if (text.length <= maxChars) {
-    return { text, isError: false, ...(fields === null ? { structured: full } : {}) };
+    return { text, isError: false, structured: full };
   }
 
   const overhead = JSON.stringify({ items: [], hasMore: true, nextPage: nextPage ?? {}, truncated: { omitted: 0, of: 0, reason: "x".repeat(160), next_steps: ["x".repeat(220), "x".repeat(120)] } }).length;
@@ -875,10 +880,9 @@ export function pageOutcome(items: unknown[], nextPage: Record<string, unknown> 
       next_steps: steps,
     },
   };
-  // A cut page is still the advertised shape (truncated is in the
-  // outputSchema), but a projected one may not be; structuredContent only
-  // when it conforms.
-  return { text: JSON.stringify(structured), isError: false, ...(fields === null ? { structured } : {}) };
+  // Projected or cut, the page is still an object the loosened outputSchema
+  // admits, so it is structuredContent either way.
+  return { text: JSON.stringify(structured), isError: false, structured };
 }
 
 /** Placeholder for a value cut from an oversized object result. */
@@ -895,7 +899,7 @@ export function dataOutcome(data: unknown, options: ResultOptions = {}): ToolOut
   }
   const text = JSON.stringify(value);
   if (text.length <= maxChars) {
-    return { text, isError: false, ...(fields === null ? { structured: value } : {}) };
+    return { text, isError: false, structured: value };
   }
 
   if (Array.isArray(value)) {
@@ -904,8 +908,11 @@ export function dataOutcome(data: unknown, options: ResultOptions = {}): ToolOut
     return { text: JSON.stringify(value.slice(0, k)) + note, isError: false };
   }
   if (typeof value === "object") {
-    // Drop the largest top-level values first, each replaced by a marker
-    // that names the argument that fetches it alone, until it fits.
+    // Drop the largest top-level values first until it fits. A dropped key
+    // is removed rather than replaced with a marker: a string where the
+    // schema promised an object would fail the client's validation of
+    // structuredContent. The `truncated` note names each omitted key and the
+    // argument that fetches it alone.
     const entries = Object.entries(value as Record<string, unknown>).map(([key, v]) => ({ key, v, size: JSON.stringify(v)?.length ?? 4 }));
     const bySize = [...entries].sort((a, b) => b.size - a.size);
     const cut = new Map<string, number>();
@@ -913,16 +920,17 @@ export function dataOutcome(data: unknown, options: ResultOptions = {}): ToolOut
     for (const e of bySize) {
       if (size <= maxChars) break;
       cut.set(e.key, e.size);
-      size -= e.size - (omittedMarker(e.key, e.size).length + 2);
+      size -= e.size;
     }
     const out: Record<string, unknown> = {};
-    for (const e of entries) out[e.key] = cut.has(e.key) ? omittedMarker(e.key, e.size) : e.v;
+    for (const e of entries) if (!cut.has(e.key)) out[e.key] = e.v;
     out.truncated = {
       omitted_keys: [...cut.keys()],
+      omitted: Object.fromEntries([...cut].map(([key, chars]) => [key, omittedMarker(key, chars)])),
       reason: "The result is " + text.length.toLocaleString("en-US") + " characters; results are capped at " + maxChars.toLocaleString("en-US") + ".",
       next_steps: [fieldsHint(false)],
     };
-    return { text: JSON.stringify(out), isError: false };
+    return { text: JSON.stringify(out), isError: false, structured: out };
   }
   return { text, isError: false, structured: value };
 }
