@@ -32,9 +32,9 @@
     }
   },
   "bin": {
-    "typeship": "./dist/cli.js",
-    "typeship-mcp": "./dist/mcp.js",
-    "typeship-ax": "./dist/cli.js"
+    "typeship": "dist/cli.js",
+    "typeship-mcp": "dist/mcp.js",
+    "typeship-ax": "dist/cli.js"
   },
   "files": [
     "dist",
