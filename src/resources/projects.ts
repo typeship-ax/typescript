@@ -62,7 +62,7 @@ export class ProjectsResource {
     auto_regen?: boolean;
     package_name?: string | null;
     spec_patches?: SpecPatch[];
-    /** Requires the mcp platform and Pro. */
+    /** Requires the mcp platform and Enterprise. */
     mcp_enabled?: boolean;
     /** Requires the cli platform and Pro. */
     relay_enabled?: boolean;
@@ -132,7 +132,7 @@ export class ProjectsResource {
     auto_regen?: boolean;
     package_name?: string | null;
     spec_patches?: SpecPatch[];
-    /** Serve this project as a hosted remote MCP endpoint. Requires the mcp platform and Pro. */
+    /** Serve this project as a hosted remote MCP endpoint. Requires the mcp platform and Enterprise. */
     mcp_enabled?: boolean;
     /** Enable the webhook relay so the generated CLI's webhooks listen command works for this API's users. Requires the cli platform and Pro. */
     relay_enabled?: boolean;

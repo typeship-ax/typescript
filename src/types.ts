@@ -141,7 +141,7 @@ export interface Project {
   package_name?: string | null;
   spec_patches?: SpecPatch[];
   config?: Config | null;
-  /** Whether the hosted MCP endpoint is on. Requires the mcp platform and Pro; turning the platform off turns this off. */
+  /** Whether the hosted MCP endpoint is on. Requires the mcp platform and Enterprise; turning the platform off turns this off. */
   mcp_enabled?: boolean;
   /** Path of the hosted MCP endpoint while it is on; read-only. */
   mcp_url?: string | null;
