@@ -1,6 +1,6 @@
 # typeship — agent context
 
-This package is the generated TypeScript SDK + CLI + MCP server for **typeship** (v1.0.0).
+This package is the generated TypeScript SDK + CLI + MCP server for **typeship** (v0.1.0).
 
 Generate a zero-dependency SDK — TypeScript, Python, or Go — plus a CLI
 and an MCP server, from an OpenAPI spec.
@@ -20,7 +20,7 @@ anonymously with the free plan's limits.
 
 ## Using the SDK
 ```ts
-import { TypeshipClient } from "typeship";
+import { TypeshipClient } from "typeship-ax";
 const client = new TypeshipClient({ /* auth options above */ });
 ```
 - Every call returns `ApiResult<T, E>`: check `result.ok`, or `unwrap(result)` to throw the typed error. Nothing throws on HTTP errors by default.
