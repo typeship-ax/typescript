@@ -306,6 +306,9 @@ interface StoredCreds {
   scalars?: Record<string, string>;
   basic?: { username: string; password: string };
   oauth?: { accessToken: string; refreshToken?: string; expiresAt?: number };
+  /** Set when this CLI minted the stored credential for itself (browser
+   * approval), so `logout` knows it may revoke it. A pasted key is not. */
+  minted?: { via: "browser"; key_name: string; org_id?: string };
 }
 
 function configDir(): string {
@@ -523,7 +526,10 @@ function cliAuthUrl(flags: Map<string, string | boolean>): string {
   return CLI_AUTH_URL!;
 }
 
-async function browserLogin(stored: StoredCreds, headless: boolean, flags: Map<string, string | boolean>): Promise<void> {
+/** Browser approval, start to key: opens (or prints) the approval URL and
+ * polls until a person decides. Returns the minted credential; every
+ * failure exits with the envelope. Shared by `login` and `init`. */
+async function browserApprove(headless: boolean, flags: Map<string, string | boolean>): Promise<{ api_key: string; key_name: string; org_id?: string }> {
   const first = AUTH_SCALARS[0]!;
   const authUrl = cliAuthUrl(flags);
   const verifier = randomBytes(32).toString("base64url");
@@ -571,16 +577,28 @@ async function browserLogin(stored: StoredCreds, headless: boolean, flags: Map<s
     }
     if (poll.status === "pending") continue;
     if (poll.status === "complete" && poll.api_key) {
-      stored.scalars = { ...stored.scalars, [first.option]: poll.api_key };
-      writeCreds(stored);
-      out({ ok: true, method: "browser", key_name: poll.key_name ?? name, ...(poll.org_id ? { org_id: poll.org_id } : {}), credentials: credsPath() });
-      await flushExit(0);
+      return { api_key: poll.api_key, key_name: poll.key_name ?? name, ...(poll.org_id ? { org_id: poll.org_id } : {}) };
     }
     if (poll.status === "denied") failWith({ status: "action_required", code: "AUTH_INVALID", message: "The request was denied in the browser.", nextSteps: ["Run '" + BIN + " login' again if that was a mistake, or pass a credential directly with --" + first.flag + "."] });
     if (poll.status === "expired") break;
     failWith({ code: "COMMAND_FAILED", message: "Browser login stopped: " + (poll.status ?? "unknown status"), nextSteps: ["Run '" + BIN + " login' again."] });
   }
   failWith({ status: "action_required", code: "TTY_REQUIRED", message: "The browser approval expired after " + expiresIn + "s without a decision.", nextSteps: ["Run '" + BIN + " login' again and approve the link within ten minutes.", "Or pass the credential directly: '" + BIN + " login --" + first.flag + " <value>'."] });
+}
+
+/** Store what the browser approval minted, marked as this CLI's own. */
+function storeMinted(stored: StoredCreds, minted: { api_key: string; key_name: string; org_id?: string }): void {
+  const first = AUTH_SCALARS[0]!;
+  stored.scalars = { ...stored.scalars, [first.option]: minted.api_key };
+  stored.minted = { via: "browser", key_name: minted.key_name, ...(minted.org_id ? { org_id: minted.org_id } : {}) };
+  writeCreds(stored);
+}
+
+async function browserLogin(stored: StoredCreds, headless: boolean, flags: Map<string, string | boolean>): Promise<void> {
+  const minted = await browserApprove(headless, flags);
+  storeMinted(stored, minted);
+  out({ ok: true, method: "browser", key_name: minted.key_name, ...(minted.org_id ? { org_id: minted.org_id } : {}), credentials: credsPath() });
+  await flushExit(0);
 }
 
 async function cmdLogin(parsed: Parsed): Promise<void> {
@@ -658,9 +676,24 @@ async function cmdLogin(parsed: Parsed): Promise<void> {
 }
 
 async function cmdLogout(): Promise<void> {
+  const stored = readCreds();
   const existed = existsSync(credsPath());
+  // A key this CLI minted for itself (browser approval) is revoked on the
+  // way out, so logging out ends the credential and not just the file. A
+  // pasted or CI key is someone else's to revoke, and is left alone.
+  let revoked: boolean | null = null;
+  const first = AUTH_SCALARS[0];
+  const ownKey = first && stored?.minted?.via === "browser" ? stored.scalars?.[first.option] : undefined;
+  if (ownKey && CLI_AUTH_URL) {
+    try {
+      const response = await fetch(CLI_AUTH_URL + "/revoke", { method: "POST", headers: { Authorization: "Bearer " + ownKey }, signal: AbortSignal.timeout(15_000) });
+      revoked = response.ok;
+    } catch {
+      revoked = false;
+    }
+  }
   rmSync(credsPath(), { force: true });
-  out({ ok: true, removed: existed ? credsPath() : null });
+  out({ ok: true, removed: existed ? credsPath() : null, ...(revoked === null ? {} : { revoked, key_name: stored?.minted?.key_name }) });
   await flushExit(0);
 }
 
@@ -1117,7 +1150,7 @@ async function cmdInit(parsed: Parsed): Promise<void> {
     process.stdout.write([
       BIN + " init [--all] [-k <credential>] [--yes] [--no-skills] [--no-mcp] [--no-agents-md]",
       "",
-      "  -k, --" + (AUTH_SCALARS[0]?.flag ?? "token") + " <value>   store the credential (or set " + (AUTH_SCALARS[0]?.env ?? ENV_PREFIX + "_TOKEN") + " in the environment)",
+      "  -k, --" + (AUTH_SCALARS[0]?.flag ?? "token") + " <value>   store the credential (or set " + (AUTH_SCALARS[0]?.env ?? ENV_PREFIX + "_TOKEN") + " in the environment)" + (CLI_AUTH_URL ? "; with neither, approve one in the browser" : ""),
       "  --all                    do everything without prompting (implied under an agent)",
       "  --no-skills | --no-mcp | --no-agents-md   skip a part",
       "",
@@ -1143,6 +1176,13 @@ async function cmdInit(parsed: Parsed): Promise<void> {
     report.credential = { status: "env", variable: first.env };
   } else if (stored.scalars || stored.basic || stored.oauth) {
     report.credential = { status: "stored", path: credsPath() };
+  } else if (first && CLI_AUTH_URL && !explicitNonInteractive(parsed)) {
+    // Nothing anywhere: approve a credential in the browser, as `login`
+    // would, then carry on. Under an agent the URL is printed for the person
+    // and polled; only the explicit non-interactive switch skips this.
+    const minted = await browserApprove(isAgentMode(parsed) || parsed.flags.get("no-browser") === true, parsed.flags);
+    storeMinted(stored, minted);
+    report.credential = { status: "minted", method: "browser", key_name: minted.key_name, ...(minted.org_id ? { org_id: minted.org_id } : {}), path: credsPath() };
   } else {
     report.credential = { status: "none" };
     if (first) nextSteps.push("Set " + first.env + " in the environment, or run '" + BIN + " init -k <credential>' or '" + BIN + " login'.");
