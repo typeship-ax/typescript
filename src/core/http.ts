@@ -400,6 +400,11 @@ export interface CoreConfig {
   retry?: RetryPolicy;
   /** Client-level values for x-typeship-globals parameters, by wire name. */
   globals?: Record<string, unknown>;
+  /** Header names the spec's API-key schemes use. fetch drops the standard
+   * credential headers on a cross-origin redirect but knows nothing of these,
+   * so when a spec declares any, this runtime follows redirects itself and
+   * drops them too. */
+  authHeaders?: string[];
 }
 
 /** What the debug sink receives: one event per HTTP attempt. */
@@ -418,11 +423,48 @@ export interface DebugEvent {
 
 const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
 
+/** Credential-bearing headers fetch itself drops when a redirect crosses to
+ * another origin. A spec's own API-key headers join them below. */
+const SENSITIVE_HEADERS = ["authorization", "cookie", "cookie2", "proxy-authorization", "www-authenticate"];
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+/** Dropped along with the body when a redirect rewrites the method to GET. */
+const CONTENT_HEADERS = ["content-encoding", "content-language", "content-location", "content-type", "content-length"];
+/** fetch's own ceiling, so a redirect loop fails the same way it did before. */
+const MAX_REDIRECTS = 20;
+
+function withoutHeaders(headers: Record<string, string>, drop: string[]): Record<string, string> {
+  const kept: Record<string, string> = {};
+  for (const [name, value] of Object.entries(headers)) {
+    if (!drop.includes(name.toLowerCase())) kept[name] = value;
+  }
+  return kept;
+}
+
+/** A body that can only be read once, so a redirect cannot replay it. */
+function isStreamBody(body: unknown): boolean {
+  return typeof (body as { getReader?: unknown } | undefined)?.getReader === "function";
+}
+
 export class HttpCore {
   readonly config: CoreConfig;
+  /** Lowercased header names dropped on a cross-origin hop. */
+  private readonly sensitiveHeaders: string[];
+  /** Whether this runtime follows redirects itself instead of letting the
+   * platform do it — see followRedirects(). */
+  private readonly manualRedirects: boolean;
+
   // no parameter properties: this file also runs under strip-only TS
   constructor(config: CoreConfig) {
     this.config = config;
+    const declared = (config.authHeaders ?? []).map((name) => name.toLowerCase());
+    const custom = declared.filter((name, i) => !SENSITIVE_HEADERS.includes(name) && declared.indexOf(name) === i);
+    this.sensitiveHeaders = [...SENSITIVE_HEADERS, ...custom];
+    // Only worth taking over from the platform when the spec puts its
+    // credential on a header fetch has never heard of. A browser is excluded:
+    // there, `redirect: "manual"` yields an opaque response with no Location
+    // to read, and a cross-origin hop carrying a non-safelisted header needs
+    // the target's CORS consent anyway.
+    this.manualRedirects = custom.length > 0 && (globalThis as { document?: unknown }).document === undefined;
   }
 
   /** The client-level value for an x-typeship-globals parameter. */
@@ -624,16 +666,79 @@ export class HttpCore {
     if (req.options?.signal) signals.push(req.options.signal);
 
     try {
-      const response = await this.config.fetch(context.url, {
-        method: req.method,
-        headers: context.headers,
-        body,
-        signal: AbortSignal.any(signals),
-      });
+      const signal = AbortSignal.any(signals);
+      const response = this.manualRedirects
+        ? await this.followRedirects(context, body, signal)
+        : await this.config.fetch(context.url, {
+            method: req.method,
+            headers: context.headers,
+            body,
+            signal,
+          });
       await this.config.onResponse?.(response, context);
       return response;
     } finally {
       clearStreamTimeout?.();
+    }
+  }
+
+  /**
+   * The redirect chain, walked here instead of inside fetch, so the header
+   * this spec puts its API key on is dropped when a hop crosses to another
+   * origin. fetch drops Authorization and friends for us, but it has never
+   * heard of X-Whatever-Key, and an operation that returns a file commonly
+   * redirects to object storage.
+   *
+   * Only reached when the spec declares such a header (see the constructor);
+   * every other client stays on the platform's own redirect handling. One
+   * chain is one attempt: retries, the per-attempt timeout, the caller's
+   * signal, and the onRequest/onResponse hooks all sit outside it and see
+   * the chain as the single exchange it replaces.
+   */
+  private async followRedirects(
+    context: RequestContext,
+    body: NonNullable<RequestInit["body"]> | undefined,
+    signal: AbortSignal,
+  ): Promise<Response> {
+    let url = context.url;
+    let origin = new URL(url).origin;
+    let method = context.method;
+    let headers = context.headers;
+    for (let hop = 0; ; hop++) {
+      const response = await this.config.fetch(url, { method, headers, body, redirect: "manual", signal });
+      // A runtime that filters manual redirects (a browser) hands back an
+      // opaque response with no Location to read. Refuse rather than let the
+      // credential travel blind — the constructor already keeps browsers off
+      // this path, so this is a guard, not an expected outcome.
+      if (response.type === "opaqueredirect" || response.status === 0) {
+        throw new TransportError("This runtime hides redirect targets, so the credential cannot be dropped before the hop");
+      }
+      const location = response.headers.get("location");
+      if (!REDIRECT_STATUSES.has(response.status) || location === null) return response;
+      if (hop >= MAX_REDIRECTS) throw new TransportError("Too many redirects (" + (hop + 1) + ")");
+      await response.body?.cancel();
+
+      const target = new URL(location, url);
+      headers = { ...headers };
+      // Origins are compared exactly — scheme, host, and port — which is
+      // fetch's rule and the one the Python runtime applies.
+      if (target.origin !== origin) headers = withoutHeaders(headers, this.sensitiveHeaders);
+      // The method rewrite fetch performs: a 303 continues as a bodyless GET,
+      // and so does a 301/302 that answered a POST.
+      const toGet = response.status === 303
+        ? method !== "HEAD"
+        : (response.status === 301 || response.status === 302) && method === "POST";
+      if (toGet) {
+        method = "GET";
+        body = undefined;
+        headers = withoutHeaders(headers, CONTENT_HEADERS);
+      } else if (isStreamBody(body)) {
+        // A stream reads once; fetch fails the same way rather than sending
+        // an empty body to the new location.
+        throw new TransportError("Cannot replay a streaming request body across a redirect");
+      }
+      url = target.toString();
+      origin = target.origin;
     }
   }
 
