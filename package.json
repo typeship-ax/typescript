@@ -37,7 +37,8 @@
   "files": [
     "dist",
     "src",
-    "api.md"
+    "api.md",
+    "LICENSE"
   ],
   "sideEffects": false,
   "scripts": {
