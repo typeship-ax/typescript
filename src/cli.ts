@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { TypeshipClient, formatDebugEvent, type DebugEvent } from "./index.js";
 import { GLOBALS, OPS, buildArgs, findOp, missingRequired, type OpSpec, type ParamSpec } from "./ops.js";
 import {
-  MCP_CLIENTS, agentGuide, agentBlock, agentInstructionsFile, agentMode, bundleProperty, claimProperty, classifyApiError, detectHarness, envelope,
+  MCP_CLIENTS, agentGuide, agentBlock, agentInstructionsFile, agentMode, bundleProperty, claimProperty, classifyApiError, collectionProperty, detectHarness, envelope,
   exitCodeFor, findMcpClient, installSkills, mcpConfigured, pendingClaims, recordClaim, summarizeDoctor, upsertAgentBlock, writeBundle, writeMcpConfig,
   type AgentContext, type CommandSummary, type DoctorCheck, type EnvelopeInput, type IssueCode, type McpEntry, type McpWriteResult,
 } from "./cli-agent.js";
@@ -2018,7 +2018,8 @@ function commandExtras(op: OpSpec): [string, string][] {
   else if (op.hasBody) extras.push(["--data '<json>'", "raw JSON body" + (op.bodyStyle === "fields" ? " (merged under field flags)" : "") + "; @<file> reads a file, - reads stdin"]);
   if (op.select) extras.push(["--select '<selection>'", "GraphQL selection set replacing the default, e.g. '{ id name }'"]);
   if (op.paginated) extras.push(["--all", "stream every item from every page (NDJSON)"]);
-  extras.push(["--fields <a,b.c>", "keep only these fields of the result" + (op.paginated ? " (per item)" : "")]);
+  const collectionField = collectionProperty(op.outputSchema);
+  extras.push(["--fields <a,b.c>", "keep only these fields of the result" + (op.paginated ? " (per item)" : collectionField ? " (per item in " + collectionField + ")" : "")]);
   if (bundleProperty(op.outputSchema) !== null) extras.push(["--out <dir>", "write the response's files ({path, content}) into a directory"]);
   if (op.httpMethod === "DELETE") extras.push(["--force, -y", "destructive: required without a terminal, skips the prompt with one"]);
   return extras;
@@ -2443,6 +2444,7 @@ async function main(): Promise<void> {
 
   // --out <dir> materializes a file-shaped response (see cli-agent.ts bundleProperty).
   const bundleField = bundleProperty(op.outputSchema);
+  const collectionField = collectionProperty(op.outputSchema);
   const outDir = typeof parsed.flags.get("out") === "string" ? (parsed.flags.get("out") as string) : undefined;
   if (outDir !== undefined && bundleField === null) {
     fail(2, "--out applies to commands whose response carries files ({path, content}); " + op.command.join(" ") + " does not.");
@@ -2532,6 +2534,11 @@ async function main(): Promise<void> {
         hasMore: next !== null,
         ...(next !== null ? { nextPage: next, nextCommand: nextCommandFor(op, pathValues, next) } : {}),
       });
+    } else if (FIELDS !== null && collectionField !== null && result.data !== null && typeof result.data === "object" && !Array.isArray(result.data) && Array.isArray((result.data as Record<string, unknown>)[collectionField])) {
+      // Batch-style collection envelopes ({data: [...]}) use item-relative
+      // fields, matching paginated results, while retaining envelope metadata.
+      const data = result.data as Record<string, unknown>;
+      out({ ...data, [collectionField]: project(data[collectionField]) });
     } else if (outDir !== undefined && bundleField !== null) {
       // --out: a file-shaped response (an array of {path, content}) lands
       // on disk; stdout gets the rest of the response plus a summary.
