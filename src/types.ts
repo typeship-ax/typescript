@@ -329,9 +329,9 @@ export interface McpUsage {
   mcp_url?: string | null;
   /** The window these numbers cover. */
   days: number;
-  /** Tool calls served */
+  /** Tool calls served, including ones that returned an error. */
   calls: number;
-  /** Calls whose result was a tool error (API failures */
+  /** Calls whose result was a tool error (API failures, bad arguments). */
   errors: number;
   /** Calls turned away by the per-caller or per-endpoint limit. */
   rate_limited: number;
