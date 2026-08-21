@@ -583,6 +583,18 @@ export function bundleProperty(outputSchema: Record<string, unknown> | undefined
   return null;
 }
 
+/** A non-page response whose result is a collection wrapped in one array
+ * property (`{data: [...]}` is the common shape). `--fields` applies to
+ * each item while preserving that envelope, just as it does for pages. */
+export function collectionProperty(outputSchema: Record<string, unknown> | undefined): string | null {
+  const props = outputSchema?.properties as Record<string, { type?: string | string[] }> | undefined;
+  const names = props ? Object.keys(props) : [];
+  if (!props || names.length !== 1) return null;
+  const name = names[0]!;
+  const type = props[name]?.type;
+  return type === "array" || (Array.isArray(type) && type.includes("array")) ? name : null;
+}
+
 export function writeBundle(dir: string, files: { path: string; content: string }[]): { dir: string; written: number; paths: string[] } {
   const paths: string[] = [];
   for (const file of files) {
