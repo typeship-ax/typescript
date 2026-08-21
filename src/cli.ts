@@ -248,7 +248,7 @@ let HUMAN_ERRORS = false;
 /**
  * The same envelope as prose for a terminal:
  *   acme: No such account
- *     Check the id; list the resource first.
+ *     Check the resource id; list the resource first.
  *     NOT_FOUND · HTTP 404 · exit 1 · pipe stderr or --mode agent for JSON
  */
 function humanError(body: ReturnType<typeof envelope>, code: number): string {

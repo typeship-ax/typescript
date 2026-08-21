@@ -129,7 +129,7 @@ export function classifyApiError(
   if (status === 402) {
     return { status: "action_required", code: "PLAN_LIMIT", message, detail, nextSteps: [upgradeUrl ? "Lift the limit at " + upgradeUrl + ", then run the same command again." : "The account's plan stops here; upgrade it, then run the same command again.", "Do not retry the same call as is."] };
   }
-  if (status === 404) return { code: "NOT_FOUND", message, detail, nextSteps: ["Check the id; list the resource first."] };
+  if (status === 404) return { code: "NOT_FOUND", message, detail, nextSteps: notFoundNextSteps(message) };
   if (status === 429) {
     const retryAfter = extractRetryAfter(e);
     return { status: "action_required", code: "RATE_LIMITED", message, detail, nextSteps: [retryAfter ? "Wait " + retryAfter + " seconds, then run the same command again." : "Back off and retry once; the SDK already retried with the server's Retry-After."] };
@@ -138,6 +138,18 @@ export function classifyApiError(
   if (status === 400 || status === 422 || status === 409 || status === 413) return { code: "INVALID_REQUEST", message, detail, nextSteps: ["Read detail.body for the field the API named; run the command with --help for its flags."] };
   if (status >= 500) return { code: "SERVER_ERROR", message, detail, nextSteps: ["Retry once with backoff. If it persists, report the request id in detail.body."] };
   return { code: "COMMAND_FAILED", message, detail };
+}
+
+/** A file lookup needs path guidance, not the generic advice for a missing
+ * resource id. Prefer the API's own index when its message names one. */
+function notFoundNextSteps(message: string): string[] {
+  if (/\bfiles_index\b/i.test(message)) {
+    return ["Read files_index on the generation, choose an exact path it lists, then run the command again with that path."];
+  }
+  if (/\bfile\b/i.test(message) && /\bpaths?\b/i.test(message)) {
+    return ["Check the requested file path against the API's file listing, then run the command again with an exact path."];
+  }
+  return ["Check the resource id; list the resource first."];
 }
 
 function extractUrl(body: unknown, keys: string[]): string | undefined {

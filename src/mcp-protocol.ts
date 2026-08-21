@@ -1051,7 +1051,7 @@ export function classifyError(error: unknown, context: ErrorContext = {}): { cod
   }
   if (status === 403) return { code: "AUTH_INVALID", nextSteps: ["The credential lacks access to this operation; it is not a retryable error."] };
   if (status === 402) return { code: "PLAN_LIMIT", nextSteps: ["The account's plan stops here; the body may name where to lift the limit. Do not retry the same call as is."] };
-  if (status === 404) return { code: "NOT_FOUND", nextSteps: ["Check the id; list the resource first to find the right one."] };
+  if (status === 404) return { code: "NOT_FOUND", nextSteps: notFoundNextSteps(message, e.body) };
   if (status === 429) {
     const retryAfter = extractRetryAfter(e);
     return { code: "RATE_LIMITED", nextSteps: [retryAfter ? "Wait " + retryAfter + " seconds, then call again." : "Back off and retry once; the request was already retried with the server's Retry-After."] };
@@ -1061,6 +1061,21 @@ export function classifyError(error: unknown, context: ErrorContext = {}): { cod
   }
   if (status >= 500) return { code: "SERVER_ERROR", nextSteps: ["Retry once with backoff. If it persists, report the request id from body."] };
   return { code: "CALL_FAILED", nextSteps: [] };
+}
+
+/** Keep file-path 404s actionable even when the SDK's Error.message is only
+ * the OpenAPI response description and the precise message is in body. */
+function notFoundNextSteps(message: string, body: unknown): string[] {
+  const record = body as { errors?: { message?: unknown }[]; message?: unknown; error?: unknown } | null;
+  const apiMessage = record?.errors?.[0]?.message ?? record?.message ?? record?.error;
+  const combined = message + " " + (typeof apiMessage === "string" ? apiMessage : "");
+  if (/\bfiles_index\b/i.test(combined)) {
+    return ["Read files_index on the generation, choose an exact path it lists, then call again with that path."];
+  }
+  if (/\bfile\b/i.test(combined) && /\bpaths?\b/i.test(combined)) {
+    return ["Check the requested file path against the API's file listing, then call again with an exact path."];
+  }
+  return ["Check the resource id; list the resource first to find the right one."];
 }
 
 /** A typed API error as the agent should see it: name, a stable code, the
