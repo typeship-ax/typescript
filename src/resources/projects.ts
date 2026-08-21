@@ -97,12 +97,8 @@ export class ProjectsResource {
    * Delete a project
    * `DELETE /projects/{project_id}`
    */
-  async delete(projectId: string, options?: RequestOptions): Promise<ApiResult<{
-    deleted: true;
-  }, ProjectsDeleteError>> {
-    return this._core.request<{
-    deleted: true;
-  }, ProjectsDeleteError>({
+  async delete(projectId: string, options?: RequestOptions): Promise<ApiResult<ProjectsDeleteResponse, ProjectsDeleteError>> {
+    return this._core.request<ProjectsDeleteResponse, ProjectsDeleteError>({
       method: "DELETE",
       path: `/projects/${encodeURIComponent(String(projectId))}`,
       errors: { "401": UnauthorizedError, "404": NotFoundError },
@@ -183,12 +179,8 @@ export class ProjectsResource {
    * regenerate on push.
    * `POST /projects/{project_id}/generations`
    */
-  async generate(projectId: string, options?: RequestOptions): Promise<ApiResult<{
-    data: Array<Generation | GenerationFailure>;
-  }, ProjectsGenerateError>> {
-    return this._core.request<{
-    data: Array<Generation | GenerationFailure>;
-  }, ProjectsGenerateError>({
+  async generate(projectId: string, options?: RequestOptions): Promise<ApiResult<ProjectsGenerateResponse, ProjectsGenerateError>> {
+    return this._core.request<ProjectsGenerateResponse, ProjectsGenerateError>({
       method: "POST",
       path: `/projects/${encodeURIComponent(String(projectId))}/generations`,
       errors: { "401": UnauthorizedError, "402": PaymentRequiredError, "404": NotFoundError, "422": UnprocessableEntityError },
@@ -230,6 +222,11 @@ export type ProjectsCreateError = BadRequestError | UnauthorizedError | PaymentR
 /** Every error `get` can produce, as a discriminated union. */
 export type ProjectsGetError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
 
+/** What `delete` resolves to. */
+export interface ProjectsDeleteResponse {
+  deleted: true;
+}
+
 /** Every error `delete` can produce, as a discriminated union. */
 export type ProjectsDeleteError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
 
@@ -245,6 +242,11 @@ export interface ProjectsListGenerationsParams {
 
 /** Every error `listGenerations` can produce, as a discriminated union. */
 export type ProjectsListGenerationsError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
+
+/** What `generate` resolves to. */
+export interface ProjectsGenerateResponse {
+  data: Array<Generation | GenerationFailure>;
+}
 
 /** Every error `generate` can produce, as a discriminated union. */
 export type ProjectsGenerateError = UnauthorizedError | PaymentRequiredError | NotFoundError | UnprocessableEntityError | UnexpectedApiError | TransportError | ValidationError;

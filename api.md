@@ -39,7 +39,7 @@ List projects
 | `limit` | query | `number` | no |  |
 | `cursor` | query | `string` | no |  |
 
-Returns: `PagePromise<{ data: Project[]; next_cursor?: string | null; }>` — auto-paginating (`for await` walks every page)
+Returns: `PagePromise<Project>` — auto-paginating (`for await` walks every page)
 Errors: `UnauthorizedError` (401)
 
 ### `client.projects.create(body)`
@@ -76,7 +76,7 @@ Delete a project
 | --- | --- | --- | --- | --- |
 | `project_id` | path | `string` | yes |  |
 
-Returns: `{ deleted: true; }`
+Returns: `ProjectsDeleteResponse`
 Errors: `UnauthorizedError` (401), `NotFoundError` (404)
 
 ### `client.projects.update(project_id, body)`
@@ -107,7 +107,7 @@ List a project's generations
 | `cursor` | query | `string` | no |  |
 | `language` | query | `"typescript" | "python" | "go"` | no | Only generations for this language. |
 
-Returns: `PagePromise<{ data: Generation[]; next_cursor?: string | null; }>` — auto-paginating (`for await` walks every page)
+Returns: `PagePromise<Generation>` — auto-paginating (`for await` walks every page)
 Errors: `UnauthorizedError` (401), `NotFoundError` (404)
 
 ### `client.projects.generate(project_id)`
@@ -126,7 +126,7 @@ regenerate on push.
 | --- | --- | --- | --- | --- |
 | `project_id` | path | `string` | yes |  |
 
-Returns: `{ data: Array<Generation | GenerationFailure>; }`
+Returns: `ProjectsGenerateResponse`
 Errors: `UnauthorizedError` (401), `PaymentRequiredError` (402), `NotFoundError` (404), `UnprocessableEntityError` (422)
 
 ### `client.projects.mcpUsage(project_id, params)`
@@ -194,7 +194,7 @@ The audit trail behind a regeneration: which spec produced which SDK, and when i
 | `limit` | query | `number` | no |  |
 | `cursor` | query | `string` | no |  |
 
-Returns: `PagePromise<{ data: SpecVersion[]; next_cursor?: string | null; }>` — auto-paginating (`for await` walks every page)
+Returns: `PagePromise<SpecVersion>` — auto-paginating (`for await` walks every page)
 Errors: `UnauthorizedError` (401), `NotFoundError` (404)
 
 ### `client.specVersions.get(spec_version_id)`
@@ -269,7 +269,7 @@ Keys are never returned in full — only their identity and last four. Creation 
 | `limit` | query | `number` | no |  |
 | `cursor` | query | `string` | no |  |
 
-Returns: `PagePromise<{ data: ApiKey[]; next_cursor?: string | null; }>` — auto-paginating (`for await` walks every page)
+Returns: `PagePromise<ApiKey>` — auto-paginating (`for await` walks every page)
 Errors: `UnauthorizedError` (401)
 
 ### `client.apiKeys.revoke(api_key_id)`
