@@ -498,6 +498,24 @@ export function toolsListSize(tools: ToolDefinition[]): { tools: number; chars: 
   return { tools: tools.length, chars, approxTokens: Math.round(chars / 4) };
 }
 
+/** Keep automatic per-operation discovery under roughly 10k tokens. The
+ * schema, not merely the operation count, determines what an agent pays. */
+export const MCP_AUTO_MAX_TOOLS_LIST_CHARS = 40_000;
+
+export function resolveToolMode(
+  ops: OpLike[],
+  requested: "operations" | "meta" | "auto" = "auto",
+): { mode: "operations" | "meta"; tools: number; chars: number; approxTokens: number } {
+  if (requested === "operations" || requested === "meta") {
+    return { mode: requested, ...toolsListSize(toolDefinitions(ops, requested)) };
+  }
+  const operations = toolsListSize(toolDefinitions(ops, "operations"));
+  const mode = ops.length > 100 || operations.chars > MCP_AUTO_MAX_TOOLS_LIST_CHARS ? "meta" : "operations";
+  return mode === "operations"
+    ? { mode, ...operations }
+    : { mode, ...toolsListSize(toolDefinitions(ops, mode)) };
+}
+
 /** Resolve an operation by tool name or dotted resource.method. */
 export function findOperation(ops: OpLike[], wanted: string): OpLike | undefined {
   return ops.find((o) => o.tool === wanted)

@@ -26,14 +26,14 @@ const DEFAULT_BASE_URL = "https://typeship.dev/api/v1";
 const AUTH_SCALARS: { option: string; flag: string; env: string }[] = [{"option":"bearerToken","flag":"token","env":"TYPESHIP_TOKEN"}];
 const BASIC: { envUser: string; envPass: string } | null = null;
 const EXCLUDED_OPS = 0;
-const VERSION = "0.1.0";
-const API_VERSION = "0.1.0";
+const VERSION = "0.3.0";
+const API_VERSION = "0.3.0";
 const WHOAMI: { resource: string; method: string } | null = {"resource":"account","method":"me"};
 const ENVIRONMENTS: Record<string, string> = {};
 const HAS_MCP = true;
 const PKG_NAME = "typeship-ax";
 const UPDATE_NOTICE = false;
-const API_DESCRIPTION: string | null = "Generate a zero-dependency SDK — TypeScript, Python, or Go — plus a CLI\nand an MCP server, from an OpenAPI spec.\n\nEvery operation but one requires an API key, created in the console and\nsent as `Authorization: Bearer ak_...`. A browser session is not a\ncredential for this API. The exception is POST /generate, which works\nanonymously with the free plan's limits.\n";
+const API_DESCRIPTION: string | null = "Generate production SDKs, CLIs, and MCP servers from an OpenAPI or\nGraphQL spec, and keep every selected output current.\n\nEvery operation but one requires an API key, created in the console and\nsent as `Authorization: Bearer ak_...`. A browser session is not a\ncredential for this API. The exception is POST /generate, which works\nanonymously with the free plan's limits.\n";
 const DOCS_URL_DEFAULT: string | null = "https://typeship.dev";
 const RELAY: { mintUrl: string; project: string } | null = null;
 const SUPPORT_URL: string | null = null;
@@ -1950,7 +1950,7 @@ function printRoot(stream: NodeJS.WriteStream = process.stdout): void {
   }
   const width = termWidth();
   const lines: string[] = [];
-  lines.push(paintOut("bold", BIN) + ": " + "typeship" + " (v" + "0.1.0" + ")");
+  lines.push(paintOut("bold", BIN) + ": " + "typeship" + " (v" + "0.3.0" + ")");
   lines.push("");
   lines.push(paintOut("bold", "Usage:") + " " + BIN + " <resource> <command> [args] [--flags]");
   lines.push("");

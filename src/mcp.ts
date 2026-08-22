@@ -32,7 +32,7 @@ import {
 const BIN = "typeship";
 const PKG_NAME = "typeship-ax";
 const SERVER_NAME = "typeship-mcp";
-const SERVER_VERSION = "0.1.0";
+const SERVER_VERSION = "0.3.0";
 /** The MCP client's announced name (clientInfo in request _meta), for the User-Agent. */
 let MCP_CLIENT_NAME: string | null = null;
 function noteClientInfo(message: unknown): void {
@@ -47,7 +47,7 @@ const ENVIRONMENTS: Record<string, string> = {};
 const DOCS_URL_DEFAULT: string | null = "https://typeship.dev";
 /** "meta" collapses per-operation tools into search/read/execute so huge
  * APIs don't flood agent context with hundreds of tools. */
-const TOOL_MODE: "operations" | "meta" = "operations";
+const TOOL_MODE: "operations" | "meta" = "meta";
 /** Authorization server for OAuth discovery (RFC 9728), from the spec. */
 const OAUTH_ISSUER: string | null = null;
 /** Project-supplied guidance appended to the server instructions. */

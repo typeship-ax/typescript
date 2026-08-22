@@ -3,13 +3,13 @@
 
 import { HttpCore, type ApiResult, type RequestOptions } from "../core/http.js";
 import { TransportError, UnexpectedApiError, ValidationError, ApiResponseError, PayloadTooLargeError, UnauthorizedError, UnprocessableEntityError } from "../errors.js";
-import type { Config, GenerationResult, SpecInput } from "../types.js";
+import type { Config, GenerationResult, OutputId, SpecInput } from "../types.js";
 
 export class GenerateResource {
   constructor(private readonly _core: HttpCore) {}
   /**
    * Generate a package from a spec
-   * 
+   *
    * Stateless generation: nothing is stored. Returns the full generated
    * package as files. Works without an API key: anonymous calls generate
    * the first 25 operations, rate limited per IP address, and the
@@ -22,13 +22,8 @@ export class GenerateResource {
    */
   async run(body: {
     spec: SpecInput;
-    /** Artifacts to generate from the spec. Defaults to [sdk]. */
-    platforms?: Array<"sdk" | "cli" | "mcp">;
-    /**
-     * Language to generate. Python and Go produce the SDK only; the CLI and MCP server are TypeScript artifacts and are skipped with a warning when requested alongside them.
-     * Default: "typescript"
-     */
-    language?: "typescript" | "python" | "go";
+    /** Outputs for one delivery package. Choose one SDK output, or TypeScript SDK, CLI, and MCP in any combination. Linked projects can generate outputs in all ecosystems. */
+    outputs: OutputId[];
     /** npm name override for the generated package. */
     package_name?: string;
     config?: Config;
