@@ -3,8 +3,8 @@
 
 import { HttpCore, type ApiResult, type RequestOptions } from "../core/http.js";
 import { paginate, PagePromise } from "../core/pagination.js";
-import { TransportError, UnexpectedApiError, ValidationError, NotFoundError, UnauthorizedError } from "../errors.js";
-import type { SpecVersion } from "../types.js";
+import { TransportError, UnexpectedApiError, ValidationError, BadRequestError, ForbiddenError, NotFoundError, RateLimitedError, UnauthorizedError } from "../errors.js";
+import type { ProjectId, SpecVersion, SpecVersionId, SpecVersionList } from "../types.js";
 
 export class SpecVersionsResource {
   constructor(private readonly _core: HttpCore) {}
@@ -16,12 +16,12 @@ export class SpecVersionsResource {
    * Auto-paginates: `for await (const item of …)` walks every page.
    * `GET /projects/{project_id}/spec_versions`
    */
-  list(projectId: string, params?: SpecVersionsListParams, options?: RequestOptions): PagePromise<SpecVersion, SpecVersionsListError> {
+  list(projectId: ProjectId, params?: SpecVersionsListParams, options?: RequestOptions): PagePromise<SpecVersion, SpecVersionsListError> {
     return paginate<SpecVersion, SpecVersionsListError>(this._core, {
       method: "GET",
       path: `/projects/${encodeURIComponent(String(projectId))}/spec_versions`,
       query: { limit: params?.limit, cursor: params?.cursor },
-      errors: { "401": UnauthorizedError, "404": NotFoundError },
+      errors: { "400": BadRequestError, "401": UnauthorizedError, "403": ForbiddenError, "404": NotFoundError, "429": RateLimitedError },
       idempotent: true,
       schemaKey: "specVersions.list",
       options,
@@ -30,6 +30,7 @@ export class SpecVersionsResource {
       itemsField: "data",
       cursorParam: "cursor",
       nextCursorField: "next_cursor",
+      hasMoreField: "has_more",
       limitParam: "limit",
     });
   }
@@ -40,13 +41,13 @@ export class SpecVersionsResource {
    * One recorded spec, with its content. Storing every spec a project has generated from is only an audit trail if you can read one back and diff it against what shipped.
    * `GET /spec_versions/{spec_version_id}`
    */
-  async get(specVersionId: string, options?: RequestOptions): Promise<ApiResult<SpecVersion, SpecVersionsGetError>> {
-    return this._core.request<SpecVersion, SpecVersionsGetError>({
+  async retrieve(specVersionId: SpecVersionId, options?: RequestOptions): Promise<ApiResult<SpecVersion, SpecVersionsRetrieveError>> {
+    return this._core.request<SpecVersion, SpecVersionsRetrieveError>({
       method: "GET",
       path: `/spec_versions/${encodeURIComponent(String(specVersionId))}`,
-      errors: { "401": UnauthorizedError, "404": NotFoundError },
+      errors: { "401": UnauthorizedError, "403": ForbiddenError, "404": NotFoundError, "429": RateLimitedError },
       idempotent: true,
-      schemaKey: "specVersions.get",
+      schemaKey: "specVersions.retrieve",
       options,
     });
   }
@@ -57,29 +58,31 @@ export class SpecVersionsResource {
    * The escape hatch for specs too large to inline, and the endpoint to pipe straight into a diff.
    * `GET /spec_versions/{spec_version_id}/content`
    */
-  async getContent(specVersionId: string, options?: RequestOptions): Promise<ApiResult<string, SpecVersionsGetContentError>> {
-    return this._core.request<string, SpecVersionsGetContentError>({
+  async retrieveContent(specVersionId: SpecVersionId, options?: RequestOptions): Promise<ApiResult<string, SpecVersionsRetrieveContentError>> {
+    return this._core.request<string, SpecVersionsRetrieveContentError>({
       method: "GET",
       path: `/spec_versions/${encodeURIComponent(String(specVersionId))}/content`,
-      errors: { "401": UnauthorizedError, "404": NotFoundError },
+      errors: { "401": UnauthorizedError, "403": ForbiddenError, "404": NotFoundError, "429": RateLimitedError },
       idempotent: true,
-      schemaKey: "specVersions.getContent",
+      schemaKey: "specVersions.retrieveContent",
       options,
     });
   }
 }
 
 export interface SpecVersionsListParams {
+  /** Maximum number of resources to return. */
   limit?: number;
+  /** Opaque cursor from the preceding page's next_cursor. */
   cursor?: string;
 }
 
 /** Every error `list` can produce, as a discriminated union. */
-export type SpecVersionsListError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
+export type SpecVersionsListError = BadRequestError | UnauthorizedError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
 
-/** Every error `get` can produce, as a discriminated union. */
-export type SpecVersionsGetError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
+/** Every error `retrieve` can produce, as a discriminated union. */
+export type SpecVersionsRetrieveError = UnauthorizedError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
 
-/** Every error `getContent` can produce, as a discriminated union. */
-export type SpecVersionsGetContentError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
+/** Every error `retrieveContent` can produce, as a discriminated union. */
+export type SpecVersionsRetrieveContentError = UnauthorizedError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
 
