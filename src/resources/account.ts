@@ -9,7 +9,7 @@ export class AccountResource {
   constructor(private readonly _core: HttpCore) {}
   /**
    * The account behind the presented credentials
-   * 
+   *
    * Returns the account that owns the presented API key. This is also the
    * identity endpoint the generated typeship CLI's `whoami` calls.
    * `GET /me`
