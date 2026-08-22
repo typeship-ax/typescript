@@ -6,7 +6,7 @@ import { TypeshipClient } from "../dist/index.js";
 import { startMock } from "./helper.mjs";
 
 test("projects.list GET /projects", async () => {
-  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"data\":[{\"id\":\"example\",\"object\":\"project\",\"name\":\"example\",\"spec_url\":\"example\",\"source\":{\"kind\":\"url\",\"url\":\"example\",\"repo\":\"example\",\"path\":\"example\"},\"packages\":{\"npm\":{\"name\":\"example\",\"destination\":{}},\"python\":{\"name\":\"example\",\"destination\":{}},\"go\":{\"name\":\"example\",\"destination\":{}}},\"auto_regen\":true,\"spec_patches\":[{\"op\":\"set\",\"path\":\"example\",\"value\":{},\"to\":\"example\",\"reason\":\"example\"}],\"config\":{\"globals\":[{}],\"retries\":{\"max_retries\":{},\"statuses\":{},\"initial_delay_ms\":{},\"max_delay_ms\":{},\"retry_non_idempotent\":{},\"disabled\":{},\"operations\":{}},\"pagination\":{},\"graphql\":{\"endpoint\":{},\"environments\":{},\"auth\":{},\"api_key_header\":{},\"title\":{}},\"cli\":{\"whoami_operation\":{},\"oauth_client_id\":{},\"oauth_scopes\":{},\"oauth_audience\":{},\"update_notice\":{},\"support_url\":{},\"auth_url\":{},\"mcp_url\":{},\"skills_repo\":{}},\"mcp\":{\"tool_mode\":{},\"instructions\":{},\"tool_descriptions\":{}},\"package\":{\"version\":{},\"homepage\":{},\"copyright\":{},\"bin_name\":{},\"go_package_name\":{},\"mcp_name\":{}},\"docs_url\":\"example\"},\"mcp_enabled\":true,\"mcp_url\":\"example\",\"relay_enabled\":true,\"outputs\":[\"typescript-sdk\"],\"created_at\":\"2024-01-01T00:00:00Z\"}]}" });
+  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"data\":[{\"id\":{},\"object\":\"project\",\"name\":\"example\",\"spec_url\":\"example\",\"source\":{\"kind\":\"url\",\"url\":\"example\",\"headers_configured\":true,\"repo\":\"example\",\"path\":\"example\"},\"packages\":{\"npm\":{\"name\":\"example\",\"destination\":{}},\"python\":{\"name\":\"example\",\"destination\":{}},\"go\":{\"name\":\"example\",\"destination\":{}}},\"auto_regen\":true,\"spec_patches\":[{\"op\":\"set\",\"path\":\"example\",\"value\":{},\"to\":\"example\",\"reason\":\"example\"}],\"config\":{\"globals\":[{}],\"retries\":{\"max_retries\":{},\"statuses\":{},\"initial_delay_ms\":{},\"max_delay_ms\":{},\"retry_non_idempotent\":{},\"disabled\":{},\"operations\":{}},\"pagination\":{},\"graphql\":{},\"cli\":{\"whoami_operation\":{},\"oauth_client_id\":{},\"oauth_scopes\":{},\"oauth_audience\":{},\"update_notice\":{},\"support_url\":{},\"auth_url\":{},\"mcp_url\":{},\"skills_repo\":{}},\"mcp\":{\"tool_mode\":{},\"instructions\":{},\"tool_descriptions\":{}},\"package\":{\"version\":{},\"homepage\":{},\"copyright\":{},\"bin_name\":{},\"go_package_name\":{},\"mcp_name\":{}},\"docs_url\":\"example\"},\"mcp_enabled\":true,\"mcp_url\":\"example\",\"relay_enabled\":true,\"outputs\":[\"typescript-sdk\"],\"created_at\":\"2024-01-01T00:00:00Z\"}]}" });
   try {
     const client = new TypeshipClient({ baseUrl: mock.url, bearerToken: "test-token" });
     const result = await client.projects.list(undefined);
@@ -21,7 +21,7 @@ test("projects.list GET /projects", async () => {
 });
 
 test("projects.create POST /projects", async () => {
-  const mock = await startMock({ status: 201, contentType: "application/json", body: "{\"id\":\"example\",\"object\":\"project\",\"name\":\"example\",\"spec_url\":\"example\",\"source\":{\"kind\":\"url\",\"url\":\"example\",\"repo\":\"example\",\"path\":\"example\"},\"packages\":{\"npm\":{\"name\":\"example\",\"destination\":{}},\"python\":{\"name\":\"example\",\"destination\":{}},\"go\":{\"name\":\"example\",\"destination\":{}}},\"auto_regen\":true,\"spec_patches\":[{\"op\":\"set\",\"path\":\"example\",\"value\":{},\"to\":\"example\",\"reason\":\"example\"}],\"config\":{\"globals\":[{}],\"retries\":{\"max_retries\":{},\"statuses\":{},\"initial_delay_ms\":{},\"max_delay_ms\":{},\"retry_non_idempotent\":{},\"disabled\":{},\"operations\":{}},\"pagination\":{},\"graphql\":{\"endpoint\":{},\"environments\":{},\"auth\":{},\"api_key_header\":{},\"title\":{}},\"cli\":{\"whoami_operation\":{},\"oauth_client_id\":{},\"oauth_scopes\":{},\"oauth_audience\":{},\"update_notice\":{},\"support_url\":{},\"auth_url\":{},\"mcp_url\":{},\"skills_repo\":{}},\"mcp\":{\"tool_mode\":{},\"instructions\":{},\"tool_descriptions\":{}},\"package\":{\"version\":{},\"homepage\":{},\"copyright\":{},\"bin_name\":{},\"go_package_name\":{},\"mcp_name\":{}},\"docs_url\":\"example\"},\"mcp_enabled\":true,\"mcp_url\":\"example\",\"relay_enabled\":true,\"outputs\":[\"typescript-sdk\"],\"created_at\":\"2024-01-01T00:00:00Z\"}" });
+  const mock = await startMock({ status: 201, contentType: "application/json", body: "{\"id\":{},\"object\":\"project\",\"name\":\"example\",\"spec_url\":\"example\",\"source\":{\"kind\":\"url\",\"url\":\"example\",\"headers_configured\":true,\"repo\":\"example\",\"path\":\"example\"},\"packages\":{\"npm\":{\"name\":\"example\",\"destination\":{}},\"python\":{\"name\":\"example\",\"destination\":{}},\"go\":{\"name\":\"example\",\"destination\":{}}},\"auto_regen\":true,\"spec_patches\":[{\"op\":\"set\",\"path\":\"example\",\"value\":{},\"to\":\"example\",\"reason\":\"example\"}],\"config\":{\"globals\":[{}],\"retries\":{\"max_retries\":{},\"statuses\":{},\"initial_delay_ms\":{},\"max_delay_ms\":{},\"retry_non_idempotent\":{},\"disabled\":{},\"operations\":{}},\"pagination\":{},\"graphql\":{},\"cli\":{\"whoami_operation\":{},\"oauth_client_id\":{},\"oauth_scopes\":{},\"oauth_audience\":{},\"update_notice\":{},\"support_url\":{},\"auth_url\":{},\"mcp_url\":{},\"skills_repo\":{}},\"mcp\":{\"tool_mode\":{},\"instructions\":{},\"tool_descriptions\":{}},\"package\":{\"version\":{},\"homepage\":{},\"copyright\":{},\"bin_name\":{},\"go_package_name\":{},\"mcp_name\":{}},\"docs_url\":\"example\"},\"mcp_enabled\":true,\"mcp_url\":\"example\",\"relay_enabled\":true,\"outputs\":[\"typescript-sdk\"],\"created_at\":\"2024-01-01T00:00:00Z\"}" });
   try {
     const client = new TypeshipClient({ baseUrl: mock.url, bearerToken: "test-token" });
     const result = await client.projects.create({"name":"example","outputs":["typescript-sdk"]});
@@ -35,11 +35,11 @@ test("projects.create POST /projects", async () => {
   }
 });
 
-test("projects.get GET /projects/{project_id}", async () => {
-  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"id\":\"example\",\"object\":\"project\",\"name\":\"example\",\"spec_url\":\"example\",\"source\":{\"kind\":\"url\",\"url\":\"example\",\"repo\":\"example\",\"path\":\"example\"},\"packages\":{\"npm\":{\"name\":\"example\",\"destination\":{}},\"python\":{\"name\":\"example\",\"destination\":{}},\"go\":{\"name\":\"example\",\"destination\":{}}},\"auto_regen\":true,\"spec_patches\":[{\"op\":\"set\",\"path\":\"example\",\"value\":{},\"to\":\"example\",\"reason\":\"example\"}],\"config\":{\"globals\":[{}],\"retries\":{\"max_retries\":{},\"statuses\":{},\"initial_delay_ms\":{},\"max_delay_ms\":{},\"retry_non_idempotent\":{},\"disabled\":{},\"operations\":{}},\"pagination\":{},\"graphql\":{\"endpoint\":{},\"environments\":{},\"auth\":{},\"api_key_header\":{},\"title\":{}},\"cli\":{\"whoami_operation\":{},\"oauth_client_id\":{},\"oauth_scopes\":{},\"oauth_audience\":{},\"update_notice\":{},\"support_url\":{},\"auth_url\":{},\"mcp_url\":{},\"skills_repo\":{}},\"mcp\":{\"tool_mode\":{},\"instructions\":{},\"tool_descriptions\":{}},\"package\":{\"version\":{},\"homepage\":{},\"copyright\":{},\"bin_name\":{},\"go_package_name\":{},\"mcp_name\":{}},\"docs_url\":\"example\"},\"mcp_enabled\":true,\"mcp_url\":\"example\",\"relay_enabled\":true,\"outputs\":[\"typescript-sdk\"],\"created_at\":\"2024-01-01T00:00:00Z\"}" });
+test("projects.retrieve GET /projects/{project_id}", async () => {
+  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"id\":{},\"object\":\"project\",\"name\":\"example\",\"spec_url\":\"example\",\"source\":{\"kind\":\"url\",\"url\":\"example\",\"headers_configured\":true,\"repo\":\"example\",\"path\":\"example\"},\"packages\":{\"npm\":{\"name\":\"example\",\"destination\":{}},\"python\":{\"name\":\"example\",\"destination\":{}},\"go\":{\"name\":\"example\",\"destination\":{}}},\"auto_regen\":true,\"spec_patches\":[{\"op\":\"set\",\"path\":\"example\",\"value\":{},\"to\":\"example\",\"reason\":\"example\"}],\"config\":{\"globals\":[{}],\"retries\":{\"max_retries\":{},\"statuses\":{},\"initial_delay_ms\":{},\"max_delay_ms\":{},\"retry_non_idempotent\":{},\"disabled\":{},\"operations\":{}},\"pagination\":{},\"graphql\":{},\"cli\":{\"whoami_operation\":{},\"oauth_client_id\":{},\"oauth_scopes\":{},\"oauth_audience\":{},\"update_notice\":{},\"support_url\":{},\"auth_url\":{},\"mcp_url\":{},\"skills_repo\":{}},\"mcp\":{\"tool_mode\":{},\"instructions\":{},\"tool_descriptions\":{}},\"package\":{\"version\":{},\"homepage\":{},\"copyright\":{},\"bin_name\":{},\"go_package_name\":{},\"mcp_name\":{}},\"docs_url\":\"example\"},\"mcp_enabled\":true,\"mcp_url\":\"example\",\"relay_enabled\":true,\"outputs\":[\"typescript-sdk\"],\"created_at\":\"2024-01-01T00:00:00Z\"}" });
   try {
     const client = new TypeshipClient({ baseUrl: mock.url, bearerToken: "test-token" });
-    const result = await client.projects.get("test-project_id");
+    const result = await client.projects.retrieve("test-project_id");
     assert.equal(result.ok, true, JSON.stringify(result));
     const request = mock.requests[0];
     assert.equal(request.method, "GET");
@@ -51,7 +51,7 @@ test("projects.get GET /projects/{project_id}", async () => {
 });
 
 test("projects.delete DELETE /projects/{project_id}", async () => {
-  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"deleted\":true}" });
+  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"id\":\"example\",\"object\":\"project\",\"deleted\":true}" });
   try {
     const client = new TypeshipClient({ baseUrl: mock.url, bearerToken: "test-token" });
     const result = await client.projects.delete("test-project_id");
@@ -66,7 +66,7 @@ test("projects.delete DELETE /projects/{project_id}", async () => {
 });
 
 test("projects.update PATCH /projects/{project_id}", async () => {
-  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"id\":\"example\",\"object\":\"project\",\"name\":\"example\",\"spec_url\":\"example\",\"source\":{\"kind\":\"url\",\"url\":\"example\",\"repo\":\"example\",\"path\":\"example\"},\"packages\":{\"npm\":{\"name\":\"example\",\"destination\":{}},\"python\":{\"name\":\"example\",\"destination\":{}},\"go\":{\"name\":\"example\",\"destination\":{}}},\"auto_regen\":true,\"spec_patches\":[{\"op\":\"set\",\"path\":\"example\",\"value\":{},\"to\":\"example\",\"reason\":\"example\"}],\"config\":{\"globals\":[{}],\"retries\":{\"max_retries\":{},\"statuses\":{},\"initial_delay_ms\":{},\"max_delay_ms\":{},\"retry_non_idempotent\":{},\"disabled\":{},\"operations\":{}},\"pagination\":{},\"graphql\":{\"endpoint\":{},\"environments\":{},\"auth\":{},\"api_key_header\":{},\"title\":{}},\"cli\":{\"whoami_operation\":{},\"oauth_client_id\":{},\"oauth_scopes\":{},\"oauth_audience\":{},\"update_notice\":{},\"support_url\":{},\"auth_url\":{},\"mcp_url\":{},\"skills_repo\":{}},\"mcp\":{\"tool_mode\":{},\"instructions\":{},\"tool_descriptions\":{}},\"package\":{\"version\":{},\"homepage\":{},\"copyright\":{},\"bin_name\":{},\"go_package_name\":{},\"mcp_name\":{}},\"docs_url\":\"example\"},\"mcp_enabled\":true,\"mcp_url\":\"example\",\"relay_enabled\":true,\"outputs\":[\"typescript-sdk\"],\"created_at\":\"2024-01-01T00:00:00Z\"}" });
+  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"id\":{},\"object\":\"project\",\"name\":\"example\",\"spec_url\":\"example\",\"source\":{\"kind\":\"url\",\"url\":\"example\",\"headers_configured\":true,\"repo\":\"example\",\"path\":\"example\"},\"packages\":{\"npm\":{\"name\":\"example\",\"destination\":{}},\"python\":{\"name\":\"example\",\"destination\":{}},\"go\":{\"name\":\"example\",\"destination\":{}}},\"auto_regen\":true,\"spec_patches\":[{\"op\":\"set\",\"path\":\"example\",\"value\":{},\"to\":\"example\",\"reason\":\"example\"}],\"config\":{\"globals\":[{}],\"retries\":{\"max_retries\":{},\"statuses\":{},\"initial_delay_ms\":{},\"max_delay_ms\":{},\"retry_non_idempotent\":{},\"disabled\":{},\"operations\":{}},\"pagination\":{},\"graphql\":{},\"cli\":{\"whoami_operation\":{},\"oauth_client_id\":{},\"oauth_scopes\":{},\"oauth_audience\":{},\"update_notice\":{},\"support_url\":{},\"auth_url\":{},\"mcp_url\":{},\"skills_repo\":{}},\"mcp\":{\"tool_mode\":{},\"instructions\":{},\"tool_descriptions\":{}},\"package\":{\"version\":{},\"homepage\":{},\"copyright\":{},\"bin_name\":{},\"go_package_name\":{},\"mcp_name\":{}},\"docs_url\":\"example\"},\"mcp_enabled\":true,\"mcp_url\":\"example\",\"relay_enabled\":true,\"outputs\":[\"typescript-sdk\"],\"created_at\":\"2024-01-01T00:00:00Z\"}" });
   try {
     const client = new TypeshipClient({ baseUrl: mock.url, bearerToken: "test-token" });
     const result = await client.projects.update("test-project_id", {});
@@ -104,21 +104,6 @@ test("projects.generate POST /projects/{project_id}/generations", async () => {
     const request = mock.requests[0];
     assert.equal(request.method, "POST");
     assert.equal(request.path.split("?")[0], "/projects/test-project_id/generations");
-    assert.equal(request.headers["authorization"], "Bearer test-token");
-  } finally {
-    mock.close();
-  }
-});
-
-test("projects.mcpUsage GET /projects/{project_id}/mcp_usage", async () => {
-  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"object\":\"mcp_usage\",\"project_id\":\"example\",\"mcp_url\":\"example\",\"days\":1,\"calls\":1,\"errors\":1,\"rate_limited\":1,\"avg_duration_ms\":1,\"by_tool\":[{\"tool\":\"example\",\"calls\":1,\"errors\":1}]}" });
-  try {
-    const client = new TypeshipClient({ baseUrl: mock.url, bearerToken: "test-token" });
-    const result = await client.projects.mcpUsage("test-project_id", undefined);
-    assert.equal(result.ok, true, JSON.stringify(result));
-    const request = mock.requests[0];
-    assert.equal(request.method, "GET");
-    assert.equal(request.path.split("?")[0], "/projects/test-project_id/mcp_usage");
     assert.equal(request.headers["authorization"], "Bearer test-token");
   } finally {
     mock.close();

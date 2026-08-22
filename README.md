@@ -43,12 +43,12 @@ Awaiting a call returns a discriminated result instead of throwing on request er
 The error side is a union of the documented error classes for that operation:
 
 ```ts
-import { UnauthorizedError } from "typeship-ax";
+import { BadRequestError } from "typeship-ax";
 
 const result = await client.projects.list();
 
 if (!result.ok) {
-  if (result.error instanceof UnauthorizedError) {
+  if (result.error instanceof BadRequestError) {
     // result.error.body is fully typed for this status
   }
   throw result.error; // every branch is an Error subclass

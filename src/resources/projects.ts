@@ -3,16 +3,19 @@
 
 import { HttpCore, type ApiResult, type RequestOptions } from "../core/http.js";
 import { paginate, PagePromise } from "../core/pagination.js";
-import { TransportError, UnexpectedApiError, ValidationError, BadRequestError, InternalServerError, NotFoundError, PaymentRequiredError, UnauthorizedError, UnprocessableEntityError } from "../errors.js";
+import { TransportError, UnexpectedApiError, ValidationError, BadRequestError, ForbiddenError, InternalServerError, NotFoundError, PaymentRequiredError, RateLimitedError, UnauthorizedError, UnprocessableEntityError } from "../errors.js";
 import type {
   Config,
+  DeletedProject,
   Generation,
   GenerationFailure,
-  McpUsage,
+  GenerationList,
   OutputId,
   Packages,
   Project,
-  Source,
+  ProjectId,
+  ProjectList,
+  SourceInput,
   SpecPatch,
 } from "../types.js";
 
@@ -29,7 +32,7 @@ export class ProjectsResource {
       method: "GET",
       path: "/projects",
       query: { limit: params?.limit, cursor: params?.cursor },
-      errors: { "401": UnauthorizedError },
+      errors: { "400": BadRequestError, "401": UnauthorizedError, "403": ForbiddenError, "429": RateLimitedError },
       idempotent: true,
       schemaKey: "projects.list",
       options,
@@ -38,6 +41,7 @@ export class ProjectsResource {
       itemsField: "data",
       cursorParam: "cursor",
       nextCursorField: "next_cursor",
+      hasMoreField: "has_more",
       limitParam: "limit",
     });
   }
@@ -52,7 +56,7 @@ export class ProjectsResource {
     name: string;
     /** Spec location for a URL-sourced project. Provide this or source; a project with neither has nothing to generate. */
     spec_url?: string;
-    source?: Source;
+    source?: SourceInput;
     /** First-class outputs to keep current. Any non-empty combination is valid. */
     outputs: OutputId[];
     packages?: Packages;
@@ -68,7 +72,7 @@ export class ProjectsResource {
       method: "POST",
       path: "/projects",
       body,
-      errors: { "400": BadRequestError, "401": UnauthorizedError, "402": PaymentRequiredError },
+      errors: { "400": BadRequestError, "401": UnauthorizedError, "402": PaymentRequiredError, "403": ForbiddenError, "429": RateLimitedError },
       schemaKey: "projects.create",
       options,
     });
@@ -78,13 +82,13 @@ export class ProjectsResource {
    * Retrieve a project
    * `GET /projects/{project_id}`
    */
-  async get(projectId: string, options?: RequestOptions): Promise<ApiResult<Project, ProjectsGetError>> {
-    return this._core.request<Project, ProjectsGetError>({
+  async retrieve(projectId: ProjectId, options?: RequestOptions): Promise<ApiResult<Project, ProjectsRetrieveError>> {
+    return this._core.request<Project, ProjectsRetrieveError>({
       method: "GET",
       path: `/projects/${encodeURIComponent(String(projectId))}`,
-      errors: { "401": UnauthorizedError, "404": NotFoundError },
+      errors: { "401": UnauthorizedError, "403": ForbiddenError, "404": NotFoundError, "429": RateLimitedError },
       idempotent: true,
-      schemaKey: "projects.get",
+      schemaKey: "projects.retrieve",
       options,
     });
   }
@@ -93,11 +97,11 @@ export class ProjectsResource {
    * Delete a project
    * `DELETE /projects/{project_id}`
    */
-  async delete(projectId: string, options?: RequestOptions): Promise<ApiResult<ProjectsDeleteResponse, ProjectsDeleteError>> {
-    return this._core.request<ProjectsDeleteResponse, ProjectsDeleteError>({
+  async delete(projectId: ProjectId, options?: RequestOptions): Promise<ApiResult<DeletedProject, ProjectsDeleteError>> {
+    return this._core.request<DeletedProject, ProjectsDeleteError>({
       method: "DELETE",
       path: `/projects/${encodeURIComponent(String(projectId))}`,
-      errors: { "401": UnauthorizedError, "404": NotFoundError },
+      errors: { "401": UnauthorizedError, "403": ForbiddenError, "404": NotFoundError, "429": RateLimitedError },
       idempotent: true,
       schemaKey: "projects.delete",
       options,
@@ -108,10 +112,10 @@ export class ProjectsResource {
    * Update a project
    * `PATCH /projects/{project_id}`
    */
-  async update(projectId: string, body: {
+  async update(projectId: ProjectId, body: {
     name?: string;
     spec_url?: string;
-    source?: Source;
+    source?: SourceInput;
     /** First-class outputs; replaces the selection. Turning one off stops generating it; nothing already delivered is removed. */
     outputs?: OutputId[];
     packages?: Packages;
@@ -128,7 +132,7 @@ export class ProjectsResource {
       method: "PATCH",
       path: `/projects/${encodeURIComponent(String(projectId))}`,
       body,
-      errors: { "400": BadRequestError, "401": UnauthorizedError, "402": PaymentRequiredError, "404": NotFoundError },
+      errors: { "400": BadRequestError, "401": UnauthorizedError, "402": PaymentRequiredError, "403": ForbiddenError, "404": NotFoundError, "429": RateLimitedError },
       schemaKey: "projects.update",
       options,
     });
@@ -140,12 +144,12 @@ export class ProjectsResource {
    * Auto-paginates: `for await (const item of …)` walks every page.
    * `GET /projects/{project_id}/generations`
    */
-  listGenerations(projectId: string, params?: ProjectsListGenerationsParams, options?: RequestOptions): PagePromise<Generation, ProjectsListGenerationsError> {
+  listGenerations(projectId: ProjectId, params?: ProjectsListGenerationsParams, options?: RequestOptions): PagePromise<Generation, ProjectsListGenerationsError> {
     return paginate<Generation, ProjectsListGenerationsError>(this._core, {
       method: "GET",
       path: `/projects/${encodeURIComponent(String(projectId))}/generations`,
       query: { limit: params?.limit, cursor: params?.cursor, language: params?.language },
-      errors: { "401": UnauthorizedError, "404": NotFoundError },
+      errors: { "400": BadRequestError, "401": UnauthorizedError, "403": ForbiddenError, "404": NotFoundError, "429": RateLimitedError },
       idempotent: true,
       schemaKey: "projects.listGenerations",
       options,
@@ -154,6 +158,7 @@ export class ProjectsResource {
       itemsField: "data",
       cursorParam: "cursor",
       nextCursorField: "next_cursor",
+      hasMoreField: "has_more",
       limitParam: "limit",
     });
   }
@@ -170,69 +175,50 @@ export class ProjectsResource {
    * regeneration runs after a source change.
    * `POST /projects/{project_id}/generations`
    */
-  async generate(projectId: string, options?: RequestOptions): Promise<ApiResult<ProjectsGenerateResponse, ProjectsGenerateError>> {
+  async generate(projectId: ProjectId, options?: RequestOptions): Promise<ApiResult<ProjectsGenerateResponse, ProjectsGenerateError>> {
     return this._core.request<ProjectsGenerateResponse, ProjectsGenerateError>({
       method: "POST",
       path: `/projects/${encodeURIComponent(String(projectId))}/generations`,
-      errors: { "401": UnauthorizedError, "402": PaymentRequiredError, "404": NotFoundError, "422": UnprocessableEntityError, "500": InternalServerError },
+      errors: { "401": UnauthorizedError, "402": PaymentRequiredError, "403": ForbiddenError, "404": NotFoundError, "422": UnprocessableEntityError, "429": RateLimitedError, "500": InternalServerError },
       schemaKey: "projects.generate",
-      options,
-    });
-  }
-
-  /**
-   * Retrieve hosted MCP endpoint usage for a project
-   *
-   * What the project's hosted MCP endpoint has served over the last `days` (default 30, max 90): tool calls, calls that returned an error, calls turned away by the rate limit, mean upstream latency, and a per-tool breakdown. The same numbers the console shows next to the endpoint URL. Zeroes when the endpoint is off or unused.
-   * `GET /projects/{project_id}/mcp_usage`
-   */
-  async mcpUsage(projectId: string, params?: ProjectsMcpUsageParams, options?: RequestOptions): Promise<ApiResult<McpUsage, ProjectsMcpUsageError>> {
-    return this._core.request<McpUsage, ProjectsMcpUsageError>({
-      method: "GET",
-      path: `/projects/${encodeURIComponent(String(projectId))}/mcp_usage`,
-      query: { days: params?.days },
-      errors: { "400": BadRequestError, "401": UnauthorizedError, "404": NotFoundError },
-      idempotent: true,
-      schemaKey: "projects.mcpUsage",
       options,
     });
   }
 }
 
 export interface ProjectsListParams {
+  /** Maximum number of resources to return. */
   limit?: number;
+  /** Opaque cursor from the preceding page's next_cursor. */
   cursor?: string;
 }
 
 /** Every error `list` can produce, as a discriminated union. */
-export type ProjectsListError = UnauthorizedError | UnexpectedApiError | TransportError | ValidationError;
+export type ProjectsListError = BadRequestError | UnauthorizedError | ForbiddenError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
 
 /** Every error `create` can produce, as a discriminated union. */
-export type ProjectsCreateError = BadRequestError | UnauthorizedError | PaymentRequiredError | UnexpectedApiError | TransportError | ValidationError;
+export type ProjectsCreateError = BadRequestError | UnauthorizedError | PaymentRequiredError | ForbiddenError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
 
-/** Every error `get` can produce, as a discriminated union. */
-export type ProjectsGetError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
-
-/** What `delete` resolves to. */
-export interface ProjectsDeleteResponse {
-  deleted: true;
-}
+/** Every error `retrieve` can produce, as a discriminated union. */
+export type ProjectsRetrieveError = UnauthorizedError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
 
 /** Every error `delete` can produce, as a discriminated union. */
-export type ProjectsDeleteError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
+export type ProjectsDeleteError = UnauthorizedError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
 
 /** Every error `update` can produce, as a discriminated union. */
-export type ProjectsUpdateError = BadRequestError | UnauthorizedError | PaymentRequiredError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
+export type ProjectsUpdateError = BadRequestError | UnauthorizedError | PaymentRequiredError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
 
 export interface ProjectsListGenerationsParams {
+  /** Maximum number of resources to return. */
   limit?: number;
+  /** Opaque cursor from the preceding page's next_cursor. */
   cursor?: string;
   /** Only generations for this language. */
   language?: "typescript" | "python" | "go";
 }
 
 /** Every error `listGenerations` can produce, as a discriminated union. */
-export type ProjectsListGenerationsError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
+export type ProjectsListGenerationsError = BadRequestError | UnauthorizedError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
 
 /** What `generate` resolves to. */
 export interface ProjectsGenerateResponse {
@@ -240,13 +226,5 @@ export interface ProjectsGenerateResponse {
 }
 
 /** Every error `generate` can produce, as a discriminated union. */
-export type ProjectsGenerateError = UnauthorizedError | PaymentRequiredError | NotFoundError | UnprocessableEntityError | InternalServerError | UnexpectedApiError | TransportError | ValidationError;
-
-export interface ProjectsMcpUsageParams {
-  /** Window in days, 1 to 90. */
-  days?: number;
-}
-
-/** Every error `mcpUsage` can produce, as a discriminated union. */
-export type ProjectsMcpUsageError = BadRequestError | UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
+export type ProjectsGenerateError = UnauthorizedError | PaymentRequiredError | ForbiddenError | NotFoundError | UnprocessableEntityError | RateLimitedError | InternalServerError | UnexpectedApiError | TransportError | ValidationError;
 
