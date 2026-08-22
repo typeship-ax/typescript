@@ -20,6 +20,7 @@
     "type": "git",
     "url": "git+https://github.com/typeship-ax/typescript.git"
   },
+  "license": "MIT",
   "mcpName": "dev.typeship/typeship",
   "type": "module",
   "main": "./dist/index.js",
@@ -38,7 +39,8 @@
   "files": [
     "dist",
     "src",
-    "api.md"
+    "api.md",
+    "LICENSE"
   ],
   "sideEffects": false,
   "scripts": {
