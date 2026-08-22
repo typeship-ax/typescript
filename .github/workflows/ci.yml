@@ -1,0 +1,25 @@
+name: SDK quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: TypeScript SDK · build, test, package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install build dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build and test
+        run: npm test
+      - name: Verify the published package
+        run: npm pack --dry-run
