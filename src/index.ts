@@ -9,12 +9,11 @@ import { ProjectsResource } from "./resources/projects.js";
 import { GenerationsResource } from "./resources/generations.js";
 import { SpecVersionsResource } from "./resources/spec-versions.js";
 import { AccountResource } from "./resources/account.js";
-import { UsageResource } from "./resources/usage.js";
 import { ApiKeysResource } from "./resources/api-keys.js";
 
 /** This package's version, also sent as the `User-Agent`. */
-export const VERSION = "0.3.0";
-const USER_AGENT = "typeship-ax/0.3.0 (typeship)";
+export const VERSION = "0.4.0";
+const USER_AGENT = "typeship-ax/0.4.0 (typeship)";
 
 export interface ClientOptions {
   /** Override the server URL. Default: `https://typeship.dev/api/v1` */
@@ -42,7 +41,7 @@ export interface ClientOptions {
 }
 
 /**
- * typeship — v0.3.0
+ * typeship — v0.4.0
  *
  * Generate production SDKs, CLIs, and MCP servers from an OpenAPI or
  * GraphQL spec, and keep every selected output current.
@@ -58,7 +57,6 @@ export class TypeshipClient {
   readonly generations: GenerationsResource;
   readonly specVersions: SpecVersionsResource;
   readonly account: AccountResource;
-  readonly usage: UsageResource;
   readonly apiKeys: ApiKeysResource;
 
   constructor(options: ClientOptions = {}) {
@@ -102,7 +100,6 @@ export class TypeshipClient {
     this.generations = new GenerationsResource(core);
     this.specVersions = new SpecVersionsResource(core);
     this.account = new AccountResource(core);
-    this.usage = new UsageResource(core);
     this.apiKeys = new ApiKeysResource(core);
   }
 }
@@ -125,5 +122,4 @@ export * from "./resources/projects.js";
 export * from "./resources/generations.js";
 export * from "./resources/spec-versions.js";
 export * from "./resources/account.js";
-export * from "./resources/usage.js";
 export * from "./resources/api-keys.js";

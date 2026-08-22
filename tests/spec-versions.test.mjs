@@ -20,11 +20,11 @@ test("specVersions.list GET /projects/{project_id}/spec_versions", async () => {
   }
 });
 
-test("specVersions.get GET /spec_versions/{spec_version_id}", async () => {
+test("specVersions.retrieve GET /spec_versions/{spec_version_id}", async () => {
   const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"id\":\"example\",\"object\":\"spec_version\",\"project_id\":\"example\",\"hash\":\"example\",\"bytes\":1,\"source\":{},\"content\":\"example\",\"content_omitted\":true,\"created_at\":\"2024-01-01T00:00:00Z\"}" });
   try {
     const client = new TypeshipClient({ baseUrl: mock.url, bearerToken: "test-token" });
-    const result = await client.specVersions.get("test-spec_version_id");
+    const result = await client.specVersions.retrieve("test-spec_version_id");
     assert.equal(result.ok, true, JSON.stringify(result));
     const request = mock.requests[0];
     assert.equal(request.method, "GET");
@@ -35,11 +35,11 @@ test("specVersions.get GET /spec_versions/{spec_version_id}", async () => {
   }
 });
 
-test("specVersions.getContent GET /spec_versions/{spec_version_id}/content", async () => {
+test("specVersions.retrieveContent GET /spec_versions/{spec_version_id}/content", async () => {
   const mock = await startMock({ status: 200, contentType: "application/json", body: "\"example\"" });
   try {
     const client = new TypeshipClient({ baseUrl: mock.url, bearerToken: "test-token" });
-    const result = await client.specVersions.getContent("test-spec_version_id");
+    const result = await client.specVersions.retrieveContent("test-spec_version_id");
     assert.equal(result.ok, true, JSON.stringify(result));
     const request = mock.requests[0];
     assert.equal(request.method, "GET");

@@ -7,12 +7,22 @@ import type { ErrorModel } from "./types.js";
 export { ApiError, GraphQLRequestError, TransportError, UnexpectedApiError, ValidationError, type Violation, unwrap } from "./core/http.js";
 
 /**
- * Missing or invalid API key.
+ * Missing, invalid, expired, or revoked credentials.
  * Raised for HTTP 401 responses.
  */
 export class UnauthorizedError extends ApiError<401, ErrorModel> {
   constructor(body: ErrorModel, response: ResponseMeta) {
-    super("Missing or invalid API key.", 401, body, response);
+    super("Missing, invalid, expired, or revoked credentials.", 401, body, response);
+  }
+}
+
+/**
+ * The credentials are valid but cannot act on the requested organization.
+ * Raised for HTTP 403 responses.
+ */
+export class ForbiddenError extends ApiError<403, ErrorModel> {
+  constructor(body: ErrorModel, response: ResponseMeta) {
+    super("The credentials are valid but cannot act on the requested organization.", 403, body, response);
   }
 }
 
@@ -37,6 +47,16 @@ export class UnprocessableEntityError extends ApiError<422, ErrorModel> {
 }
 
 /**
+ * Too many requests. Wait for Retry-After before retrying.
+ * Raised for HTTP 429 responses.
+ */
+export class RateLimitedError extends ApiError<429, ErrorModel> {
+  constructor(body: ErrorModel, response: ResponseMeta) {
+    super("Too many requests. Wait for Retry-After before retrying.", 429, body, response);
+  }
+}
+
+/**
  * Unexpected error.
  * Raised for "default" responses.
  */
@@ -47,12 +67,12 @@ export class ApiResponseError extends ApiError<number, ErrorModel> {
 }
 
 /**
- * Invalid name, spec source, or field value.
+ * The cursor is malformed.
  * Raised for HTTP 400 responses.
  */
 export class BadRequestError extends ApiError<400, ErrorModel> {
   constructor(body: ErrorModel, response: ResponseMeta) {
-    super("Invalid name, spec source, or field value.", 400, body, response);
+    super("The cursor is malformed.", 400, body, response);
   }
 }
 

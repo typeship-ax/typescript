@@ -3,8 +3,8 @@
 
 import { HttpCore, type ApiResult, type RequestOptions } from "../core/http.js";
 import { paginate, PagePromise } from "../core/pagination.js";
-import { TransportError, UnexpectedApiError, ValidationError, NotFoundError, UnauthorizedError } from "../errors.js";
-import type { ApiKey } from "../types.js";
+import { TransportError, UnexpectedApiError, ValidationError, BadRequestError, ForbiddenError, NotFoundError, RateLimitedError, UnauthorizedError } from "../errors.js";
+import type { ApiKey, ApiKeyList } from "../types.js";
 
 export class ApiKeysResource {
   constructor(private readonly _core: HttpCore) {}
@@ -21,7 +21,7 @@ export class ApiKeysResource {
       method: "GET",
       path: "/api_keys",
       query: { limit: params?.limit, cursor: params?.cursor },
-      errors: { "401": UnauthorizedError },
+      errors: { "400": BadRequestError, "401": UnauthorizedError, "403": ForbiddenError, "429": RateLimitedError },
       idempotent: true,
       schemaKey: "apiKeys.list",
       options,
@@ -30,6 +30,7 @@ export class ApiKeysResource {
       itemsField: "data",
       cursorParam: "cursor",
       nextCursorField: "next_cursor",
+      hasMoreField: "has_more",
       limitParam: "limit",
     });
   }
@@ -44,7 +45,7 @@ export class ApiKeysResource {
     return this._core.request<ApiKey, ApiKeysRevokeError>({
       method: "DELETE",
       path: `/api_keys/${encodeURIComponent(String(apiKeyId))}`,
-      errors: { "401": UnauthorizedError, "404": NotFoundError },
+      errors: { "401": UnauthorizedError, "403": ForbiddenError, "404": NotFoundError, "429": RateLimitedError },
       idempotent: true,
       schemaKey: "apiKeys.revoke",
       options,
@@ -53,13 +54,15 @@ export class ApiKeysResource {
 }
 
 export interface ApiKeysListParams {
+  /** Maximum number of resources to return. */
   limit?: number;
+  /** Opaque cursor from the preceding page's next_cursor. */
   cursor?: string;
 }
 
 /** Every error `list` can produce, as a discriminated union. */
-export type ApiKeysListError = UnauthorizedError | UnexpectedApiError | TransportError | ValidationError;
+export type ApiKeysListError = BadRequestError | UnauthorizedError | ForbiddenError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
 
 /** Every error `revoke` can produce, as a discriminated union. */
-export type ApiKeysRevokeError = UnauthorizedError | NotFoundError | UnexpectedApiError | TransportError | ValidationError;
+export type ApiKeysRevokeError = UnauthorizedError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
 

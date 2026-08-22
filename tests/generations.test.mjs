@@ -5,11 +5,11 @@ import assert from "node:assert/strict";
 import { TypeshipClient } from "../dist/index.js";
 import { startMock } from "./helper.mjs";
 
-test("generations.get GET /generations/{generation_id}", async () => {
+test("generations.retrieve GET /generations/{generation_id}", async () => {
   const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"id\":\"example\",\"object\":\"generation\",\"files_omitted\":true,\"files_index\":[{\"path\":\"example\",\"bytes\":1}],\"project_id\":\"example\",\"status\":\"succeeded\",\"trigger\":\"manual\",\"language\":\"typescript\",\"meta\":{\"title\":\"example\",\"version\":\"example\",\"spec_format\":\"openapi\",\"oas_version\":\"example\",\"converted\":true,\"package_name\":\"example\",\"client_name\":\"example\",\"outputs\":[\"typescript-sdk\"],\"resource_count\":1,\"operation_count\":1,\"schema_count\":1,\"paginated_operation_count\":1,\"omitted_operation_count\":1,\"pr_url\":\"example\",\"pr_number\":1,\"pr_status\":\"opened\",\"pr_error\":\"example\",\"changelog\":\"example\",\"breaking_count\":1,\"baseline\":\"destination\",\"semver\":\"success\",\"semver_note\":\"example\",\"previous_version\":\"example\",\"file_count\":1,\"total_lines\":1},\"warnings\":[\"example\"],\"files\":[{\"path\":\"example\",\"content\":\"example\"}],\"error\":\"example\",\"created_at\":\"2024-01-01T00:00:00Z\"}" });
   try {
     const client = new TypeshipClient({ baseUrl: mock.url, bearerToken: "test-token" });
-    const result = await client.generations.get("test-generation_id");
+    const result = await client.generations.retrieve("test-generation_id");
     assert.equal(result.ok, true, JSON.stringify(result));
     const request = mock.requests[0];
     assert.equal(request.method, "GET");
@@ -20,11 +20,11 @@ test("generations.get GET /generations/{generation_id}", async () => {
   }
 });
 
-test("generations.getFile GET /generations/{generation_id}/file", async () => {
+test("generations.retrieveFile GET /generations/{generation_id}/file", async () => {
   const mock = await startMock({ status: 200, contentType: "application/json", body: "\"example\"" });
   try {
     const client = new TypeshipClient({ baseUrl: mock.url, bearerToken: "test-token" });
-    const result = await client.generations.getFile("test-generation_id", {"path":"example"});
+    const result = await client.generations.retrieveFile("test-generation_id", {"path":"example"});
     assert.equal(result.ok, true, JSON.stringify(result));
     const request = mock.requests[0];
     assert.equal(request.method, "GET");
