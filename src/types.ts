@@ -254,6 +254,10 @@ export interface PackageBehavior {
   version?: string | null;
   /** Homepage written into registry metadata. */
   homepage?: string | null;
+  /** SPDX identifier written into registry metadata. Defaults to info.license. */
+  license?: string | null;
+  /** Exact LICENSE file contents. Supply this for licences the engine does not build in; MIT is built in when copyright is also set. */
+  license_text?: string | null;
   /** Copyright line used in generated license files. */
   copyright?: string | null;
   /** CLI executable name when it differs from the npm package name. */
