@@ -30,7 +30,7 @@ const client = new TypeshipClient({ /* auth options above */ });
 - `debug: true` (or a function) on the client logs one redacted line per request.
 
 ## Using the CLI
-- `typeship <resource> <command>` mirrors the SDK exactly; `typeship docs search <term>` finds operations and guides; `typeship docs <resource> <command>` prints the full reference.
+- `typeship <resource> <command>` exposes the same API operations as the SDK; `typeship docs search <term>` finds operations and guides; `typeship docs <resource> <command>` prints the full reference.
 - Flags only, JSON to stdout, exit codes 0/1/2 — safe to run from scripts and agents. Errors are one JSON envelope on stderr: `{status, issues: [{code, message}], next_steps, detail}`; branch on `issues[].code`. Deletes need `--force`.
 - `typeship agent-guide --format json` explains the conventions; `typeship help --json` is the command surface as data; `typeship init --all` connects this machine (credential, MCP clients, an AGENTS.md block); `typeship doctor` checks it.
 
