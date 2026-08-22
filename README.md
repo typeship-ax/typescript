@@ -39,8 +39,8 @@ for await (const item of client.projects.list()) {
 
 ## Error handling
 
-Awaiting a call returns a discriminated result instead of throwing on HTTP errors. The
-error side is a union of the documented error classes for that operation:
+Awaiting a call returns a discriminated result instead of throwing on request errors.
+The error side is a union of the documented error classes for that operation:
 
 ```ts
 import { UnauthorizedError } from "typeship-ax";
@@ -123,7 +123,7 @@ A zero-dependency stdio server exposing every operation as a tool. The fastest s
 }
 ```
 
-Tool input schemas are derived from the spec, so agents see real parameter types and required fields. Arguments are checked before anything reaches the API (unknown or mistyped ones come back as one `isError` result, nothing is dropped), every tool takes `fields` to keep only the result keys it needs, and errors carry a stable `code` and `next_steps`.
+Tool input schemas are derived from the OpenAPI spec, so agents see real parameter types and required fields. Arguments are checked before anything reaches the API (unknown or mistyped ones come back as one `isError` result, nothing is dropped), every tool takes `fields` to keep only the result keys it needs, and errors carry a stable `code` and `next_steps`.
 
 Add `--read-only` to `args` (or set `TYPESHIP_MCP_READ_ONLY=1`) for a server that cannot write, `--tools accounts,reports` (or `TYPESHIP_MCP_TOOLS`) to expose a subset, and `TYPESHIP_MCP_MAX_RESULT_CHARS` to change the result size cap (64,000). `typeship mcp install --all --read-only` writes read-only entries for every detected client.
 
