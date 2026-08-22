@@ -1,9 +1,9 @@
 # typeship — agent context
 
-This package is the generated TypeScript SDK + CLI + MCP server for **typeship** (v0.1.0).
+This package contains the generated TypeScript SDK + CLI + MCP server for **typeship** (v0.3.0).
 
-Generate a zero-dependency SDK — TypeScript, Python, or Go — plus a CLI
-and an MCP server, from an OpenAPI spec.
+Generate production SDKs, CLIs, and MCP servers from an OpenAPI or
+GraphQL spec, and keep every selected output current.
 
 Every operation but one requires an API key, created in the console and
 sent as `Authorization: Bearer ak_...`. A browser session is not a
@@ -23,8 +23,8 @@ anonymously with the free plan's limits.
 import { TypeshipClient } from "typeship-ax";
 const client = new TypeshipClient({ /* auth options above */ });
 ```
-- Every call returns `ApiResult<T, E>`: check `result.ok`, or `unwrap(result)` to throw the typed error. Nothing throws on HTTP errors by default.
-- Paginated methods return a `PagePromise`: `for await (const item of client.x.list())` walks every page.
+- Awaiting a call returns `ApiResult<T, E>`: check `result.ok`, or `unwrap(result)` to throw the typed error.
+- Paginated methods return a `PagePromise`: awaiting it returns the first page's `ApiResult`; `for await (const item of client.x.list())` walks every page and throws the typed API error if a page fails.
 - Every method takes a last `{ timeoutMs, maxRetries, headers, signal }` argument for per-call overrides; every result carries `response: { status, headers, requestId }`.
 - Uploads take a `Blob` (a `File` for a filename).
 - `debug: true` (or a function) on the client logs one redacted line per request.
