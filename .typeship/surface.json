@@ -1,0 +1,436 @@
+{
+  "schema": 1,
+  "version": "0.2.0",
+  "generation": "gen_ra49d61n6zvql8y3",
+  "generatedAt": "2026-08-22T03:15:13.541Z",
+  "surface": {
+    "specFormat": "openapi",
+    "clientName": "TypeshipClient",
+    "version": "1.0.0",
+    "operationCount": 18,
+    "methods": {
+      "generate.run": {
+        "resource": "generate",
+        "method": "run",
+        "httpMethod": "POST",
+        "path": "/generate",
+        "params": {},
+        "body": {
+          "spec": {
+            "type": "SpecInput",
+            "required": true
+          },
+          "platforms": {
+            "type": "Array<\"sdk\" | \"cli\" | \"mcp\">",
+            "required": false
+          },
+          "language": {
+            "type": "\"typescript\" | \"python\" | \"go\"",
+            "required": false
+          },
+          "package_name": {
+            "type": "string",
+            "required": false
+          },
+          "config": {
+            "type": "Config",
+            "required": false
+          }
+        },
+        "returns": "GenerationResult",
+        "paginated": false
+      },
+      "projects.list": {
+        "resource": "projects",
+        "method": "list",
+        "httpMethod": "GET",
+        "path": "/projects",
+        "params": {
+          "limit": {
+            "type": "number",
+            "required": false
+          },
+          "cursor": {
+            "type": "string",
+            "required": false
+          }
+        },
+        "body": null,
+        "returns": "{\n  data: Project[];\n  next_cursor?: string | null;\n}",
+        "paginated": true
+      },
+      "projects.create": {
+        "resource": "projects",
+        "method": "create",
+        "httpMethod": "POST",
+        "path": "/projects",
+        "params": {},
+        "body": {
+          "name": {
+            "type": "string",
+            "required": true
+          },
+          "spec_url": {
+            "type": "string",
+            "required": false
+          },
+          "source": {
+            "type": "Source",
+            "required": false
+          },
+          "platforms": {
+            "type": "Array<\"sdk\" | \"cli\" | \"mcp\">",
+            "required": false
+          },
+          "languages": {
+            "type": "Array<\"typescript\" | \"python\" | \"go\">",
+            "required": false
+          },
+          "destinations": {
+            "type": "Record<string, Destination>",
+            "required": false
+          },
+          "package_names": {
+            "type": "Record<string, string>",
+            "required": false
+          },
+          "destination": {
+            "type": "Destination | null",
+            "required": false
+          },
+          "auto_regen": {
+            "type": "boolean",
+            "required": false
+          },
+          "package_name": {
+            "type": "string | null",
+            "required": false
+          },
+          "spec_patches": {
+            "type": "SpecPatch[]",
+            "required": false
+          },
+          "mcp_enabled": {
+            "type": "boolean",
+            "required": false
+          },
+          "relay_enabled": {
+            "type": "boolean",
+            "required": false
+          },
+          "config": {
+            "type": "Config | null",
+            "required": false
+          }
+        },
+        "returns": "Project",
+        "paginated": false
+      },
+      "projects.get": {
+        "resource": "projects",
+        "method": "get",
+        "httpMethod": "GET",
+        "path": "/projects/{project_id}",
+        "params": {
+          "project_id": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "body": null,
+        "returns": "Project",
+        "paginated": false
+      },
+      "projects.delete": {
+        "resource": "projects",
+        "method": "delete",
+        "httpMethod": "DELETE",
+        "path": "/projects/{project_id}",
+        "params": {
+          "project_id": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "body": null,
+        "returns": "{\n  deleted: true;\n}",
+        "paginated": false
+      },
+      "projects.update": {
+        "resource": "projects",
+        "method": "update",
+        "httpMethod": "PATCH",
+        "path": "/projects/{project_id}",
+        "params": {
+          "project_id": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "body": {
+          "name": {
+            "type": "string",
+            "required": false
+          },
+          "spec_url": {
+            "type": "string",
+            "required": false
+          },
+          "source": {
+            "type": "Source",
+            "required": false
+          },
+          "platforms": {
+            "type": "Array<\"sdk\" | \"cli\" | \"mcp\">",
+            "required": false
+          },
+          "destination": {
+            "type": "Destination | null",
+            "required": false
+          },
+          "languages": {
+            "type": "Array<\"typescript\" | \"python\" | \"go\">",
+            "required": false
+          },
+          "destinations": {
+            "type": "Record<string, Destination>",
+            "required": false
+          },
+          "package_names": {
+            "type": "Record<string, string>",
+            "required": false
+          },
+          "auto_regen": {
+            "type": "boolean",
+            "required": false
+          },
+          "package_name": {
+            "type": "string | null",
+            "required": false
+          },
+          "spec_patches": {
+            "type": "SpecPatch[]",
+            "required": false
+          },
+          "mcp_enabled": {
+            "type": "boolean",
+            "required": false
+          },
+          "relay_enabled": {
+            "type": "boolean",
+            "required": false
+          },
+          "config": {
+            "type": "Config | null",
+            "required": false
+          }
+        },
+        "returns": "Project",
+        "paginated": false
+      },
+      "projects.listGenerations": {
+        "resource": "projects",
+        "method": "listGenerations",
+        "httpMethod": "GET",
+        "path": "/projects/{project_id}/generations",
+        "params": {
+          "project_id": {
+            "type": "string",
+            "required": true
+          },
+          "limit": {
+            "type": "number",
+            "required": false
+          },
+          "cursor": {
+            "type": "string",
+            "required": false
+          },
+          "language": {
+            "type": "\"typescript\" | \"python\" | \"go\"",
+            "required": false
+          }
+        },
+        "body": null,
+        "returns": "{\n  data: Generation[];\n  next_cursor?: string | null;\n}",
+        "paginated": true
+      },
+      "projects.generate": {
+        "resource": "projects",
+        "method": "generate",
+        "httpMethod": "POST",
+        "path": "/projects/{project_id}/generations",
+        "params": {
+          "project_id": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "body": null,
+        "returns": "{\n  data: Array<Generation | GenerationFailure>;\n}",
+        "paginated": false
+      },
+      "projects.mcpUsage": {
+        "resource": "projects",
+        "method": "mcpUsage",
+        "httpMethod": "GET",
+        "path": "/projects/{project_id}/mcp_usage",
+        "params": {
+          "project_id": {
+            "type": "string",
+            "required": true
+          },
+          "days": {
+            "type": "number",
+            "required": false
+          }
+        },
+        "body": null,
+        "returns": "McpUsage",
+        "paginated": false
+      },
+      "generations.get": {
+        "resource": "generations",
+        "method": "get",
+        "httpMethod": "GET",
+        "path": "/generations/{generation_id}",
+        "params": {
+          "generation_id": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "body": null,
+        "returns": "Generation",
+        "paginated": false
+      },
+      "generations.getFile": {
+        "resource": "generations",
+        "method": "getFile",
+        "httpMethod": "GET",
+        "path": "/generations/{generation_id}/file",
+        "params": {
+          "generation_id": {
+            "type": "string",
+            "required": true
+          },
+          "path": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "body": null,
+        "returns": "string",
+        "paginated": false
+      },
+      "specVersions.list": {
+        "resource": "specVersions",
+        "method": "list",
+        "httpMethod": "GET",
+        "path": "/projects/{project_id}/spec_versions",
+        "params": {
+          "project_id": {
+            "type": "string",
+            "required": true
+          },
+          "limit": {
+            "type": "number",
+            "required": false
+          },
+          "cursor": {
+            "type": "string",
+            "required": false
+          }
+        },
+        "body": null,
+        "returns": "{\n  data: SpecVersion[];\n  next_cursor?: string | null;\n}",
+        "paginated": true
+      },
+      "specVersions.get": {
+        "resource": "specVersions",
+        "method": "get",
+        "httpMethod": "GET",
+        "path": "/spec_versions/{spec_version_id}",
+        "params": {
+          "spec_version_id": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "body": null,
+        "returns": "SpecVersion",
+        "paginated": false
+      },
+      "specVersions.getContent": {
+        "resource": "specVersions",
+        "method": "getContent",
+        "httpMethod": "GET",
+        "path": "/spec_versions/{spec_version_id}/content",
+        "params": {
+          "spec_version_id": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "body": null,
+        "returns": "string",
+        "paginated": false
+      },
+      "account.me": {
+        "resource": "account",
+        "method": "me",
+        "httpMethod": "GET",
+        "path": "/me",
+        "params": {},
+        "body": null,
+        "returns": "Account",
+        "paginated": false
+      },
+      "usage.retrieve": {
+        "resource": "usage",
+        "method": "retrieve",
+        "httpMethod": "GET",
+        "path": "/usage",
+        "params": {},
+        "body": null,
+        "returns": "Usage",
+        "paginated": false
+      },
+      "apiKeys.list": {
+        "resource": "apiKeys",
+        "method": "list",
+        "httpMethod": "GET",
+        "path": "/api_keys",
+        "params": {
+          "limit": {
+            "type": "number",
+            "required": false
+          },
+          "cursor": {
+            "type": "string",
+            "required": false
+          }
+        },
+        "body": null,
+        "returns": "{\n  data: ApiKey[];\n  next_cursor?: string | null;\n}",
+        "paginated": true
+      },
+      "apiKeys.revoke": {
+        "resource": "apiKeys",
+        "method": "revoke",
+        "httpMethod": "DELETE",
+        "path": "/api_keys/{api_key_id}",
+        "params": {
+          "api_key_id": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "body": null,
+        "returns": "ApiKey",
+        "paginated": false
+      }
+    },
+    "warnings": []
+  }
+}

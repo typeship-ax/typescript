@@ -9,7 +9,7 @@ export class GenerateResource {
   constructor(private readonly _core: HttpCore) {}
   /**
    * Generate a package from a spec
-   * 
+   *
    * Stateless generation: nothing is stored. Returns the full generated
    * package as files. Works without an API key: anonymous calls generate
    * the first 25 operations, rate limited per IP address, and the
@@ -22,7 +22,7 @@ export class GenerateResource {
    */
   async run(body: {
     spec: SpecInput;
-    /** Artifacts to generate from the spec. Defaults to [sdk]. */
+    /** Artifacts to generate from the spec. Defaults to [sdk]. Stateless Free runs may request SDK, CLI, and MCP together; they remain capped to the first 25 operations and store nothing. CLI and MCP are TypeScript artifacts. */
     platforms?: Array<"sdk" | "cli" | "mcp">;
     /**
      * Language to generate. Python and Go produce the SDK only; the CLI and MCP server are TypeScript artifacts and are skipped with a warning when requested alongside them.

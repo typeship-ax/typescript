@@ -10,9 +10,9 @@ export class SpecVersionsResource {
   constructor(private readonly _core: HttpCore) {}
   /**
    * List the specs this project has generated from
-   * 
+   *
    * The audit trail behind a regeneration: which spec produced which SDK, and when it changed. Content is omitted from the list because specs run to megabytes.
-   * 
+   *
    * Auto-paginates: `for await (const item of …)` walks every page.
    * `GET /projects/{project_id}/spec_versions`
    */
@@ -36,7 +36,7 @@ export class SpecVersionsResource {
 
   /**
    * Retrieve a spec version
-   * 
+   *
    * One recorded spec, with its content. Storing every spec a project has generated from is only an audit trail if you can read one back and diff it against what shipped.
    * `GET /spec_versions/{spec_version_id}`
    */
@@ -53,7 +53,7 @@ export class SpecVersionsResource {
 
   /**
    * Retrieve a spec version's raw text
-   * 
+   *
    * The escape hatch for specs too large to inline, and the endpoint to pipe straight into a diff.
    * `GET /spec_versions/{spec_version_id}/content`
    */

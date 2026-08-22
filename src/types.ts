@@ -39,6 +39,8 @@ export interface GenerationMeta {
   /** Pull request opened by this regeneration, when one was. */
   pr_url?: string | null;
   pr_number?: number | null;
+  /** Why the configured destination pull request was not opened. The SDK generation itself still succeeded; fix this action and regenerate. */
+  pr_error?: string;
   /** Markdown changelog entry for this regeneration, from the API surface diff. Absent on a first generation or when nothing changed. */
   changelog?: string;
   /** Breaking changes in the diff; removed methods and fields, changed types, inputs that became required. */
@@ -178,6 +180,12 @@ export interface CliBehavior {
   update_notice?: boolean;
   /** Where the generated CLI's feedback command sends users. GitHub issues/new URLs get a prefilled title and environment details. */
   support_url?: string | null;
+  /** Base URL of the browser-approval endpoint pair used by CLI login. The CLI keeps the verifier and receives the credential directly; no key is pasted through a conversation. */
+  auth_url?: string | null;
+  /** Hosted MCP endpoint installed by the generated CLI instead of launching the package's local stdio server. */
+  mcp_url?: string | null;
+  /** GitHub owner/name of the skills package the generated CLI offers to install during init. */
+  skills_repo?: string | null;
 }
 
 /** How the generated MCP server and the hosted endpoint behave. Part of Config. */
@@ -190,7 +198,23 @@ export interface McpBehavior {
   tool_descriptions?: Record<string, string>;
 }
 
-/** Everything typeship needs beyond the spec, in one object: generation customization (globals, retries, pagination) and how the generated tooling behaves (cli, mcp, docs_url). Plain configuration. typeship never requires vendor extensions inside the spec itself. The same shape is accepted on a project and on POST /generate. */
+/** Published-package metadata the API spec does not own. Use version only when the client intentionally releases on a different cadence from info.version; repository is derived from each destination. */
+export interface PackageBehavior {
+  /** Semantic version for the generated packages. Defaults to info.version. */
+  version?: string | null;
+  /** Homepage written into registry metadata. */
+  homepage?: string | null;
+  /** Copyright line used in generated license files. */
+  copyright?: string | null;
+  /** CLI executable name when it differs from the npm package name. */
+  bin_name?: string | null;
+  /** Go identifier when the destination repository name is unsuitable. */
+  go_package_name?: string | null;
+  /** Official MCP registry name written into package.json. */
+  mcp_name?: string | null;
+}
+
+/** Everything typeship needs beyond the spec, in one object: generation customization (globals, retries, pagination) and how the generated tooling behaves (cli, mcp, package, docs_url). Plain configuration. typeship never requires vendor extensions inside the spec itself. The same shape is accepted on a project and on POST /generate. */
 export interface Config {
   /** Wire names of query/header parameters that become settable once on the generated client and auto-apply to every operation that accepts them; per-call values win. Names that match nothing are reported as generation warnings. */
   globals?: string[];
@@ -200,6 +224,7 @@ export interface Config {
   graphql?: GraphqlSettings;
   cli?: CliBehavior;
   mcp?: McpBehavior;
+  package?: PackageBehavior;
   /** The API's documentation site. Read through its llms.txt by the generated CLI's docs command, the MCP server's docs tools, and the package's AGENTS.md. Defaults to the spec's externalDocs URL. */
   docs_url?: string | null;
 }
@@ -290,10 +315,13 @@ export interface GenerationFailure {
 
 export interface Usage {
   object: "usage";
+  /** Cumulative linked-project runs. No plan caps the number of runs; included and remaining are null for every plan. */
   hosted_generations: {
+    /** Cumulative linked-project generations recorded for the organization. */
     used: number;
-    /** Null on paid plans, which meter rather than cap. */
+    /** Always null; retained for response compatibility. */
     included?: number | null;
+    /** Always null; generations have no count quota. */
     remaining?: number | null;
   };
   /** Endpoints included before per-endpoint billing applies. */

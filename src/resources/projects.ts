@@ -3,7 +3,7 @@
 
 import { HttpCore, type ApiResult, type RequestOptions } from "../core/http.js";
 import { paginate, PagePromise } from "../core/pagination.js";
-import { TransportError, UnexpectedApiError, ValidationError, BadRequestError, NotFoundError, PaymentRequiredError, UnauthorizedError, UnprocessableEntityError } from "../errors.js";
+import { TransportError, UnexpectedApiError, ValidationError, BadRequestError, InternalServerError, NotFoundError, PaymentRequiredError, UnauthorizedError, UnprocessableEntityError } from "../errors.js";
 import type {
   Config,
   Destination,
@@ -19,7 +19,7 @@ export class ProjectsResource {
   constructor(private readonly _core: HttpCore) {}
   /**
    * List projects
-   * 
+   *
    * Auto-paginates: `for await (const item of …)` walks every page.
    * `GET /projects`
    */
@@ -43,6 +43,8 @@ export class ProjectsResource {
 
   /**
    * Create a project
+   *
+   * Stores a URL- or repository-sourced project. Free includes one stored project, one SDK language, and the first 25 operations, while keeping manual and automatic regeneration, history, destination pull requests, and preview checks. Stateless POST /generate does not consume this slot. Pro adds projects, languages, and the whole spec.
    * `POST /projects`
    */
   async create(body: {
@@ -147,7 +149,7 @@ export class ProjectsResource {
 
   /**
    * List a project's generations
-   * 
+   *
    * Auto-paginates: `for await (const item of …)` walks every page.
    * `GET /projects/{project_id}/generations`
    */
@@ -170,20 +172,20 @@ export class ProjectsResource {
   }
 
   /**
-   * Run a hosted generation
-   * 
-   * Fetches the project's spec URL, generates every configured language,
-   * and stores each result in the project's history. Each language
-   * counts as one hosted generation. Does not open pull requests. Only
-   * URL-sourced projects can be regenerated this way; repository sources
-   * regenerate on push.
+   * Generate SDKs and open pull requests
+   *
+   * Resolves the project's URL or repository source, generates every
+   * configured language, stores each result in the project's history,
+   * and attempts to open a pull request in every configured destination.
+   * Each language counts as one hosted generation. This is the same
+   * pipeline automatic regeneration runs after a source change.
    * `POST /projects/{project_id}/generations`
    */
   async generate(projectId: string, options?: RequestOptions): Promise<ApiResult<ProjectsGenerateResponse, ProjectsGenerateError>> {
     return this._core.request<ProjectsGenerateResponse, ProjectsGenerateError>({
       method: "POST",
       path: `/projects/${encodeURIComponent(String(projectId))}/generations`,
-      errors: { "401": UnauthorizedError, "402": PaymentRequiredError, "404": NotFoundError, "422": UnprocessableEntityError },
+      errors: { "401": UnauthorizedError, "402": PaymentRequiredError, "404": NotFoundError, "422": UnprocessableEntityError, "500": InternalServerError },
       schemaKey: "projects.generate",
       options,
     });
@@ -191,7 +193,7 @@ export class ProjectsResource {
 
   /**
    * Retrieve hosted MCP endpoint usage for a project
-   * 
+   *
    * What the project's hosted MCP endpoint has served over the last `days` (default 30, max 90): tool calls, calls that returned an error, calls turned away by the rate limit, mean upstream latency, and a per-tool breakdown. The same numbers the console shows next to the endpoint URL. Zeroes when the endpoint is off or unused.
    * `GET /projects/{project_id}/mcp_usage`
    */
@@ -249,7 +251,7 @@ export interface ProjectsGenerateResponse {
 }
 
 /** Every error `generate` can produce, as a discriminated union. */
-export type ProjectsGenerateError = UnauthorizedError | PaymentRequiredError | NotFoundError | UnprocessableEntityError | UnexpectedApiError | TransportError | ValidationError;
+export type ProjectsGenerateError = UnauthorizedError | PaymentRequiredError | NotFoundError | UnprocessableEntityError | InternalServerError | UnexpectedApiError | TransportError | ValidationError;
 
 export interface ProjectsMcpUsageParams {
   /** Window in days, 1 to 90. */
