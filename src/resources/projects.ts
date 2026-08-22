@@ -3,13 +3,14 @@
 
 import { HttpCore, type ApiResult, type RequestOptions } from "../core/http.js";
 import { paginate, PagePromise } from "../core/pagination.js";
-import { TransportError, UnexpectedApiError, ValidationError, BadRequestError, NotFoundError, PaymentRequiredError, UnauthorizedError, UnprocessableEntityError } from "../errors.js";
+import { TransportError, UnexpectedApiError, ValidationError, BadRequestError, InternalServerError, NotFoundError, PaymentRequiredError, UnauthorizedError, UnprocessableEntityError } from "../errors.js";
 import type {
   Config,
-  Destination,
   Generation,
   GenerationFailure,
   McpUsage,
+  OutputId,
+  Packages,
   Project,
   Source,
   SpecPatch,
@@ -19,7 +20,7 @@ export class ProjectsResource {
   constructor(private readonly _core: HttpCore) {}
   /**
    * List projects
-   * 
+   *
    * Auto-paginates: `for await (const item of …)` walks every page.
    * `GET /projects`
    */
@@ -43,6 +44,8 @@ export class ProjectsResource {
 
   /**
    * Create a project
+   *
+   * Stores a URL- or repository-sourced project. Free includes one stored project, every selected output, and the first 25 operations, while keeping manual and automatic regeneration, history, destination pull requests, and preview checks. Stateless POST /generate does not consume this slot. Pro adds projects and the whole spec.
    * `POST /projects`
    */
   async create(body: {
@@ -50,21 +53,14 @@ export class ProjectsResource {
     /** Spec location for a URL-sourced project. Provide this or source; a project with neither has nothing to generate. */
     spec_url?: string;
     source?: Source;
-    /** Artifacts to build. sdk is implied; cli and mcp require typescript among the languages. Free projects run one platform in total (one SDK language); more is a 402 until the account is on Pro. */
-    platforms?: Array<"sdk" | "cli" | "mcp">;
-    /** Languages to generate. Each is a separate package, a separate pull request, a separate hosted generation, and one platform for billing. Defaults to typescript alone. */
-    languages?: Array<"typescript" | "python" | "go">;
-    /** Per-language pull-request destination, keyed by language. */
-    destinations?: Record<string, Destination>;
-    /** Registry name per language; unset derives from the API title. */
-    package_names?: Record<string, string>;
-    destination?: Destination | null;
+    /** First-class outputs to keep current. Any non-empty combination is valid. */
+    outputs: OutputId[];
+    packages?: Packages;
     auto_regen?: boolean;
-    package_name?: string | null;
     spec_patches?: SpecPatch[];
-    /** Requires the mcp platform and Enterprise. */
+    /** Requires the MCP output and Enterprise. */
     mcp_enabled?: boolean;
-    /** Requires the cli platform and Pro. */
+    /** Requires the CLI output and Pro. */
     relay_enabled?: boolean;
     config?: Config | null;
   }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsCreateError>> {
@@ -116,21 +112,14 @@ export class ProjectsResource {
     name?: string;
     spec_url?: string;
     source?: Source;
-    /** Artifacts to build; replaces the list. Dropping cli or mcp turns off the hosted feature it serves. cli and mcp require typescript among the languages. Turning a platform off stops generating it; nothing already delivered is removed. */
-    platforms?: Array<"sdk" | "cli" | "mcp">;
-    destination?: Destination | null;
-    /** Languages to generate; replaces the list. Each is its own hosted generation and one platform for billing. */
-    languages?: Array<"typescript" | "python" | "go">;
-    /** Per-language pull-request destination, keyed by language. */
-    destinations?: Record<string, Destination>;
-    /** Registry name per language; unset derives from the API title. */
-    package_names?: Record<string, string>;
+    /** First-class outputs; replaces the selection. Turning one off stops generating it; nothing already delivered is removed. */
+    outputs?: OutputId[];
+    packages?: Packages;
     auto_regen?: boolean;
-    package_name?: string | null;
     spec_patches?: SpecPatch[];
-    /** Serve this project as a hosted remote MCP endpoint. Requires the mcp platform and Enterprise. */
+    /** Serve this project as a hosted remote MCP endpoint. Requires the MCP output and Enterprise. */
     mcp_enabled?: boolean;
-    /** Enable the webhook relay so the generated CLI's webhooks listen command works for this API's users. Requires the cli platform and Pro. */
+    /** Enable the webhook relay so the generated CLI's webhooks listen command works for this API's users. Requires the CLI output and Pro. */
     relay_enabled?: boolean;
     /** Replaces the whole config. Pass null to clear it. */
     config?: Config | null;
@@ -147,7 +136,7 @@ export class ProjectsResource {
 
   /**
    * List a project's generations
-   * 
+   *
    * Auto-paginates: `for await (const item of …)` walks every page.
    * `GET /projects/{project_id}/generations`
    */
@@ -170,20 +159,20 @@ export class ProjectsResource {
   }
 
   /**
-   * Run a hosted generation
-   * 
-   * Fetches the project's spec URL, generates every configured language,
-   * and stores each result in the project's history. Each language
-   * counts as one hosted generation. Does not open pull requests. Only
-   * URL-sourced projects can be regenerated this way; repository sources
-   * regenerate on push.
+   * Generate outputs and open pull requests
+   *
+   * Resolves the project's URL or repository source, generates every
+   * configured delivery package, stores each result in the project's history,
+   * and attempts to open a pull request in every configured destination.
+   * This is the same
+   * pipeline automatic regeneration runs after a source change.
    * `POST /projects/{project_id}/generations`
    */
   async generate(projectId: string, options?: RequestOptions): Promise<ApiResult<ProjectsGenerateResponse, ProjectsGenerateError>> {
     return this._core.request<ProjectsGenerateResponse, ProjectsGenerateError>({
       method: "POST",
       path: `/projects/${encodeURIComponent(String(projectId))}/generations`,
-      errors: { "401": UnauthorizedError, "402": PaymentRequiredError, "404": NotFoundError, "422": UnprocessableEntityError },
+      errors: { "401": UnauthorizedError, "402": PaymentRequiredError, "404": NotFoundError, "422": UnprocessableEntityError, "500": InternalServerError },
       schemaKey: "projects.generate",
       options,
     });
@@ -191,7 +180,7 @@ export class ProjectsResource {
 
   /**
    * Retrieve hosted MCP endpoint usage for a project
-   * 
+   *
    * What the project's hosted MCP endpoint has served over the last `days` (default 30, max 90): tool calls, calls that returned an error, calls turned away by the rate limit, mean upstream latency, and a per-tool breakdown. The same numbers the console shows next to the endpoint URL. Zeroes when the endpoint is off or unused.
    * `GET /projects/{project_id}/mcp_usage`
    */
@@ -249,7 +238,7 @@ export interface ProjectsGenerateResponse {
 }
 
 /** Every error `generate` can produce, as a discriminated union. */
-export type ProjectsGenerateError = UnauthorizedError | PaymentRequiredError | NotFoundError | UnprocessableEntityError | UnexpectedApiError | TransportError | ValidationError;
+export type ProjectsGenerateError = UnauthorizedError | PaymentRequiredError | NotFoundError | UnprocessableEntityError | InternalServerError | UnexpectedApiError | TransportError | ValidationError;
 
 export interface ProjectsMcpUsageParams {
   /** Window in days, 1 to 90. */

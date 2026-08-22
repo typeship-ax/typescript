@@ -1,0 +1,755 @@
+{
+  "schema": 2,
+  "version": "0.3.0",
+  "generation": "gen_yyzjmuxzzc6aasy1",
+  "generatedAt": "2026-08-22T14:18:04.971Z",
+  "surface": {
+    "specFormat": "openapi",
+    "clientName": "TypeshipClient",
+    "version": "1.0.0",
+    "operationCount": 18,
+    "methods": {
+      "generate.run": {
+        "resource": "generate",
+        "method": "run",
+        "httpMethod": "POST",
+        "path": "/generate",
+        "auth": "optional",
+        "deprecated": false,
+        "summary": "Generate a package from a spec",
+        "description": "Stateless generation: nothing is stored. Returns the full generated\npackage as files. Works without an API key: anonymous calls generate\nthe first 25 operations, rate limited per IP address, and the\nresponse's `limits` object says what was held back and where to lift\nit; anonymous calls from a spec URL also carry `claim.url`, a link\nthat turns the run into a project once a person signs in. With a key, the free plan generates the first 25 operations and\npaid plans generate the whole spec. A present but invalid key is a\n401, not a downgrade to anonymous.\n",
+        "params": {},
+        "body": {
+          "spec": {
+            "type": "SpecInput",
+            "required": true
+          },
+          "outputs": {
+            "type": "OutputId[]",
+            "required": true
+          },
+          "package_name": {
+            "type": "string",
+            "required": false
+          },
+          "config": {
+            "type": "Config",
+            "required": false
+          }
+        },
+        "returns": "GenerationResult",
+        "paginated": false,
+        "errors": [
+          {
+            "status": "401",
+            "className": "UnauthorizedError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "413",
+            "className": "PayloadTooLargeError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "422",
+            "className": "UnprocessableEntityError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "default",
+            "className": "ApiResponseError",
+            "body": "ErrorModel"
+          }
+        ]
+      },
+      "projects.list": {
+        "resource": "projects",
+        "method": "list",
+        "httpMethod": "GET",
+        "path": "/projects",
+        "auth": "required",
+        "deprecated": false,
+        "summary": "List projects",
+        "description": "",
+        "params": {
+          "limit": {
+            "type": "number",
+            "required": false
+          },
+          "cursor": {
+            "type": "string",
+            "required": false
+          }
+        },
+        "body": null,
+        "returns": "{\n  data: Project[];\n  next_cursor?: string | null;\n}",
+        "paginated": true,
+        "errors": [
+          {
+            "status": "401",
+            "className": "UnauthorizedError",
+            "body": "ErrorModel"
+          }
+        ]
+      },
+      "projects.create": {
+        "resource": "projects",
+        "method": "create",
+        "httpMethod": "POST",
+        "path": "/projects",
+        "auth": "required",
+        "deprecated": false,
+        "summary": "Create a project",
+        "description": "Stores a URL- or repository-sourced project. Free includes one stored project, every selected output, and the first 25 operations, while keeping manual and automatic regeneration, history, destination pull requests, and preview checks. Stateless POST /generate does not consume this slot. Pro adds projects and the whole spec.",
+        "params": {},
+        "body": {
+          "name": {
+            "type": "string",
+            "required": true
+          },
+          "spec_url": {
+            "type": "string",
+            "required": false
+          },
+          "source": {
+            "type": "Source",
+            "required": false
+          },
+          "outputs": {
+            "type": "OutputId[]",
+            "required": true
+          },
+          "packages": {
+            "type": "Packages",
+            "required": false
+          },
+          "auto_regen": {
+            "type": "boolean",
+            "required": false
+          },
+          "spec_patches": {
+            "type": "SpecPatch[]",
+            "required": false
+          },
+          "mcp_enabled": {
+            "type": "boolean",
+            "required": false
+          },
+          "relay_enabled": {
+            "type": "boolean",
+            "required": false
+          },
+          "config": {
+            "type": "Config | null",
+            "required": false
+          }
+        },
+        "returns": "Project",
+        "paginated": false,
+        "errors": [
+          {
+            "status": "400",
+            "className": "BadRequestError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "401",
+            "className": "UnauthorizedError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "402",
+            "className": "PaymentRequiredError",
+            "body": "ErrorModel"
+          }
+        ]
+      },
+      "projects.get": {
+        "resource": "projects",
+        "method": "get",
+        "httpMethod": "GET",
+        "path": "/projects/{project_id}",
+        "auth": "required",
+        "deprecated": false,
+        "summary": "Retrieve a project",
+        "description": "",
+        "params": {
+          "project_id": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "body": null,
+        "returns": "Project",
+        "paginated": false,
+        "errors": [
+          {
+            "status": "401",
+            "className": "UnauthorizedError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "404",
+            "className": "NotFoundError",
+            "body": "ErrorModel"
+          }
+        ]
+      },
+      "projects.delete": {
+        "resource": "projects",
+        "method": "delete",
+        "httpMethod": "DELETE",
+        "path": "/projects/{project_id}",
+        "auth": "required",
+        "deprecated": false,
+        "summary": "Delete a project",
+        "description": "",
+        "params": {
+          "project_id": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "body": null,
+        "returns": "{\n  deleted: true;\n}",
+        "paginated": false,
+        "errors": [
+          {
+            "status": "401",
+            "className": "UnauthorizedError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "404",
+            "className": "NotFoundError",
+            "body": "ErrorModel"
+          }
+        ]
+      },
+      "projects.update": {
+        "resource": "projects",
+        "method": "update",
+        "httpMethod": "PATCH",
+        "path": "/projects/{project_id}",
+        "auth": "required",
+        "deprecated": false,
+        "summary": "Update a project",
+        "description": "",
+        "params": {
+          "project_id": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "body": {
+          "name": {
+            "type": "string",
+            "required": false
+          },
+          "spec_url": {
+            "type": "string",
+            "required": false
+          },
+          "source": {
+            "type": "Source",
+            "required": false
+          },
+          "outputs": {
+            "type": "OutputId[]",
+            "required": false
+          },
+          "packages": {
+            "type": "Packages",
+            "required": false
+          },
+          "auto_regen": {
+            "type": "boolean",
+            "required": false
+          },
+          "spec_patches": {
+            "type": "SpecPatch[]",
+            "required": false
+          },
+          "mcp_enabled": {
+            "type": "boolean",
+            "required": false
+          },
+          "relay_enabled": {
+            "type": "boolean",
+            "required": false
+          },
+          "config": {
+            "type": "Config | null",
+            "required": false
+          }
+        },
+        "returns": "Project",
+        "paginated": false,
+        "errors": [
+          {
+            "status": "400",
+            "className": "BadRequestError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "401",
+            "className": "UnauthorizedError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "402",
+            "className": "PaymentRequiredError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "404",
+            "className": "NotFoundError",
+            "body": "ErrorModel"
+          }
+        ]
+      },
+      "projects.listGenerations": {
+        "resource": "projects",
+        "method": "listGenerations",
+        "httpMethod": "GET",
+        "path": "/projects/{project_id}/generations",
+        "auth": "required",
+        "deprecated": false,
+        "summary": "List a project's generations",
+        "description": "",
+        "params": {
+          "project_id": {
+            "type": "string",
+            "required": true
+          },
+          "limit": {
+            "type": "number",
+            "required": false
+          },
+          "cursor": {
+            "type": "string",
+            "required": false
+          },
+          "language": {
+            "type": "\"typescript\" | \"python\" | \"go\"",
+            "required": false
+          }
+        },
+        "body": null,
+        "returns": "{\n  data: Generation[];\n  next_cursor?: string | null;\n}",
+        "paginated": true,
+        "errors": [
+          {
+            "status": "401",
+            "className": "UnauthorizedError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "404",
+            "className": "NotFoundError",
+            "body": "ErrorModel"
+          }
+        ]
+      },
+      "projects.generate": {
+        "resource": "projects",
+        "method": "generate",
+        "httpMethod": "POST",
+        "path": "/projects/{project_id}/generations",
+        "auth": "required",
+        "deprecated": false,
+        "summary": "Generate outputs and open pull requests",
+        "description": "Resolves the project's URL or repository source, generates every\nconfigured delivery package, stores each result in the project's history,\nand attempts to open a pull request in every configured destination.\nThis is the same\npipeline automatic regeneration runs after a source change.\n",
+        "params": {
+          "project_id": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "body": null,
+        "returns": "{\n  data: Array<Generation | GenerationFailure>;\n}",
+        "paginated": false,
+        "errors": [
+          {
+            "status": "401",
+            "className": "UnauthorizedError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "402",
+            "className": "PaymentRequiredError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "404",
+            "className": "NotFoundError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "422",
+            "className": "UnprocessableEntityError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "500",
+            "className": "InternalServerError",
+            "body": "ErrorModel"
+          }
+        ]
+      },
+      "projects.mcpUsage": {
+        "resource": "projects",
+        "method": "mcpUsage",
+        "httpMethod": "GET",
+        "path": "/projects/{project_id}/mcp_usage",
+        "auth": "required",
+        "deprecated": false,
+        "summary": "Retrieve hosted MCP endpoint usage for a project",
+        "description": "What the project's hosted MCP endpoint has served over the last `days` (default 30, max 90): tool calls, calls that returned an error, calls turned away by the rate limit, mean upstream latency, and a per-tool breakdown. The same numbers the console shows next to the endpoint URL. Zeroes when the endpoint is off or unused.",
+        "params": {
+          "project_id": {
+            "type": "string",
+            "required": true
+          },
+          "days": {
+            "type": "number",
+            "required": false
+          }
+        },
+        "body": null,
+        "returns": "McpUsage",
+        "paginated": false,
+        "errors": [
+          {
+            "status": "400",
+            "className": "BadRequestError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "401",
+            "className": "UnauthorizedError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "404",
+            "className": "NotFoundError",
+            "body": "ErrorModel"
+          }
+        ]
+      },
+      "generations.get": {
+        "resource": "generations",
+        "method": "get",
+        "httpMethod": "GET",
+        "path": "/generations/{generation_id}",
+        "auth": "required",
+        "deprecated": false,
+        "summary": "Retrieve a generation",
+        "description": "Includes the generated files when the generation succeeded.",
+        "params": {
+          "generation_id": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "body": null,
+        "returns": "Generation",
+        "paginated": false,
+        "errors": [
+          {
+            "status": "401",
+            "className": "UnauthorizedError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "404",
+            "className": "NotFoundError",
+            "body": "ErrorModel"
+          }
+        ]
+      },
+      "generations.getFile": {
+        "resource": "generations",
+        "method": "getFile",
+        "httpMethod": "GET",
+        "path": "/generations/{generation_id}/file",
+        "auth": "required",
+        "deprecated": false,
+        "summary": "Fetch one file from a generation",
+        "description": "Raw file content, for generations whose output was too large to inline (files_omitted true). The generation's files_index lists valid paths.",
+        "params": {
+          "generation_id": {
+            "type": "string",
+            "required": true
+          },
+          "path": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "body": null,
+        "returns": "string",
+        "paginated": false,
+        "errors": [
+          {
+            "status": "401",
+            "className": "UnauthorizedError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "404",
+            "className": "NotFoundError",
+            "body": "ErrorModel"
+          }
+        ]
+      },
+      "specVersions.list": {
+        "resource": "specVersions",
+        "method": "list",
+        "httpMethod": "GET",
+        "path": "/projects/{project_id}/spec_versions",
+        "auth": "required",
+        "deprecated": false,
+        "summary": "List the specs this project has generated from",
+        "description": "The audit trail behind a regeneration: which spec produced which SDK, and when it changed. Content is omitted from the list because specs run to megabytes.",
+        "params": {
+          "project_id": {
+            "type": "string",
+            "required": true
+          },
+          "limit": {
+            "type": "number",
+            "required": false
+          },
+          "cursor": {
+            "type": "string",
+            "required": false
+          }
+        },
+        "body": null,
+        "returns": "{\n  data: SpecVersion[];\n  next_cursor?: string | null;\n}",
+        "paginated": true,
+        "errors": [
+          {
+            "status": "401",
+            "className": "UnauthorizedError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "404",
+            "className": "NotFoundError",
+            "body": "ErrorModel"
+          }
+        ]
+      },
+      "specVersions.get": {
+        "resource": "specVersions",
+        "method": "get",
+        "httpMethod": "GET",
+        "path": "/spec_versions/{spec_version_id}",
+        "auth": "required",
+        "deprecated": false,
+        "summary": "Retrieve a spec version",
+        "description": "One recorded spec, with its content. Storing every spec a project has generated from is only an audit trail if you can read one back and diff it against what shipped.",
+        "params": {
+          "spec_version_id": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "body": null,
+        "returns": "SpecVersion",
+        "paginated": false,
+        "errors": [
+          {
+            "status": "401",
+            "className": "UnauthorizedError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "404",
+            "className": "NotFoundError",
+            "body": "ErrorModel"
+          }
+        ]
+      },
+      "specVersions.getContent": {
+        "resource": "specVersions",
+        "method": "getContent",
+        "httpMethod": "GET",
+        "path": "/spec_versions/{spec_version_id}/content",
+        "auth": "required",
+        "deprecated": false,
+        "summary": "Retrieve a spec version's raw text",
+        "description": "The escape hatch for specs too large to inline, and the endpoint to pipe straight into a diff.",
+        "params": {
+          "spec_version_id": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "body": null,
+        "returns": "string",
+        "paginated": false,
+        "errors": [
+          {
+            "status": "401",
+            "className": "UnauthorizedError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "404",
+            "className": "NotFoundError",
+            "body": "ErrorModel"
+          }
+        ]
+      },
+      "account.me": {
+        "resource": "account",
+        "method": "me",
+        "httpMethod": "GET",
+        "path": "/me",
+        "auth": "required",
+        "deprecated": false,
+        "summary": "The account behind the presented credentials",
+        "description": "Returns the account that owns the presented API key. This is also the\nidentity endpoint the generated typeship CLI's `whoami` calls.\n",
+        "params": {},
+        "body": null,
+        "returns": "Account",
+        "paginated": false,
+        "errors": [
+          {
+            "status": "401",
+            "className": "UnauthorizedError",
+            "body": "ErrorModel"
+          }
+        ]
+      },
+      "usage.retrieve": {
+        "resource": "usage",
+        "method": "retrieve",
+        "httpMethod": "GET",
+        "path": "/usage",
+        "auth": "required",
+        "deprecated": false,
+        "summary": "Retrieve usage for this account",
+        "description": "Cumulative linked-project generation telemetry, the endpoint allowance for the current plan, and which generated surfaces have called the API. Generations have no count quota; hosted_generations.included and hosted_generations.remaining are always null.",
+        "params": {},
+        "body": null,
+        "returns": "Usage",
+        "paginated": false,
+        "errors": [
+          {
+            "status": "401",
+            "className": "UnauthorizedError",
+            "body": "ErrorModel"
+          }
+        ]
+      },
+      "apiKeys.list": {
+        "resource": "apiKeys",
+        "method": "list",
+        "httpMethod": "GET",
+        "path": "/api_keys",
+        "auth": "required",
+        "deprecated": false,
+        "summary": "List API keys",
+        "description": "Keys are never returned in full — only their identity and last four. Creation stays in the console deliberately: a leaked key that can mint more keys is a leaked account.",
+        "params": {
+          "limit": {
+            "type": "number",
+            "required": false
+          },
+          "cursor": {
+            "type": "string",
+            "required": false
+          }
+        },
+        "body": null,
+        "returns": "{\n  data: ApiKey[];\n  next_cursor?: string | null;\n}",
+        "paginated": true,
+        "errors": [
+          {
+            "status": "401",
+            "className": "UnauthorizedError",
+            "body": "ErrorModel"
+          }
+        ]
+      },
+      "apiKeys.revoke": {
+        "resource": "apiKeys",
+        "method": "revoke",
+        "httpMethod": "DELETE",
+        "path": "/api_keys/{api_key_id}",
+        "auth": "required",
+        "deprecated": false,
+        "summary": "Revoke an API key",
+        "description": "Idempotent: revoking an already-revoked key returns the same body, so a rotation script that re-runs does not have to special-case having already succeeded.",
+        "params": {
+          "api_key_id": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "body": null,
+        "returns": "ApiKey",
+        "paginated": false,
+        "errors": [
+          {
+            "status": "401",
+            "className": "UnauthorizedError",
+            "body": "ErrorModel"
+          },
+          {
+            "status": "404",
+            "className": "NotFoundError",
+            "body": "ErrorModel"
+          }
+        ]
+      }
+    },
+    "warnings": []
+  },
+  "package": {
+    "language": "typescript",
+    "packageName": "typeship-ax",
+    "version": "0.3.0",
+    "targets": [
+      "sdk"
+    ],
+    "entrypoints": {
+      "main": "dist/index.js",
+      "types": "dist/index.d.ts",
+      "export:.": "{\"import\":\"dist/index.js\",\"types\":\"dist/index.d.ts\"}"
+    },
+    "ownedFiles": [
+      "AGENTS.md",
+      "LICENSE",
+      "README.md",
+      "api.md",
+      "package.json",
+      "src/core/http.ts",
+      "src/core/pagination.ts",
+      "src/errors.ts",
+      "src/index.ts",
+      "src/resources/account.ts",
+      "src/resources/api-keys.ts",
+      "src/resources/generate.ts",
+      "src/resources/generations.ts",
+      "src/resources/projects.ts",
+      "src/resources/spec-versions.ts",
+      "src/resources/usage.ts",
+      "src/schemas.ts",
+      "src/types.ts",
+      "tests/account.test.mjs",
+      "tests/api-keys.test.mjs",
+      "tests/generate.test.mjs",
+      "tests/generations.test.mjs",
+      "tests/helper.mjs",
+      "tests/projects.test.mjs",
+      "tests/spec-versions.test.mjs",
+      "tests/usage.test.mjs",
+      "tsconfig.json"
+    ]
+  }
+}

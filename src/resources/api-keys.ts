@@ -10,9 +10,9 @@ export class ApiKeysResource {
   constructor(private readonly _core: HttpCore) {}
   /**
    * List API keys
-   * 
+   *
    * Keys are never returned in full — only their identity and last four. Creation stays in the console deliberately: a leaked key that can mint more keys is a leaked account.
-   * 
+   *
    * Auto-paginates: `for await (const item of …)` walks every page.
    * `GET /api_keys`
    */
@@ -36,7 +36,7 @@ export class ApiKeysResource {
 
   /**
    * Revoke an API key
-   * 
+   *
    * Idempotent: revoking an already-revoked key returns the same body, so a rotation script that re-runs does not have to special-case having already succeeded.
    * `DELETE /api_keys/{api_key_id}`
    */
