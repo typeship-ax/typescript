@@ -41,17 +41,17 @@ function talk(env, requests) {
 }
 
 test("server/discover, tools/list, tools/call over stdio", async () => {
-  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"files\":[{\"path\":\"example\",\"content\":\"example\"}],\"warnings\":[\"example\"],\"meta\":{\"title\":\"example\",\"version\":\"example\",\"spec_format\":\"openapi\",\"oas_version\":\"example\",\"converted\":true,\"package_name\":\"example\",\"client_name\":\"example\",\"targets\":[\"sdk\"],\"resource_count\":1,\"operation_count\":1,\"schema_count\":1,\"paginated_operation_count\":1,\"omitted_operation_count\":1,\"pr_url\":\"example\",\"pr_number\":1,\"changelog\":\"example\",\"breaking_count\":1,\"baseline\":\"destination\",\"semver\":\"success\",\"semver_note\":\"example\",\"previous_version\":\"example\",\"file_count\":1,\"total_lines\":1},\"limits\":{\"max_operations\":1,\"omitted_operations\":1,\"reason\":\"anonymous\",\"signup_url\":\"example\",\"upgrade_url\":\"example\"},\"claim\":{}}" });
+  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"files\":[{\"path\":\"example\",\"content\":\"example\"}],\"warnings\":[\"example\"],\"meta\":{\"title\":\"example\",\"version\":\"example\",\"spec_format\":\"openapi\",\"oas_version\":\"example\",\"converted\":true,\"package_name\":\"example\",\"client_name\":\"example\",\"outputs\":[\"typescript-sdk\"],\"resource_count\":1,\"operation_count\":1,\"schema_count\":1,\"paginated_operation_count\":1,\"omitted_operation_count\":1,\"pr_url\":\"example\",\"pr_number\":1,\"pr_error\":\"example\",\"changelog\":\"example\",\"breaking_count\":1,\"baseline\":\"destination\",\"semver\":\"success\",\"semver_note\":\"example\",\"previous_version\":\"example\",\"file_count\":1,\"total_lines\":1},\"limits\":{\"max_operations\":1,\"omitted_operations\":1,\"reason\":\"anonymous\",\"signup_url\":\"example\",\"upgrade_url\":\"example\"},\"claim\":{}}" });
   try {
     const responses = await talk({ "TYPESHIP_BASE_URL": mock.url, "TYPESHIP_TOKEN": "test-token" }, [
       { jsonrpc: "2.0", id: 1, method: "server/discover", params: { _meta: META } },
       { jsonrpc: "2.0", id: 2, method: "tools/list", params: { _meta: META } },
-      { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "generate_run", arguments: {"spec":{}}, _meta: META } },
+      { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "execute", arguments: {"operation":"generate_run","arguments":{"spec":{},"outputs":["typescript-sdk"]}}, _meta: META } },
     ]);
     const discover = responses.get(1);
     assert.equal(discover.result.supportedVersions[0], "2026-07-28", JSON.stringify(discover));
     const list = responses.get(2);
-    assert.ok(list.result.tools.some((tool) => tool.name === "generate_run"), JSON.stringify(list).slice(0, 200));
+    assert.ok(list.result.tools.some((tool) => tool.name === "execute"), JSON.stringify(list).slice(0, 200));
     const call = responses.get(3);
     assert.equal(call.result.isError, false, JSON.stringify(call).slice(0, 300));
     assert.equal(call.result.resultType, "complete");

@@ -13,8 +13,8 @@ import { UsageResource } from "./resources/usage.js";
 import { ApiKeysResource } from "./resources/api-keys.js";
 
 /** This package's version, also sent as the `User-Agent`. */
-export const VERSION = "0.1.0";
-const USER_AGENT = "typeship-ax/0.1.0 (typeship)";
+export const VERSION = "0.3.0";
+const USER_AGENT = "typeship-ax/0.3.0 (typeship)";
 
 export interface ClientOptions {
   /** Override the server URL. Default: `https://typeship.dev/api/v1` */
@@ -42,11 +42,11 @@ export interface ClientOptions {
 }
 
 /**
- * typeship — v0.1.0
- * 
- * Generate a zero-dependency SDK — TypeScript, Python, or Go — plus a CLI
- * and an MCP server, from an OpenAPI spec.
- * 
+ * typeship — v0.3.0
+ *
+ * Generate production SDKs, CLIs, and MCP servers from an OpenAPI or
+ * GraphQL spec, and keep every selected output current.
+ *
  * Every operation but one requires an API key, created in the console and
  * sent as `Authorization: Bearer ak_...`. A browser session is not a
  * credential for this API. The exception is POST /generate, which works
