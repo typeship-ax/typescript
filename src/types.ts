@@ -50,6 +50,8 @@ export interface GenerationMeta {
   /** Pull request opened by this regeneration, when one was. */
   pr_url?: string | null;
   pr_number?: number | null;
+  /** Whether a destination pull request opened, was unnecessary because the generated tree already matched, or could not be opened. */
+  pr_status?: "opened" | "no_changes" | "blocked";
   /** Why the configured destination pull request was not opened. Generation itself still succeeded; fix this action and regenerate. */
   pr_error?: string;
   /** Markdown changelog entry for this regeneration, from the API surface diff. Absent on a first generation or when nothing changed. */
