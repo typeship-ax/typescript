@@ -57,12 +57,12 @@ export class BadRequestError extends ApiError<400, ErrorModel> {
 }
 
 /**
- * The plan does not include this.
+ * The plan does not include another project or the requested output configuration.
  * Raised for HTTP 402 responses.
  */
 export class PaymentRequiredError extends ApiError<402, ErrorModel> {
   constructor(body: ErrorModel, response: ResponseMeta) {
-    super("The plan does not include this.", 402, body, response);
+    super("The plan does not include another project or the requested output configuration.", 402, body, response);
   }
 }
 
@@ -73,5 +73,15 @@ export class PaymentRequiredError extends ApiError<402, ErrorModel> {
 export class NotFoundError extends ApiError<404, ErrorModel> {
   constructor(body: ErrorModel, response: ResponseMeta) {
     super("No such resource in this account.", 404, body, response);
+  }
+}
+
+/**
+ * Generation or pull-request setup failed unexpectedly.
+ * Raised for HTTP 500 responses.
+ */
+export class InternalServerError extends ApiError<500, ErrorModel> {
+  constructor(body: ErrorModel, response: ResponseMeta) {
+    super("Generation or pull-request setup failed unexpectedly.", 500, body, response);
   }
 }
