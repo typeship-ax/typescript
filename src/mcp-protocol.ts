@@ -95,6 +95,12 @@ export interface OpLike {
   params: { name: string; type: string; required: boolean; enum?: string[]; description?: string }[];
   inputSchema: Record<string, unknown>;
   outputSchema?: Record<string, unknown>;
+  /** Canonical effect classification shared by generated docs, CLI, and MCP. */
+  safety?: "read" | "write" | "destructive";
+  /** Whether the operation accepts or requires an API credential. */
+  auth?: "required" | "optional" | "none";
+  /** Schema-derived, valid wire arguments for examples and agent discovery. */
+  exampleArguments?: Record<string, unknown>;
   /** Page-walking config (same shape as the SDK's PageConfig), when paginated. */
   pagination?: { style: string; itemsField: string; cursorParam?: string; idField?: string; pageParam?: string; offsetParam?: string; limitParam?: string };
   /** Success body is a text/event-stream. */
@@ -350,14 +356,11 @@ export function isReadOperation(op: { httpMethod: string; method?: string; graph
  * Claude Code use readOnlyHint to auto-approve reads and destructiveHint to
  * confirm writes that overwrite or remove. The server talks to one known
  * API, not the open world, so openWorldHint is false. */
-export function annotationsFor(op: { httpMethod: string; summary?: string; tool: string; method?: string; graphql?: { kind: string } }): ToolAnnotations {
+export function annotationsFor(op: { httpMethod: string; summary?: string; tool: string; method?: string; graphql?: { kind: string }; safety?: "read" | "write" | "destructive" }): ToolAnnotations {
   const m = op.httpMethod.toUpperCase();
-  const readOnly = isReadOperation(op);
-  const name = op.method ?? "";
-  let destructive: boolean;
-  if (readOnly) destructive = false;
-  else if (op.graphql) destructive = DESTRUCTIVE_NAME.test(name);
-  else destructive = m === "DELETE" || m === "PUT" || m === "PATCH" || DESTRUCTIVE_NAME.test(name);
+  const classified = operationSafety(op);
+  const readOnly = classified === "read";
+  const destructive = classified === "destructive";
   const idempotent = readOnly || m === "PUT" || m === "DELETE";
   return {
     title: op.summary ?? op.tool,
@@ -366,6 +369,92 @@ export function annotationsFor(op: { httpMethod: string; summary?: string; tool:
     idempotentHint: idempotent,
     openWorldHint: false,
   };
+}
+
+/** One effect vocabulary for generated references, CLI confirmation, and
+ * MCP annotations. Stored on the operation manifest so every renderer says
+ * the same thing even when the original operation name was unusual. */
+export function operationSafety(op: { httpMethod: string; method?: string; graphql?: { kind: string }; safety?: "read" | "write" | "destructive" }): "read" | "write" | "destructive" {
+  if (op.safety) return op.safety;
+  if (isReadOperation(op)) return "read";
+  const method = op.httpMethod.toUpperCase();
+  const name = op.method ?? "";
+  if (op.graphql) return DESTRUCTIVE_NAME.test(name) ? "destructive" : "write";
+  return method === "DELETE" || DESTRUCTIVE_NAME.test(name)
+    ? "destructive"
+    : "write";
+}
+
+/** A deterministic, schema-valid-enough example for documentation and
+ * agent calls. Prefer facts supplied by the API author, then conservative
+ * values based on formats and field names. Only required object fields are
+ * included, keeping examples useful instead of manufacturing giant bodies. */
+export function exampleFromSchema(schema: unknown, field = "value", depth = 0): unknown {
+  if (!schema || typeof schema !== "object" || depth > 8) return null;
+  const node = schema as Record<string, unknown>;
+  if (node.const !== undefined) return node.const;
+  if (node.example !== undefined) return node.example;
+  if (Array.isArray(node.examples) && node.examples.length > 0) return node.examples[0];
+  if (node.default !== undefined) return node.default;
+  if (Array.isArray(node.enum) && node.enum.length > 0) return node.enum.find((v) => v !== null) ?? node.enum[0];
+  const variants = (Array.isArray(node.oneOf) ? node.oneOf : Array.isArray(node.anyOf) ? node.anyOf : null) as unknown[] | null;
+  if (variants) {
+    const useful = variants.find((v) => v && typeof v === "object" && (v as Record<string, unknown>).type !== "null") ?? variants[0];
+    return exampleFromSchema(useful, field, depth + 1);
+  }
+  const type = Array.isArray(node.type) ? node.type.find((v) => v !== "null") : node.type;
+  if (type === "object" || node.properties || node.additionalProperties) {
+    const properties = (node.properties ?? {}) as Record<string, unknown>;
+    const required = new Set(Array.isArray(node.required) ? node.required.filter((v): v is string => typeof v === "string") : []);
+    // At the operation root, optional really means optional: the most honest
+    // runnable example is `{}`. Inside a required object, one representative
+    // optional field still makes an otherwise empty nested shape legible.
+    const names = required.size > 0 ? [...required] : depth === 0 ? [] : Object.keys(properties).slice(0, 1);
+    const value: Record<string, unknown> = {};
+    for (const name of names) {
+      if (properties[name] !== undefined) value[name] = exampleFromSchema(properties[name], name, depth + 1);
+    }
+    if (Object.keys(value).length === 0 && node.additionalProperties && typeof node.additionalProperties === "object") {
+      value.key = exampleFromSchema(node.additionalProperties, "key", depth + 1);
+    }
+    return value;
+  }
+  if (type === "array" || node.items) {
+    const count = typeof node.minItems === "number" && node.minItems > 1 ? Math.min(node.minItems, 3) : 1;
+    return Array.from({ length: count }, () => exampleFromSchema(node.items, field, depth + 1));
+  }
+  if (type === "integer" || type === "number") {
+    if (typeof node.minimum === "number") return node.minimum;
+    if (typeof node.exclusiveMinimum === "number") return node.exclusiveMinimum + 1;
+    return 1;
+  }
+  if (type === "boolean") return true;
+  if (type === "string" || type === undefined) {
+    const format = typeof node.format === "string" ? node.format : "";
+    const lower = field.toLowerCase();
+    let value = format === "date-time" ? "2026-01-15T12:00:00Z"
+      : format === "date" ? "2026-01-15"
+      : format === "email" || lower.includes("email") ? "person@example.com"
+      : (format === "uri" || format === "url" || lower.endsWith("url")) && (lower.includes("webhook") || lower.includes("callback")) ? "https://example.com/webhook"
+      : format === "uri" || format === "url" || lower.endsWith("url") ? "https://example.com"
+      : format === "uuid" ? "00000000-0000-4000-8000-000000000000"
+      : lower.includes("repository") || lower === "repo" ? "acme/api"
+      : lower.includes("path") ? "openapi.yaml"
+      : lower.includes("version") ? "1.0.0"
+      : /(^|_)id$|Id$/.test(field) ? (lower === "id" ? "id" : field.replace(/[_-]?id$/i, "")) + "_123"
+      : lower.includes("name") ? "example"
+      : "value";
+    const min = typeof node.minLength === "number" ? node.minLength : 0;
+    while (value.length < min) value += "x";
+    if (typeof node.maxLength === "number") value = value.slice(0, node.maxLength);
+    return value;
+  }
+  return null;
+}
+
+export function exampleArgumentsFromSchema(inputSchema: Record<string, unknown>): Record<string, unknown> {
+  const value = exampleFromSchema(inputSchema, "arguments");
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
 /** The `fields` argument every tool takes unless the API already has one:
@@ -430,12 +519,13 @@ export const READ_DOCS_TOOL: ToolDefinition = {
 
 export const EXECUTE_TOOL: ToolDefinition = {
   name: "execute",
-  description: "Execute any API operation by name. Discover operations with search_docs; read_docs <operation> shows its arguments. Arguments are passed as a JSON object keyed by parameter name.",
+  description: "Execute an API operation by name. Discover it with search_docs, then read_docs <operation> for its full schema, example, and safety classification. Destructive operations require confirm: true.",
   inputSchema: {
     type: "object",
     properties: {
       operation: { type: "string", description: "Operation tool name, e.g. accounts_create" },
       arguments: { type: "object", description: "Operation arguments keyed by parameter name" },
+      confirm: { type: "boolean", description: "Required and must be true for destructive operations. Omit for reads and ordinary writes." },
     },
     required: ["operation"],
   },
@@ -483,7 +573,7 @@ export function toolDefinitions(ops: OpLike[], mode: "operations" | "meta"): Too
   if (mode === "meta") {
     return [
       { ...SEARCH_DOCS_TOOL, description: "Search this API's " + ops.length + " operations and, when a docs site is configured, its guides. Start here to find the operation you need." },
-      { ...READ_DOCS_TOOL, description: "Read an operation's full reference (arguments, requirements) by tool name, or a docs-site guide page." },
+      { ...READ_DOCS_TOOL, description: "Read an operation's full reference (arguments, schemas, authentication, safety and example) by tool name, or a docs-site guide page." },
       EXECUTE_TOOL,
     ];
   }
@@ -553,7 +643,7 @@ export interface InstructionsInput {
 export function serverInstructions(input: InstructionsInput): string {
   const parts: string[] = [];
   parts.push(input.mode === "meta"
-    ? input.title + " as MCP tools: search_docs, read_docs and execute over " + input.toolCount + " operations. Start with search_docs to find an operation, read_docs <tool> for its full argument reference, then execute it by name."
+    ? input.title + " as MCP tools: search_docs, read_docs and execute over " + input.toolCount + " operations. Start with search_docs to find an operation, read_docs <tool> for its full argument reference, then execute it by name. Destructive operations require confirm: true on execute."
     : input.title + " as MCP tools: one tool per operation (" + input.toolCount + "), plus search_docs to find operations and read_docs <tool> for an operation's full argument reference.");
   parts.push("Arguments use the API's wire names; an unknown, mistyped or missing argument returns an isError result listing each problem (nothing is dropped silently), and obvious forms are coerced (\"true\" to boolean, \"3\" to number, enum case).");
   parts.push("Paginated tools return items, hasMore and nextPage (the exact arguments for the following page). Pass fields (dotted paths) to keep only the result keys you need; oversized results are cut to whole items or keys with a truncated note saying how to ask for less.");
@@ -1033,7 +1123,7 @@ export async function binaryOutcome(blob: Blob, options: BinaryOptions = {}): Pr
  * generated CLI's error envelope). Additive only. */
 export type ErrorCode =
   | "NO_AUTH" | "AUTH_INVALID" | "PLAN_LIMIT" | "NOT_FOUND" | "INVALID_REQUEST" | "RATE_LIMITED"
-  | "SERVER_ERROR" | "NETWORK_ERROR" | "VALIDATION_FAILED" | "INVALID_ARGUMENTS" | "NOT_AVAILABLE" | "CALL_FAILED";
+  | "SERVER_ERROR" | "NETWORK_ERROR" | "VALIDATION_FAILED" | "INVALID_ARGUMENTS" | "CONFIRMATION_REQUIRED" | "NOT_AVAILABLE" | "CALL_FAILED";
 
 export interface ErrorContext {
   /** One sentence on how to supply a credential on this transport. */
@@ -1129,9 +1219,22 @@ export interface DocsSource {
 }
 
 function docsPageUrl(source: DocsSource, pathOrFile: string): string | null {
-  if (/^https?:\/\//.test(pathOrFile)) return pathOrFile;
   const base = source.docsUrl();
-  return base === null ? null : base.replace(/\/+$/, "") + "/" + pathOrFile.replace(/^\/+/, "");
+  if (base === null) return null;
+  try {
+    const baseUrl = new URL(base);
+    if (baseUrl.protocol !== "https:" && baseUrl.protocol !== "http:") return null;
+    const target = /^https?:\/\//.test(pathOrFile)
+      ? new URL(pathOrFile)
+      : new URL(pathOrFile.replace(/^\/+/, ""), baseUrl.toString().replace(/\/+$/, "") + "/");
+    // llms.txt commonly contains absolute links, but a docs tool is not a
+    // general-purpose URL fetcher. Keeping every page on the configured
+    // origin prevents an agent from turning hosted MCP into an SSRF proxy.
+    if (target.origin !== baseUrl.origin || target.username || target.password) return null;
+    return target.toString();
+  } catch {
+    return null;
+  }
 }
 
 async function fetchDocs(source: DocsSource, pathOrFile: string): Promise<string | null> {
@@ -1140,10 +1243,15 @@ async function fetchDocs(source: DocsSource, pathOrFile: string): Promise<string
 }
 
 export function referenceText(op: OpLike): string {
+  const safety = operationSafety(op);
+  const example = op.exampleArguments ?? exampleArgumentsFromSchema(op.inputSchema);
   const lines = [
     op.tool + ": " + op.httpMethod + " " + op.path + (op.paginated ? " (paginated)" : ""),
     ...(op.summary ? [op.summary] : []),
     ...(op.description ? ["", op.description.trim()] : []),
+    "",
+    "Safety: " + safety + (safety === "destructive" ? " (execute requires confirm: true)" : ""),
+    ...(op.auth ? ["Authentication: " + op.auth] : []),
   ];
   if (op.params.length > 0) {
     lines.push("", "Arguments:");
@@ -1157,6 +1265,9 @@ export function referenceText(op: OpLike): string {
   if (!hasOwnFieldsParam(op)) {
     lines.push("", "Also: fields (array of dotted paths) keeps only those keys of the result" + (op.paginated ? ", per item" : "") + ".");
   }
+  lines.push("", "Input schema:", "```json", JSON.stringify(toolInputSchema(op), null, 2), "```");
+  lines.push("", "Example arguments:", "```json", JSON.stringify(example, null, 2), "```");
+  if (op.outputSchema) lines.push("", "Output schema:", "```json", JSON.stringify(op.outputSchema, null, 2), "```");
   return lines.join("\n");
 }
 
@@ -1275,6 +1386,13 @@ export async function callSharedTool(
     if (typeof args.operation !== "string") return argumentsError({ tool: name }, [{ code: "MISSING_ARGUMENT", argument: "operation", message: "execute requires an operation name." }]);
     const target = findOperation(source.ops, args.operation);
     if (!target) return textError("Unknown operation: " + args.operation + ".", "NOT_FOUND", ["search_docs finds operations by name, path or description."]);
+    if (operationSafety(target) === "destructive" && args.confirm !== true) {
+      return textError(
+        "The destructive operation " + target.tool + " requires explicit confirmation.",
+        "CONFIRMATION_REQUIRED",
+        ["Review read_docs " + target.tool + ", then retry execute with confirm: true if the destructive effect is intended."],
+      );
+    }
     const opArgs = args.arguments !== null && typeof args.arguments === "object" && !Array.isArray(args.arguments)
       ? (args.arguments as Record<string, unknown>)
       : {};
@@ -1283,15 +1401,50 @@ export async function callSharedTool(
   return undefined;
 }
 
-/** A fetch for docs pages: markdown preferred, 10s cap, null on any failure. */
+/** A fetch for docs pages: markdown preferred, same-origin redirects only,
+ * a 10s deadline, and a 2 MB streaming cap. The caller already constrained
+ * the first URL to its configured docs origin; redirects must not escape it. */
+export const MAX_DOCS_TEXT_BYTES = 2_000_000;
 export async function fetchDocsText(url: string): Promise<string | null> {
   try {
-    const response = await fetch(url, {
-      headers: { Accept: "text/markdown, text/plain, */*" },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!response.ok) return null;
-    return await response.text();
+    const allowedOrigin = new URL(url).origin;
+    let current = url;
+    const signal = AbortSignal.timeout(10_000);
+    for (let redirects = 0; redirects <= 3; redirects += 1) {
+      const response = await fetch(current, {
+        headers: { Accept: "text/markdown, text/plain, */*" },
+        redirect: "manual",
+        signal,
+      });
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get("location");
+        if (!location || redirects === 3) return null;
+        const next = new URL(location, current);
+        if (next.origin !== allowedOrigin || next.username || next.password) return null;
+        current = next.toString();
+        continue;
+      }
+      if (!response.ok) return null;
+      const declared = Number(response.headers.get("content-length"));
+      if (Number.isFinite(declared) && declared > MAX_DOCS_TEXT_BYTES) return null;
+      if (!response.body) return "";
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let bytes = 0;
+      let text = "";
+      for (;;) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        bytes += chunk.value.byteLength;
+        if (bytes > MAX_DOCS_TEXT_BYTES) {
+          await reader.cancel();
+          return null;
+        }
+        text += decoder.decode(chunk.value, { stream: true });
+      }
+      return text + decoder.decode();
+    }
+    return null;
   } catch {
     return null;
   }

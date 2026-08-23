@@ -3,13 +3,27 @@
 
 import { HttpCore, type ApiResult, type RequestOptions } from "../core/http.js";
 import { paginate, PagePromise } from "../core/pagination.js";
-import { TransportError, UnexpectedApiError, ValidationError, BadRequestError, ConflictError, ForbiddenError, InternalServerError, NotFoundError, PaymentRequiredError, RateLimitedError, UnauthorizedError, UnprocessableEntityError } from "../errors.js";
+import {
+  TransportError,
+  UnexpectedApiError,
+  ValidationError,
+  BadRequestError,
+  ConflictError,
+  ForbiddenError,
+  InternalServerError,
+  NotFoundError,
+  PaymentRequiredError,
+  RateLimitedError,
+  UnauthorizedError,
+  UnprocessableEntityError,
+} from "../errors.js";
 import type {
   CreateProjectRequest,
   DeletedProject,
   Generation,
   GenerationBatch,
   GenerationList,
+  GithubIntegrationHealth,
   Project,
   ProjectId,
   ProjectList,
@@ -28,8 +42,16 @@ export class ProjectsResource {
     return paginate<Project, ProjectsListError>(this._core, {
       method: "GET",
       path: "/projects",
-      query: { limit: params?.limit, cursor: params?.cursor },
-      errors: { "400": BadRequestError, "401": UnauthorizedError, "403": ForbiddenError, "429": RateLimitedError },
+      query: {
+        limit: params?.limit,
+        cursor: params?.cursor,
+      },
+      errors: {
+        "400": BadRequestError,
+        "401": UnauthorizedError,
+        "403": ForbiddenError,
+        "429": RateLimitedError,
+      },
       idempotent: true,
       schemaKey: "projects.list",
       options,
@@ -46,18 +68,35 @@ export class ProjectsResource {
   /**
    * Create a project
    *
-   * Stores a URL- or GitHub-sourced project. Free includes one stored project, every selected output, and the first 25 operations, while keeping manual and automatic regeneration, history, destination pull requests, and preview checks. Stateless POST /generate does not consume this slot. Pro adds projects and the whole spec.
+   * Stores a URL- or GitHub-sourced project. Free includes one stored project, every selected
+   * output, and the first 25 operations, while keeping manual and automatic regeneration, history,
+   * destination pull requests, and preview checks. Stateless POST /generate does not consume this
+   * slot. Pro adds projects and the whole spec.
    *
    * A `Idempotency-Key` UUID is generated per call (stable across retries) unless you pass one.
    * `POST /projects`
    */
-  async create(body: CreateProjectRequest, params?: ProjectsCreateParams, options?: RequestOptions): Promise<ApiResult<Project, ProjectsCreateError>> {
+  async create(
+    body: CreateProjectRequest,
+    params?: ProjectsCreateParams,
+    options?: RequestOptions,
+  ): Promise<ApiResult<Project, ProjectsCreateError>> {
     return this._core.request<Project, ProjectsCreateError>({
       method: "POST",
       path: "/projects",
-      headers: { "Idempotency-Key": params?.idempotencyKey === undefined ? undefined : String(params?.idempotencyKey) },
+      headers: {
+        "Idempotency-Key": params?.idempotencyKey === undefined ? undefined : String(params?.idempotencyKey),
+      },
       body,
-      errors: { "400": BadRequestError, "401": UnauthorizedError, "402": PaymentRequiredError, "403": ForbiddenError, "409": ConflictError, "429": RateLimitedError, "500": InternalServerError },
+      errors: {
+        "400": BadRequestError,
+        "401": UnauthorizedError,
+        "402": PaymentRequiredError,
+        "403": ForbiddenError,
+        "409": ConflictError,
+        "429": RateLimitedError,
+        "500": InternalServerError,
+      },
       idempotencyKey: "Idempotency-Key",
       schemaKey: "projects.create",
       options,
@@ -68,11 +107,19 @@ export class ProjectsResource {
    * Retrieve a project
    * `GET /projects/{project_id}`
    */
-  async retrieve(projectId: ProjectId, options?: RequestOptions): Promise<ApiResult<Project, ProjectsRetrieveError>> {
+  async retrieve(
+    projectId: ProjectId,
+    options?: RequestOptions,
+  ): Promise<ApiResult<Project, ProjectsRetrieveError>> {
     return this._core.request<Project, ProjectsRetrieveError>({
       method: "GET",
       path: `/projects/${encodeURIComponent(String(projectId))}`,
-      errors: { "401": UnauthorizedError, "403": ForbiddenError, "404": NotFoundError, "429": RateLimitedError },
+      errors: {
+        "401": UnauthorizedError,
+        "403": ForbiddenError,
+        "404": NotFoundError,
+        "429": RateLimitedError,
+      },
       idempotent: true,
       schemaKey: "projects.retrieve",
       options,
@@ -83,11 +130,19 @@ export class ProjectsResource {
    * Delete a project
    * `DELETE /projects/{project_id}`
    */
-  async delete(projectId: ProjectId, options?: RequestOptions): Promise<ApiResult<DeletedProject, ProjectsDeleteError>> {
+  async delete(
+    projectId: ProjectId,
+    options?: RequestOptions,
+  ): Promise<ApiResult<DeletedProject, ProjectsDeleteError>> {
     return this._core.request<DeletedProject, ProjectsDeleteError>({
       method: "DELETE",
       path: `/projects/${encodeURIComponent(String(projectId))}`,
-      errors: { "401": UnauthorizedError, "403": ForbiddenError, "404": NotFoundError, "429": RateLimitedError },
+      errors: {
+        "401": UnauthorizedError,
+        "403": ForbiddenError,
+        "404": NotFoundError,
+        "429": RateLimitedError,
+      },
       idempotent: true,
       schemaKey: "projects.delete",
       options,
@@ -98,13 +153,51 @@ export class ProjectsResource {
    * Update a project
    * `PATCH /projects/{project_id}`
    */
-  async update(projectId: ProjectId, body: UpdateProjectRequest, options?: RequestOptions): Promise<ApiResult<Project, ProjectsUpdateError>> {
+  async update(
+    projectId: ProjectId,
+    body: UpdateProjectRequest,
+    options?: RequestOptions,
+  ): Promise<ApiResult<Project, ProjectsUpdateError>> {
     return this._core.request<Project, ProjectsUpdateError>({
       method: "PATCH",
       path: `/projects/${encodeURIComponent(String(projectId))}`,
       body,
-      errors: { "400": BadRequestError, "401": UnauthorizedError, "402": PaymentRequiredError, "403": ForbiddenError, "404": NotFoundError, "429": RateLimitedError },
+      errors: {
+        "400": BadRequestError,
+        "401": UnauthorizedError,
+        "402": PaymentRequiredError,
+        "403": ForbiddenError,
+        "404": NotFoundError,
+        "429": RateLimitedError,
+      },
       schemaKey: "projects.update",
+      options,
+    });
+  }
+
+  /**
+   * Diagnose a project's GitHub integration
+   *
+   * Returns machine-actionable source and destination access, spec readability, optional label
+   * setup, required status names, and the latest durable webhook delivery. The console renders this
+   * same result.
+   * `GET /projects/{project_id}/github`
+   */
+  async retrieveGithubHealth(
+    projectId: ProjectId,
+    options?: RequestOptions,
+  ): Promise<ApiResult<GithubIntegrationHealth, ProjectsRetrieveGithubHealthError>> {
+    return this._core.request<GithubIntegrationHealth, ProjectsRetrieveGithubHealthError>({
+      method: "GET",
+      path: `/projects/${encodeURIComponent(String(projectId))}/github`,
+      errors: {
+        "401": UnauthorizedError,
+        "403": ForbiddenError,
+        "404": NotFoundError,
+        "429": RateLimitedError,
+      },
+      idempotent: true,
+      schemaKey: "projects.retrieveGithubHealth",
       options,
     });
   }
@@ -115,12 +208,26 @@ export class ProjectsResource {
    * Auto-paginates: `for await (const item of …)` walks every page.
    * `GET /projects/{project_id}/generations`
    */
-  listGenerations(projectId: ProjectId, params?: ProjectsListGenerationsParams, options?: RequestOptions): PagePromise<Generation, ProjectsListGenerationsError> {
+  listGenerations(
+    projectId: ProjectId,
+    params?: ProjectsListGenerationsParams,
+    options?: RequestOptions,
+  ): PagePromise<Generation, ProjectsListGenerationsError> {
     return paginate<Generation, ProjectsListGenerationsError>(this._core, {
       method: "GET",
       path: `/projects/${encodeURIComponent(String(projectId))}/generations`,
-      query: { limit: params?.limit, cursor: params?.cursor, language: params?.language },
-      errors: { "400": BadRequestError, "401": UnauthorizedError, "403": ForbiddenError, "404": NotFoundError, "429": RateLimitedError },
+      query: {
+        limit: params?.limit,
+        cursor: params?.cursor,
+        language: params?.language,
+      },
+      errors: {
+        "400": BadRequestError,
+        "401": UnauthorizedError,
+        "403": ForbiddenError,
+        "404": NotFoundError,
+        "429": RateLimitedError,
+      },
       idempotent: true,
       schemaKey: "projects.listGenerations",
       options,
@@ -146,11 +253,22 @@ export class ProjectsResource {
    * regeneration runs after a source change.
    * `POST /projects/{project_id}/generations`
    */
-  async generate(projectId: ProjectId, options?: RequestOptions): Promise<ApiResult<GenerationBatch, ProjectsGenerateError>> {
+  async generate(
+    projectId: ProjectId,
+    options?: RequestOptions,
+  ): Promise<ApiResult<GenerationBatch, ProjectsGenerateError>> {
     return this._core.request<GenerationBatch, ProjectsGenerateError>({
       method: "POST",
       path: `/projects/${encodeURIComponent(String(projectId))}/generations`,
-      errors: { "401": UnauthorizedError, "402": PaymentRequiredError, "403": ForbiddenError, "404": NotFoundError, "422": UnprocessableEntityError, "429": RateLimitedError, "500": InternalServerError },
+      errors: {
+        "401": UnauthorizedError,
+        "402": PaymentRequiredError,
+        "403": ForbiddenError,
+        "404": NotFoundError,
+        "422": UnprocessableEntityError,
+        "429": RateLimitedError,
+        "500": InternalServerError,
+      },
       schemaKey: "projects.generate",
       options,
     });
@@ -165,24 +283,78 @@ export interface ProjectsListParams {
 }
 
 /** Every error `list` can produce, as a discriminated union. */
-export type ProjectsListError = BadRequestError | UnauthorizedError | ForbiddenError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
+export type ProjectsListError =
+  | BadRequestError
+  | UnauthorizedError
+  | ForbiddenError
+  | RateLimitedError
+  | UnexpectedApiError
+  | TransportError
+  | ValidationError;
 
 export interface ProjectsCreateParams {
-  /** Uniquely identifies this creation attempt. Retrying the same request with the same key returns the original response instead of creating another project. Reusing a key with different parameters returns 409. */
+  /**
+   * Uniquely identifies this creation attempt. Retrying the same request with the same key returns
+   * the original response instead of creating another project. Reusing a key with different
+   * parameters returns 409.
+   */
   idempotencyKey?: string;
 }
 
 /** Every error `create` can produce, as a discriminated union. */
-export type ProjectsCreateError = BadRequestError | UnauthorizedError | PaymentRequiredError | ForbiddenError | ConflictError | RateLimitedError | InternalServerError | UnexpectedApiError | TransportError | ValidationError;
+export type ProjectsCreateError =
+  | BadRequestError
+  | UnauthorizedError
+  | PaymentRequiredError
+  | ForbiddenError
+  | ConflictError
+  | RateLimitedError
+  | InternalServerError
+  | UnexpectedApiError
+  | TransportError
+  | ValidationError;
 
 /** Every error `retrieve` can produce, as a discriminated union. */
-export type ProjectsRetrieveError = UnauthorizedError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
+export type ProjectsRetrieveError =
+  | UnauthorizedError
+  | ForbiddenError
+  | NotFoundError
+  | RateLimitedError
+  | UnexpectedApiError
+  | TransportError
+  | ValidationError;
 
 /** Every error `delete` can produce, as a discriminated union. */
-export type ProjectsDeleteError = UnauthorizedError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
+export type ProjectsDeleteError =
+  | UnauthorizedError
+  | ForbiddenError
+  | NotFoundError
+  | RateLimitedError
+  | UnexpectedApiError
+  | TransportError
+  | ValidationError;
 
 /** Every error `update` can produce, as a discriminated union. */
-export type ProjectsUpdateError = BadRequestError | UnauthorizedError | PaymentRequiredError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
+export type ProjectsUpdateError =
+  | BadRequestError
+  | UnauthorizedError
+  | PaymentRequiredError
+  | ForbiddenError
+  | NotFoundError
+  | RateLimitedError
+  | UnexpectedApiError
+  | TransportError
+  | ValidationError;
+
+/** Every error `retrieveGithubHealth` can produce, as a discriminated union. */
+export type ProjectsRetrieveGithubHealthError =
+  | UnauthorizedError
+  | ForbiddenError
+  | NotFoundError
+  | RateLimitedError
+  | UnexpectedApiError
+  | TransportError
+  | ValidationError;
 
 export interface ProjectsListGenerationsParams {
   /** Maximum number of resources to return. */
@@ -194,7 +366,25 @@ export interface ProjectsListGenerationsParams {
 }
 
 /** Every error `listGenerations` can produce, as a discriminated union. */
-export type ProjectsListGenerationsError = BadRequestError | UnauthorizedError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
+export type ProjectsListGenerationsError =
+  | BadRequestError
+  | UnauthorizedError
+  | ForbiddenError
+  | NotFoundError
+  | RateLimitedError
+  | UnexpectedApiError
+  | TransportError
+  | ValidationError;
 
 /** Every error `generate` can produce, as a discriminated union. */
-export type ProjectsGenerateError = UnauthorizedError | PaymentRequiredError | ForbiddenError | NotFoundError | UnprocessableEntityError | RateLimitedError | InternalServerError | UnexpectedApiError | TransportError | ValidationError;
+export type ProjectsGenerateError =
+  | UnauthorizedError
+  | PaymentRequiredError
+  | ForbiddenError
+  | NotFoundError
+  | UnprocessableEntityError
+  | RateLimitedError
+  | InternalServerError
+  | UnexpectedApiError
+  | TransportError
+  | ValidationError;

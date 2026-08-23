@@ -105,7 +105,7 @@ Useful commands:
 
 ## MCP server
 
-A zero-dependency stdio server exposing every operation as a tool. The fastest setup is `typeship mcp install --all`. For a manual MCP client configuration:
+A zero-dependency stdio server exposing a compact discovery surface: `search_docs`, `read_docs`, and `execute`. Read an operation before executing it to get its complete schema, example arguments, and safety classification. The fastest setup is `typeship mcp install --all`. For a manual MCP client configuration:
 
 ```json
 {

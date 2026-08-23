@@ -238,8 +238,10 @@ function serverFor(authHeader?: string): McpServer {
     callTool: async (name, args) => {
       const shared = await callSharedTool(name, args, docsSource, (op, opArgs) => callOperation(op as OpSpec, opArgs, authHeader));
       if (shared !== undefined) return shared;
-      // Direct operation tools stay callable in meta mode too, for agents
-      // that already know the name.
+      // tools/list is the callable contract. In meta mode every operation
+      // goes through execute, including its destructive-operation
+      // confirmation gate; an unlisted operation name must stay unknown.
+      if (TOOL_MODE !== "operations") return undefined;
       const op = MCP_OPS.find((o) => o.tool === name);
       return op ? callOperation(op, args, authHeader) : undefined;
     },

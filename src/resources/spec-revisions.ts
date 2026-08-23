@@ -3,7 +3,16 @@
 
 import { HttpCore, type ApiResult, type RequestOptions } from "../core/http.js";
 import { paginate, PagePromise } from "../core/pagination.js";
-import { TransportError, UnexpectedApiError, ValidationError, BadRequestError, ForbiddenError, NotFoundError, RateLimitedError, UnauthorizedError } from "../errors.js";
+import {
+  TransportError,
+  UnexpectedApiError,
+  ValidationError,
+  BadRequestError,
+  ForbiddenError,
+  NotFoundError,
+  RateLimitedError,
+  UnauthorizedError,
+} from "../errors.js";
 import type { ProjectId, SpecRevision, SpecRevisionId, SpecRevisionList } from "../types.js";
 
 export class SpecRevisionsResource {
@@ -11,17 +20,31 @@ export class SpecRevisionsResource {
   /**
    * List specification revisions
    *
-   * Immutable snapshots of the exact source text this project consumed, newest first. Raw content is available from each revision's content endpoint and is never embedded in a list response.
+   * Immutable snapshots of the exact source text this project consumed, newest first. Raw content
+   * is available from each revision's content endpoint and is never embedded in a list response.
    *
    * Auto-paginates: `for await (const item of …)` walks every page.
    * `GET /projects/{project_id}/spec_revisions`
    */
-  list(projectId: ProjectId, params?: SpecRevisionsListParams, options?: RequestOptions): PagePromise<SpecRevision, SpecRevisionsListError> {
+  list(
+    projectId: ProjectId,
+    params?: SpecRevisionsListParams,
+    options?: RequestOptions,
+  ): PagePromise<SpecRevision, SpecRevisionsListError> {
     return paginate<SpecRevision, SpecRevisionsListError>(this._core, {
       method: "GET",
       path: `/projects/${encodeURIComponent(String(projectId))}/spec_revisions`,
-      query: { limit: params?.limit, cursor: params?.cursor },
-      errors: { "400": BadRequestError, "401": UnauthorizedError, "403": ForbiddenError, "404": NotFoundError, "429": RateLimitedError },
+      query: {
+        limit: params?.limit,
+        cursor: params?.cursor,
+      },
+      errors: {
+        "400": BadRequestError,
+        "401": UnauthorizedError,
+        "403": ForbiddenError,
+        "404": NotFoundError,
+        "429": RateLimitedError,
+      },
       idempotent: true,
       schemaKey: "specRevisions.list",
       options,
@@ -38,14 +61,23 @@ export class SpecRevisionsResource {
   /**
    * Retrieve a specification revision
    *
-   * Metadata for one immutable source snapshot. Fetch raw source text from the content endpoint so metadata responses stay small and predictable.
+   * Metadata for one immutable source snapshot. Fetch raw source text from the content endpoint so
+   * metadata responses stay small and predictable.
    * `GET /spec_revisions/{spec_revision_id}`
    */
-  async retrieve(specRevisionId: SpecRevisionId, options?: RequestOptions): Promise<ApiResult<SpecRevision, SpecRevisionsRetrieveError>> {
+  async retrieve(
+    specRevisionId: SpecRevisionId,
+    options?: RequestOptions,
+  ): Promise<ApiResult<SpecRevision, SpecRevisionsRetrieveError>> {
     return this._core.request<SpecRevision, SpecRevisionsRetrieveError>({
       method: "GET",
       path: `/spec_revisions/${encodeURIComponent(String(specRevisionId))}`,
-      errors: { "401": UnauthorizedError, "403": ForbiddenError, "404": NotFoundError, "429": RateLimitedError },
+      errors: {
+        "401": UnauthorizedError,
+        "403": ForbiddenError,
+        "404": NotFoundError,
+        "429": RateLimitedError,
+      },
       idempotent: true,
       schemaKey: "specRevisions.retrieve",
       options,
@@ -55,14 +87,23 @@ export class SpecRevisionsResource {
   /**
    * Retrieve a specification revision's raw text
    *
-   * Returns the exact source text identified by the revision's SHA-256 digest, suitable for saving or piping directly into a diff.
+   * Returns the exact source text identified by the revision's SHA-256 digest, suitable for saving
+   * or piping directly into a diff.
    * `GET /spec_revisions/{spec_revision_id}/content`
    */
-  async retrieveContent(specRevisionId: SpecRevisionId, options?: RequestOptions): Promise<ApiResult<string, SpecRevisionsRetrieveContentError>> {
+  async retrieveContent(
+    specRevisionId: SpecRevisionId,
+    options?: RequestOptions,
+  ): Promise<ApiResult<string, SpecRevisionsRetrieveContentError>> {
     return this._core.request<string, SpecRevisionsRetrieveContentError>({
       method: "GET",
       path: `/spec_revisions/${encodeURIComponent(String(specRevisionId))}/content`,
-      errors: { "401": UnauthorizedError, "403": ForbiddenError, "404": NotFoundError, "429": RateLimitedError },
+      errors: {
+        "401": UnauthorizedError,
+        "403": ForbiddenError,
+        "404": NotFoundError,
+        "429": RateLimitedError,
+      },
       idempotent: true,
       schemaKey: "specRevisions.retrieveContent",
       options,
@@ -78,10 +119,32 @@ export interface SpecRevisionsListParams {
 }
 
 /** Every error `list` can produce, as a discriminated union. */
-export type SpecRevisionsListError = BadRequestError | UnauthorizedError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
+export type SpecRevisionsListError =
+  | BadRequestError
+  | UnauthorizedError
+  | ForbiddenError
+  | NotFoundError
+  | RateLimitedError
+  | UnexpectedApiError
+  | TransportError
+  | ValidationError;
 
 /** Every error `retrieve` can produce, as a discriminated union. */
-export type SpecRevisionsRetrieveError = UnauthorizedError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
+export type SpecRevisionsRetrieveError =
+  | UnauthorizedError
+  | ForbiddenError
+  | NotFoundError
+  | RateLimitedError
+  | UnexpectedApiError
+  | TransportError
+  | ValidationError;
 
 /** Every error `retrieveContent` can produce, as a discriminated union. */
-export type SpecRevisionsRetrieveContentError = UnauthorizedError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
+export type SpecRevisionsRetrieveContentError =
+  | UnauthorizedError
+  | ForbiddenError
+  | NotFoundError
+  | RateLimitedError
+  | UnexpectedApiError
+  | TransportError
+  | ValidationError;
