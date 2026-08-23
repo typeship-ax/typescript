@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.7.0 (2026-08-23) (14 breaking)
+
+### Changed
+- `projects.list()`
+  - **breaking** `return-type-changed`: nested response schema changed
+- `projects.create()`
+  - **breaking** `body-field-type-changed`: packages: nested schema changed
+  - **breaking** `return-type-changed`: nested response schema changed
+- `projects.retrieve()`
+  - **breaking** `return-type-changed`: nested response schema changed
+- `projects.update()`
+  - **breaking** `body-field-type-changed`: packages: nested schema changed
+  - **breaking** `return-type-changed`: nested response schema changed
+- `projects.listGenerations()`
+  - `param-added`: output: OutputId
+  - **breaking** `param-removed`: language
+  - **breaking** `return-type-changed`: nested response schema changed
+- `projects.generate()`
+  - **breaking** `return-type-changed`: nested response schema changed
+- `generations.retrieve()`
+  - **breaking** `return-type-changed`: nested response schema changed
+
+### Package contract (breaking)
+- **Breaking:** Package name changed: `typeship-ax -> @​typeship-ax/sdk`
+- **Breaking:** CLI output removed
+- **Breaking:** MCP output removed
+- **Breaking:** MCP registry name removed (was `dev.typeship/typeship`)
+- **Breaking:** Executable `typeship` removed (was `dist/cli.js`)
+- **Breaking:** Executable `typeship-ax` removed (was `dist/cli.js`)
+- **Breaking:** Executable `typeship-mcp` removed (was `dist/mcp.js`)
+
 ## 0.6.0 (2026-08-23)
 
 ### Added

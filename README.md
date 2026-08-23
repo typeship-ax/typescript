@@ -1,6 +1,6 @@
-# typeship-ax
+# @typeship-ax/sdk
 
-TypeScript SDK, CLI, and MCP server for typeship. [API reference](./api.md)
+TypeScript SDK for typeship. [API reference](./api.md)
 
 Generated from the OpenAPI spec by [typeship](https://typeship.dev). Change the spec or generation settings, then regenerate; generated files are not hand-edited.
 
@@ -10,19 +10,17 @@ Generated from the OpenAPI spec by [typeship](https://typeship.dev). Change the 
 - **Retries built in** — idempotent requests retry with exponential backoff and `Retry-After` support
 - **Optional runtime validation** — `validate: true` schema-checks request and response bodies against the spec, still zero dependencies
 - **Tree-shakeable SDK** — per-resource modules, `sideEffects: false`
-- **Spec-native CLI** — every operation is a command with typed flags, stable JSON, help, and exit codes
-- **Agent-ready MCP** — schema-derived tools, argument validation, read-only mode, and bounded results
 
 ## Install
 
 ```sh
-npm install typeship-ax
+npm install @typeship-ax/sdk
 ```
 
 ## TypeScript SDK
 
 ```ts
-import { TypeshipClient } from "typeship-ax";
+import { TypeshipClient } from "@typeship-ax/sdk";
 
 const client = new TypeshipClient({ bearerToken: process.env.TYPESHIP_TOKEN! });
 
@@ -43,7 +41,7 @@ Awaiting a call returns a discriminated result instead of throwing on request er
 The error side is a union of the documented error classes for that operation:
 
 ```ts
-import { BadRequestError } from "typeship-ax";
+import { BadRequestError } from "@typeship-ax/sdk";
 
 const result = await client.projects.list();
 
@@ -75,57 +73,6 @@ if (page.ok) {
   await page.data.getNextPage();
 }
 ```
-
-## CLI
-
-The package ships `typeship`, a command for every API operation. It writes JSON to stdout and uses exit codes 0/1/2 for success, request failure, and invalid usage.
-
-```sh
-npm install -g typeship-ax
-typeship login                      # stores a credential (or set TYPESHIP_TOKEN)
-typeship projects list
-typeship projects list --all | jq -r '.id'   # every page, one item per line
-typeship <resource> <command> --help     # flags, types, an example
-```
-
-CLI conventions:
-
-- Path parameters are positional; query and body fields are flags named after their wire fields.
-- Arrays accept a comma list or repeated flags. Objects accept JSON; `--data @file` and `--data -` read a full body.
-- `--fields id,name` projects results. `--all` streams paginated results as NDJSON.
-- Destructive commands require confirmation or `--force`. Piped errors are stable JSON on stderr.
-
-Auth: `typeship login` stores a credential under `~/.config/typeship/`; the environment (`TYPESHIP_TOKEN`) and flags (`--token`) win over it. `TYPESHIP_BASE_URL` / `--base-url` pick the endpoint.
-
-Useful commands:
-
-- `typeship init` configures credentials, MCP clients, and repository agent instructions.
-- `typeship mcp install --all` registers the MCP server with supported agent clients.
-- `typeship docs search <term>`, `typeship doctor`, and `typeship help --json` cover discovery and diagnostics.
-
-## MCP server
-
-A zero-dependency stdio server exposing a compact discovery surface: `search_docs`, `read_docs`, and `execute`. Read an operation before executing it to get its complete schema, example arguments, and safety classification. The fastest setup is `typeship mcp install --all`. For a manual MCP client configuration:
-
-```json
-{
-  "mcpServers": {
-    "typeship": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "--package",
-        "typeship-ax",
-        "typeship-mcp"
-      ]
-    }
-  }
-}
-```
-
-Tool input schemas are derived from the OpenAPI spec, so agents see real parameter types and required fields. Arguments are checked before anything reaches the API (unknown or mistyped ones come back as one `isError` result, nothing is dropped), every tool takes `fields` to keep only the result keys it needs, and errors carry a stable `code` and `next_steps`.
-
-Add `--read-only` to `args` (or set `TYPESHIP_MCP_READ_ONLY=1`) for a server that cannot write, `--tools accounts,reports` (or `TYPESHIP_MCP_TOOLS`) to expose a subset, and `TYPESHIP_MCP_MAX_RESULT_CHARS` to change the result size cap (64,000). `typeship mcp install --all --read-only` writes read-only entries for every detected client.
 
 ## SDK configuration
 
