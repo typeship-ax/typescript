@@ -54,8 +54,8 @@ export type SpecInput = UrlSpecInput | InlineSpecInput;
 export interface GenerateRequest {
   spec: SpecInput;
   /**
-   * Outputs for one delivery package. Choose one SDK output, or TypeScript SDK, CLI, and MCP in any
-   * combination. Linked projects can generate outputs in all ecosystems.
+   * The one output package to generate. Linked projects can select any combination of outputs and
+   * keep each package current.
    */
   outputs: OutputId[];
   /**
@@ -250,21 +250,25 @@ export interface PackageDelivery {
    */
   name?: string | null;
   /**
-   * Release version for this ecosystem package. Null falls back to the legacy
-   * config.package.version, then the specification version.
+   * Release version for this output package. Null falls back to the legacy config.package.version,
+   * then the specification version.
    */
   version?: string | null;
   destination?: Destination | null;
 }
 
 /**
- * Delivery packages keyed by registry ecosystem. TypeScript SDK, CLI, and MCP share npm delivery
- * without becoming the same output. Python and Go SDKs use their own package ecosystems.
+ * Independent delivery packages keyed by output. Every selected output owns its registry identity,
+ * version, destination pull request, and release lifecycle. Selected outputs must resolve to
+ * distinct repository-and-directory trees; the TypeScript SDK, CLI, and MCP packages must also have
+ * distinct npm names.
  */
 export interface Packages {
-  npm?: PackageDelivery;
-  python?: PackageDelivery;
-  go?: PackageDelivery;
+  "typescript-sdk"?: PackageDelivery;
+  "python-sdk"?: PackageDelivery;
+  "go-sdk"?: PackageDelivery;
+  cli?: PackageDelivery;
+  mcp?: PackageDelivery;
 }
 
 export interface ProjectDestination {
@@ -279,13 +283,15 @@ export interface ProjectPackageDelivery {
 }
 
 /**
- * Complete package configuration. All ecosystems are returned even when their output is not
- * selected, so saved delivery settings do not disappear when an output is disabled.
+ * Complete package configuration. All outputs are returned even when their output is not selected,
+ * so saved delivery settings do not disappear when an output is disabled.
  */
 export interface ProjectPackages {
-  npm: ProjectPackageDelivery;
-  python: ProjectPackageDelivery;
-  go: ProjectPackageDelivery;
+  "typescript-sdk": ProjectPackageDelivery;
+  "python-sdk": ProjectPackageDelivery;
+  "go-sdk": ProjectPackageDelivery;
+  cli: ProjectPackageDelivery;
+  mcp: ProjectPackageDelivery;
 }
 
 export interface GithubHealthIssue {
@@ -377,7 +383,7 @@ export interface CreateProjectRequest {
   /** First-class outputs Typeship will keep current for this project. */
   outputs: OutputId[];
   /**
-   * Initial package names and destinations. Omitted ecosystems use derived names and no
+   * Initial package names, versions, and destinations. Omitted outputs use derived names and no
    * destination.
    */
   packages?: Packages;
@@ -407,8 +413,8 @@ export interface UpdateProjectRequest {
   /** Replaces the selected outputs; delivered files are not deleted. */
   outputs?: OutputId[];
   /**
-   * Replaces package configuration for every ecosystem. Include any existing ecosystem settings you
-   * want to keep.
+   * Replaces package configuration for every output. Include any existing output settings you want
+   * to keep.
    */
   packages?: Packages;
   auto_regen?: boolean;
@@ -511,8 +517,8 @@ export interface McpBehavior {
  */
 export interface PackageBehavior {
   /**
-   * Legacy lockstep version fallback. Prefer packages.<ecosystem>.version so npm, PyPI, and Go
-   * releases can advance independently.
+   * Lockstep version fallback. Prefer packages.<output>.version so every SDK, CLI, and MCP package
+   * can advance independently.
    * @deprecated
    */
   version?: string | null;
@@ -655,8 +661,8 @@ export interface Generation {
   project_id: ProjectId;
   status: "succeeded" | "failed";
   trigger: "manual" | "webhook" | "poll" | "preview";
-  /** Language this run generated. Null on generations recorded before projects had a language axis. */
-  language: "typescript" | "python" | "go" | null;
+  /** The independently delivered output this run generated. */
+  output: OutputId;
   /** Null only for a failed or legacy generation that produced no metadata. */
   meta: GenerationMeta | null;
   warnings: string[];
@@ -667,9 +673,9 @@ export interface Generation {
   created_at: string;
 }
 
-/** A language that did not generate in a multi-language run. */
+/** A selected output that did not generate in a multi-output run. */
 export interface GenerationFailure {
-  language: "typescript" | "python" | "go";
+  output: OutputId;
   status: "failed";
   error: string;
 }
