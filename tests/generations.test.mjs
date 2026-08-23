@@ -6,7 +6,7 @@ import { TypeshipClient } from "../dist/index.js";
 import { startMock } from "./helper.mjs";
 
 test("generations.retrieve GET /generations/{generation_id}", async () => {
-  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"id\":\"gen_7h2p5d9c3m8w1k6q\",\"object\":\"generation\",\"project_id\":\"prj_4f8k2m7x9q1v6b3n\",\"status\":\"succeeded\",\"trigger\":\"manual\",\"language\":\"typescript\",\"meta\":{\"title\":\"Acme Payments API\",\"version\":\"1.0.0\",\"oas_version\":\"3.1\",\"package_name\":\"@acme/payments\",\"client_name\":\"AcmeClient\",\"outputs\":[\"typescript-sdk\"]},\"warnings\":[],\"error\":null,\"created_at\":\"2026-01-01T00:00:00Z\"}" });
+  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"id\":\"gen_7h2p5d9c3m8w1k6q\",\"object\":\"generation\",\"project_id\":\"prj_4f8k2m7x9q1v6b3n\",\"status\":\"succeeded\",\"trigger\":\"manual\",\"output\":\"typescript-sdk\",\"meta\":{\"title\":\"Acme Payments API\",\"version\":\"1.0.0\",\"oas_version\":\"3.1\",\"package_name\":\"@acme/payments\",\"client_name\":\"AcmeClient\",\"outputs\":[\"typescript-sdk\"]},\"warnings\":[],\"error\":null,\"created_at\":\"2026-01-01T00:00:00Z\"}" });
   try {
     const client = new TypeshipClient({ baseUrl: mock.url, bearerToken: "test-token" });
     const result = await client.generations.retrieve("test-generation_id");

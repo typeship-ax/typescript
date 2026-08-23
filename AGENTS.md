@@ -1,6 +1,6 @@
 # typeship — agent context
 
-This package contains the generated TypeScript SDK + CLI + MCP server for **typeship** (v0.6.0).
+This package contains the generated TypeScript SDK for **typeship** (v0.7.0).
 
 Generate production SDKs, CLIs, and MCP servers from an OpenAPI or
 GraphQL spec, and keep every selected output current.
@@ -20,7 +20,7 @@ anonymously with the free plan's limits.
 
 ## Using the SDK
 ```ts
-import { TypeshipClient } from "typeship-ax";
+import { TypeshipClient } from "@typeship-ax/sdk";
 const client = new TypeshipClient({ /* auth options above */ });
 ```
 - Awaiting a call returns `ApiResult<T, E>`: check `result.ok`, or `unwrap(result)` to throw the typed error.
@@ -28,15 +28,6 @@ const client = new TypeshipClient({ /* auth options above */ });
 - Every method takes a last `{ timeoutMs, maxRetries, headers, signal }` argument for per-call overrides; every result carries `response: { status, headers, requestId }`.
 - Uploads take a `Blob` (a `File` for a filename).
 - `debug: true` (or a function) on the client logs one redacted line per request.
-
-## Using the CLI
-- `typeship <resource> <command>` exposes the same API operations as the SDK; `typeship docs search <term>` finds operations and guides; `typeship docs <resource> <command>` gives a concise contract and example (add `--schema` for full schemas or `--json` for the machine contract).
-- Path parameters are positional; other inputs are flags. JSON goes to stdout and exit codes are 0/1/2. Errors are one JSON envelope on stderr: `{status, issues: [{code, message}], next_steps, detail}`; branch on `issues[].code`. Every operation classified as destructive requires `--force` (or `--yes`).
-- `typeship agent-guide --format json` explains the conventions; `typeship help --json` is the command surface as data; `typeship init --all` connects this machine (credential, MCP clients, an AGENTS.md block); `typeship doctor` checks it.
-
-## MCP server
-- `typeship mcp install --all` writes the MCP server into every agent client found on the machine; it shares credentials with `typeship login` (or references the auth env var for a hosted endpoint). `--read-only` registers a server that cannot write.
-- Tool arguments are checked against the schema before any request (unknown or mistyped arguments are one `isError` result with per-argument issues); pass `fields` (dotted paths) to keep only the result keys you need; errors carry `code` and `next_steps`.
 
 ## Documentation
 - The reference for this exact package: `api.md` (offline, always current with the code).

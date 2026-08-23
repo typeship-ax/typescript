@@ -24,6 +24,7 @@ import type {
   GenerationBatch,
   GenerationList,
   GithubIntegrationHealth,
+  OutputId,
   Project,
   ProjectId,
   ProjectList,
@@ -219,7 +220,7 @@ export class ProjectsResource {
       query: {
         limit: params?.limit,
         cursor: params?.cursor,
-        language: params?.language,
+        output: params?.output,
       },
       errors: {
         "400": BadRequestError,
@@ -361,8 +362,8 @@ export interface ProjectsListGenerationsParams {
   limit?: number;
   /** Opaque cursor from the preceding page's next_cursor. */
   cursor?: string;
-  /** Only generations for this language. */
-  language?: "typescript" | "python" | "go";
+  /** Only generations for this output. */
+  output?: OutputId;
 }
 
 /** Every error `listGenerations` can produce, as a discriminated union. */
