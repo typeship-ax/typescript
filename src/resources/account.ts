@@ -28,4 +28,3 @@ export class AccountResource {
 
 /** Every error `retrieve` can produce, as a discriminated union. */
 export type AccountRetrieveError = UnauthorizedError | ForbiddenError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
-

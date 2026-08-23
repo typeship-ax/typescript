@@ -32,7 +32,7 @@ import {
 const BIN = "typeship";
 const PKG_NAME = "typeship-ax";
 const SERVER_NAME = "typeship-mcp";
-const SERVER_VERSION = "0.5.0";
+const SERVER_VERSION = "0.6.0";
 /** The MCP client's announced name (clientInfo in request _meta), for the User-Agent. */
 let MCP_CLIENT_NAME: string | null = null;
 function noteClientInfo(message: unknown): void {
