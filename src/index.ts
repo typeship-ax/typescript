@@ -12,8 +12,8 @@ import { AccountResource } from "./resources/account.js";
 import { ApiKeysResource } from "./resources/api-keys.js";
 
 /** This package's version, also sent as the `User-Agent`. */
-export const VERSION = "0.5.0";
-const USER_AGENT = "typeship-ax/0.5.0 (typeship)";
+export const VERSION = "0.6.0";
+const USER_AGENT = "typeship-ax/0.6.0 (typeship)";
 
 export interface ClientOptions {
   /** Override the server URL. Default: `https://typeship.dev/api/v1` */
@@ -41,7 +41,7 @@ export interface ClientOptions {
 }
 
 /**
- * typeship — v0.5.0
+ * typeship — v0.6.0
  *
  * Generate production SDKs, CLIs, and MCP servers from an OpenAPI or
  * GraphQL spec, and keep every selected output current.

@@ -76,10 +76,10 @@ export interface GenerationMeta {
   breaking_count?: number;
   /** What the diff was measured against; "destination" means the .typeship/surface.json merged in the destination repository. */
   baseline?: "destination" | "last-generation" | "none";
-  /** The typeship/semver verdict on the regeneration pull request; failure means breaking changes without a major version bump. */
-  semver?: "success" | "failure";
+  /** The package compatibility verdict on the regeneration pull request; failure means breaking changes without a major version bump. */
+  package_compatibility?: "success" | "failure";
   /** The verdict in one line, as the commit status describes it. */
-  semver_note?: string;
+  package_compatibility_note?: string;
   /** The package version the destination had before this regeneration. */
   previous_version?: string;
   file_count?: number;

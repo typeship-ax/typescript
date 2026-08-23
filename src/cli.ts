@@ -26,8 +26,8 @@ const DEFAULT_BASE_URL = "https://typeship.dev/api/v1";
 const AUTH_SCALARS: { option: string; flag: string; env: string }[] = [{"option":"bearerToken","flag":"token","env":"TYPESHIP_TOKEN"}];
 const BASIC: { envUser: string; envPass: string } | null = null;
 const EXCLUDED_OPS = 0;
-const VERSION = "0.5.0";
-const API_VERSION = "0.5.0";
+const VERSION = "0.6.0";
+const API_VERSION = "0.6.0";
 const WHOAMI: { resource: string; method: string } | null = {"resource":"account","method":"retrieve"};
 const ENVIRONMENTS: Record<string, string> = {};
 const HAS_MCP = true;
@@ -1950,7 +1950,7 @@ function printRoot(stream: NodeJS.WriteStream = process.stdout): void {
   }
   const width = termWidth();
   const lines: string[] = [];
-  lines.push(paintOut("bold", BIN) + ": " + "typeship" + " (v" + "0.5.0" + ")");
+  lines.push(paintOut("bold", BIN) + ": " + "typeship" + " (v" + "0.6.0" + ")");
   lines.push("");
   lines.push(paintOut("bold", "Usage:") + " " + BIN + " <resource> <command> [args] [--flags]");
   lines.push("");
