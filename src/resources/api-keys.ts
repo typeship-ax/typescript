@@ -65,4 +65,3 @@ export type ApiKeysListError = BadRequestError | UnauthorizedError | ForbiddenEr
 
 /** Every error `revoke` can produce, as a discriminated union. */
 export type ApiKeysRevokeError = UnauthorizedError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
-

@@ -7,8 +7,8 @@ export type ProjectId = string;
 /** Unique identifier for a generation. */
 export type GenerationId = string;
 
-/** Unique identifier for a recorded spec version. */
-export type SpecVersionId = string;
+/** Unique identifier for an immutable specification revision. */
+export type SpecRevisionId = string;
 
 /** Identifier used to correlate an API error with Typeship logs. */
 export type RequestId = string;
@@ -26,17 +26,32 @@ export const OutputId = {
 } as const;
 export type OutputId = (typeof OutputId)[keyof typeof OutputId];
 
-/** The spec to generate from. Provide exactly one of url or inline. */
-export interface SpecInput {
+export interface UrlSpecInput {
   /**
    * URL of an OpenAPI document, a GraphQL SDL file, or a GraphQL
    * endpoint (introspected automatically). Fetched server-side.
+   * Format: uri
    */
-  url?: string;
-  /** Raw spec text (OpenAPI JSON/YAML or GraphQL SDL). Up to 10MB. */
-  inline?: string;
-  /** Request headers for a protected URL. Sent on the document GET and GraphQL introspection POST, never returned or retained by stateless generation. Only valid with url. */
+  url: string;
+  /** Request headers for a protected URL. Sent on the document GET and GraphQL introspection POST, never returned or retained by stateless generation. */
   headers?: Record<string, string>;
+}
+
+export interface InlineSpecInput {
+  /** Raw spec text (OpenAPI JSON/YAML or GraphQL SDL). Up to 10MB. */
+  inline: string;
+}
+
+/** The specification for stateless generation, provided as exactly one URL or inline document. */
+export type SpecInput = UrlSpecInput | InlineSpecInput;
+
+export interface GenerateRequest {
+  spec: SpecInput;
+  /** Outputs for one delivery package. Choose one SDK output, or TypeScript SDK, CLI, and MCP in any combination. Linked projects can generate outputs in all ecosystems. */
+  outputs: OutputId[];
+  /** Registry name for the selected delivery package: an npm package, Python distribution, or Go module path. Defaults to a name derived from the API title. */
+  package_name?: string;
+  config?: Config;
 }
 
 export interface GeneratedFile {
@@ -76,10 +91,10 @@ export interface GenerationMeta {
   breaking_count?: number;
   /** What the diff was measured against; "destination" means the .typeship/surface.json merged in the destination repository. */
   baseline?: "destination" | "last-generation" | "none";
-  /** The typeship/semver verdict on the regeneration pull request; failure means breaking changes without a major version bump. */
-  semver?: "success" | "failure";
+  /** The package compatibility verdict on the regeneration pull request; failure means breaking changes without a major version bump. */
+  package_compatibility?: "success" | "failure";
   /** The verdict in one line, as the commit status describes it. */
-  semver_note?: string;
+  package_compatibility_note?: string;
   /** The package version the destination had before this regeneration. */
   previous_version?: string;
   file_count?: number;
@@ -112,31 +127,48 @@ export interface GenerationLimits {
   upgrade_url: string;
 }
 
-/** Where the project's spec lives. Request credentials are never returned. */
-export interface Source {
-  kind: "url" | "repo";
-  /** kind url. Fetched server-side for every generation. */
-  url?: string | null;
-  /** Whether write-only request headers are stored. */
-  headers_configured?: boolean;
-  /** kind repo, "owner/name". Watched via the GitHub App. */
-  repo?: string | null;
-  /** Path of the spec file inside the repository. */
-  path?: string | null;
+export interface UrlProjectSource {
+  kind: "url";
+  /**
+   * URL fetched for every generation.
+   * Format: uri
+   */
+  url: string;
+  /** Whether Typeship has stored write-only request headers for this URL. */
+  headers_configured: boolean;
 }
 
-/** Where a project's spec lives, including optional write-only fetch credentials. */
-export interface SourceInput {
-  kind: "url" | "repo";
-  /** kind url. Fetched server-side for every generation. */
-  url?: string | null;
-  /** Request headers for a protected URL. Values are write-only and are never returned, included in generation history, or emitted into generated code. Omit on update to keep the current values; pass null to remove them. */
-  headers?: Record<string, string> | null;
-  /** kind repo, "owner/name". Watched via the GitHub App. */
-  repo?: string | null;
-  /** Path of the spec file inside the repository. */
-  path?: string | null;
+export interface GithubProjectSource {
+  kind: "github";
+  /** GitHub repository in owner/name form. */
+  repository: string;
+  /** Repository-relative path to the specification. */
+  path: string;
 }
+
+/** The single source of truth for where a project's specification lives. */
+export type ProjectSource = UrlProjectSource | GithubProjectSource;
+
+export interface UrlProjectSourceInput {
+  kind: "url";
+  /**
+   * URL of an OpenAPI document, GraphQL SDL file, or GraphQL endpoint.
+   * Format: uri
+   */
+  url: string;
+  /** Request headers for a protected URL. Values are never returned or recorded in revision history. When updating the same URL, omit headers to preserve the stored values or pass null to remove them. Changing the URL without headers clears the old values so a credential is never forwarded to a different source. */
+  headers?: Record<string, string> | null;
+}
+
+export interface GithubProjectSourceInput {
+  kind: "github";
+  /** GitHub repository in owner/name form. */
+  repository: string;
+  /** Repository-relative path to the specification. */
+  path: string;
+}
+
+export type ProjectSourceInput = UrlProjectSourceInput | GithubProjectSourceInput;
 
 /**
  * A fix applied to the spec before generation. Targets are JSON
@@ -181,14 +213,29 @@ export interface Packages {
   go?: PackageDelivery;
 }
 
+export interface ProjectDestination {
+  repo: string | null;
+  directory: string | null;
+}
+
+export interface ProjectPackageDelivery {
+  name: string | null;
+  destination: ProjectDestination | null;
+}
+
+/** Complete package configuration. All ecosystems are returned even when their output is not selected, so saved delivery settings do not disappear when an output is disabled. */
+export interface ProjectPackages {
+  npm: ProjectPackageDelivery;
+  python: ProjectPackageDelivery;
+  go: ProjectPackageDelivery;
+}
+
 export interface Project {
   id: ProjectId;
   object: "project";
   name: string;
-  /** The source URL when the source kind is url; null otherwise. */
-  spec_url: string | null;
-  source: Source;
-  packages: Packages;
+  source: ProjectSource;
+  packages: ProjectPackages;
   /** Regenerate when the spec changes: on every push to the default branch for a repository source, every 30 minutes for a URL source. Off by default: the first generation is always one you asked for. Off means only "generate now" and POST /projects/{project_id}/generations regenerate. */
   auto_regen: boolean;
   spec_patches: SpecPatch[];
@@ -203,6 +250,56 @@ export interface Project {
   outputs: OutputId[];
   /** Format: date-time */
   created_at: string;
+  /**
+   * When the project configuration last changed.
+   * Format: date-time
+   */
+  updated_at: string;
+}
+
+export interface CreateProjectRequest {
+  name: string;
+  source: ProjectSourceInput;
+  /** First-class outputs Typeship will keep current for this project. */
+  outputs: OutputId[];
+  /** Initial package names and destinations. Omitted ecosystems use derived names and no destination. */
+  packages?: Packages;
+  /**
+   * Whether Typeship should regenerate automatically when the source changes.
+   * Default: false
+   */
+  auto_regen?: boolean;
+  /** Initial patches. Omit or pass an empty array for none. */
+  spec_patches?: SpecPatch[];
+  /**
+   * Serve this project as a hosted MCP endpoint. Requires the MCP output and Enterprise.
+   * Default: false
+   */
+  mcp_enabled?: boolean;
+  /**
+   * Enable webhook relay sessions. Requires the CLI output and Pro.
+   * Default: false
+   */
+  relay_enabled?: boolean;
+  config?: Config | null;
+}
+
+export interface UpdateProjectRequest {
+  name?: string;
+  source?: ProjectSourceInput;
+  /** Replaces the selected outputs; delivered files are not deleted. */
+  outputs?: OutputId[];
+  /** Replaces package configuration for every ecosystem. Include any existing ecosystem settings you want to keep. */
+  packages?: Packages;
+  auto_regen?: boolean;
+  /** Replaces the full patch list. Pass an empty array to clear it. */
+  spec_patches?: SpecPatch[];
+  /** Serve this project as a hosted MCP endpoint. Requires the MCP output and Enterprise. */
+  mcp_enabled?: boolean;
+  /** Enable webhook relay sessions. Requires the CLI output and Pro. */
+  relay_enabled?: boolean;
+  /** Replaces the entire configuration; pass null to clear it. */
+  config?: Config | null;
 }
 
 /** The organization an API key belongs to. Members share its projects, keys, and plan; sign-in identity is not part of the API. */
@@ -284,7 +381,30 @@ export interface Config {
 }
 
 /** What a GraphQL schema cannot say about itself. Ignored for OpenAPI specs. */
-export type GraphqlSettings = unknown;
+export interface GraphqlSettings {
+  /**
+   * The URL every request is POSTed to; the generated client's default baseUrl. Defaults to the URL the schema was fetched from. Without either, baseUrl is a required client option.
+   * Format: uri
+   */
+  endpoint?: string;
+  /** Named endpoints (sandbox, production). Each becomes a client environment; the first is the default unless endpoint is set. */
+  environments?: Array<{
+    name: string;
+    /** Format: uri */
+    url: string;
+  }>;
+  /**
+   * How requests authenticate. bearer sends Authorization: Bearer; basic is for key-pair APIs (public key as username, private key as password); api_key sends a header named by api_key_header; none generates no auth option.
+   * Default: "bearer"
+   */
+  auth?: "bearer" | "basic" | "api_key" | "none";
+  /** Header carrying the key when auth is api_key. Required for that mode; Typeship does not invent a vendor-specific header name. */
+  api_key_header?: string;
+  /** The API's name; drives the package and client names ("Braintree" gives braintree and BraintreeClient). Defaults to a name derived from the endpoint's host. */
+  title?: string;
+  /** JSON representation of each custom scalar, keyed by GraphQL scalar name. Unmapped scalars generate as the language's untyped JSON value and produce a warning. Unmatched keys warn. */
+  scalars?: Record<string, "string" | "integer" | "number" | "boolean" | "json">;
+}
 
 /** Retry behavior. Top-level fields adjust every operation; operations maps operationId or "METHOD /path" keys to per-operation overrides. */
 export interface RetryTuning {
@@ -325,16 +445,17 @@ export interface Generation {
   /** Present and true when the generated output was too large to inline; files_index lists paths, fetched one at a time via GET /generations/{generation_id}/file. */
   files_omitted?: boolean;
   files_index?: FileStub[];
-  project_id?: ProjectId | null;
+  project_id: ProjectId;
   status: "succeeded" | "failed";
   trigger: "manual" | "webhook" | "poll" | "preview";
   /** Language this run generated. Null on generations recorded before projects had a language axis. */
-  language?: "typescript" | "python" | "go" | null;
-  meta?: GenerationMeta;
-  warnings?: string[];
+  language: "typescript" | "python" | "go" | null;
+  /** Null only for a failed or legacy generation that produced no metadata. */
+  meta: GenerationMeta | null;
+  warnings: string[];
   /** Present on retrieve and create; omitted in lists. */
   files?: GeneratedFile[];
-  error?: string | null;
+  error: string | null;
   /** Format: date-time */
   created_at: string;
 }
@@ -344,6 +465,10 @@ export interface GenerationFailure {
   language: "typescript" | "python" | "go";
   status: "failed";
   error: string;
+}
+
+export interface GenerationBatch {
+  data: Array<Generation | GenerationFailure>;
 }
 
 export interface ApiKey {
@@ -359,19 +484,36 @@ export interface ApiKey {
   created_at: string;
 }
 
-export interface SpecVersion {
-  id: SpecVersionId;
-  object: "spec_version";
+export interface UrlSpecRevisionSource {
+  kind: "url";
+  /** Format: uri */
+  url: string;
+}
+
+export interface GithubSpecRevisionSource {
+  kind: "github";
+  /** GitHub repository in owner/name form. */
+  repository: string;
+  /** Repository-relative specification path. */
+  path: string;
+  /** Git ref resolved for this revision, when recorded. */
+  ref?: string | null;
+  /** Exact Git commit consumed, when recorded. */
+  commit_sha?: string | null;
+}
+
+export type SpecRevisionSource = UrlSpecRevisionSource | GithubSpecRevisionSource;
+
+export interface SpecRevision {
+  id: SpecRevisionId;
+  object: "spec_revision";
   project_id: ProjectId;
-  /** sha256 of the raw spec text; the version's identity. */
-  hash: string;
-  bytes?: number;
-  /** Where this spec came from — a URL, or a repo and path. */
-  source?: Record<string, unknown> | null;
-  /** The raw spec text. Present on retrieve, omitted from lists, and replaced by content_omitted when the spec is too large to inline. */
-  content?: string;
-  /** Present and true when the spec was too large to inline; fetch it from /spec_versions/{spec_version_id}/content. */
-  content_omitted?: boolean;
+  /** SHA-256 digest of the exact raw specification text. */
+  sha256: string;
+  /** Size of the raw specification text in bytes. */
+  size_bytes: number;
+  /** Origin recorded when this immutable revision was created. */
+  source: SpecRevisionSource | null;
   /** Format: date-time */
   created_at: string;
 }
@@ -394,9 +536,9 @@ export interface GenerationList {
   next_cursor: string | null;
 }
 
-export interface SpecVersionList {
+export interface SpecRevisionList {
   object: ListObject;
-  data: SpecVersion[];
+  data: SpecRevision[];
   /** Whether another page is available after this one. */
   has_more: boolean;
   /** Pass this value as cursor to retrieve the next page; null on the last page. */
@@ -433,6 +575,7 @@ export type ErrorType = (typeof ErrorType)[keyof typeof ErrorType];
 /** Stable programmatic identifier. Do not branch on message. */
 export const ErrorCode = {
   INVALID_REQUEST: "invalid_request",
+  IDEMPOTENCY_KEY_REUSED: "idempotency_key_reused",
   UNAUTHORIZED: "unauthorized",
   ORGANIZATION_REQUIRED: "organization_required",
   NOT_FOUND: "not_found",

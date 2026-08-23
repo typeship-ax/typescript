@@ -6,7 +6,7 @@ import { TypeshipClient } from "../dist/index.js";
 import { startMock } from "./helper.mjs";
 
 test("account.retrieve GET /me", async () => {
-  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"id\":\"example\",\"object\":\"account\",\"name\":\"example\",\"plan\":\"free\",\"created_at\":\"2024-01-01T00:00:00Z\"}" });
+  const mock = await startMock({ status: 200, contentType: "application/json", body: "{\"id\":\"org_2x7k9m4q\",\"object\":\"account\",\"name\":\"example\",\"plan\":\"free\",\"created_at\":\"2024-01-01T00:00:00Z\"}" });
   try {
     const client = new TypeshipClient({ baseUrl: mock.url, bearerToken: "test-token" });
     const result = await client.account.retrieve();
