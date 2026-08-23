@@ -203,6 +203,8 @@ export interface Destination {
 export interface PackageDelivery {
   /** npm package name, Python distribution name, or Go module path. Null derives a name from the API title. */
   name?: string | null;
+  /** Release version for this ecosystem package. Null falls back to the legacy config.package.version, then the specification version. */
+  version?: string | null;
   destination?: Destination | null;
 }
 
@@ -220,6 +222,7 @@ export interface ProjectDestination {
 
 export interface ProjectPackageDelivery {
   name: string | null;
+  version: string | null;
   destination: ProjectDestination | null;
 }
 
@@ -228,6 +231,44 @@ export interface ProjectPackages {
   npm: ProjectPackageDelivery;
   python: ProjectPackageDelivery;
   go: ProjectPackageDelivery;
+}
+
+export interface GithubHealthIssue {
+  code: "installation_missing" | "spec_unreadable" | "contents_write_missing" | "breaking_label_missing" | "github_unavailable";
+  message: string;
+}
+
+export interface GithubRepositoryHealth {
+  repository: string;
+  roles: Array<"source" | "destination">;
+  status: "ready" | "action_required";
+  default_branch?: string;
+  can_read?: boolean;
+  can_write?: boolean;
+  breaking_label?: boolean | null;
+  spec?: "readable" | "missing";
+  issues: GithubHealthIssue[];
+}
+
+export interface GithubDeliveryHealth {
+  id: string;
+  event: string;
+  status: "queued" | "processing" | "succeeded" | "failed" | "superseded";
+  error: string | null;
+  /** Format: date-time */
+  created_at: string;
+}
+
+export interface GithubIntegrationHealth {
+  object: "github_integration_health";
+  project_id: ProjectId;
+  status: "ready" | "action_required";
+  repositories: GithubRepositoryHealth[];
+  required_statuses: {
+    source: string[];
+    destination: string[];
+  };
+  last_delivery: GithubDeliveryHealth | null;
 }
 
 export interface Project {
@@ -345,9 +386,12 @@ export interface McpBehavior {
   tool_descriptions?: Record<string, string>;
 }
 
-/** Published-package metadata the API spec does not own. Use version only when the client intentionally releases on a different cadence from info.version; repository is derived from each destination. */
+/** Published-package metadata the API spec does not own. Repository is derived from each destination; release versions belong to packages. */
 export interface PackageBehavior {
-  /** Semantic version for the generated packages. Defaults to info.version. */
+  /**
+   * Legacy lockstep version fallback. Prefer packages.<ecosystem>.version so npm, PyPI, and Go releases can advance independently.
+   * @deprecated
+   */
   version?: string | null;
   /** Homepage written into registry metadata. */
   homepage?: string | null;

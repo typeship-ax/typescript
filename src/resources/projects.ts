@@ -10,6 +10,7 @@ import type {
   Generation,
   GenerationBatch,
   GenerationList,
+  GithubIntegrationHealth,
   Project,
   ProjectId,
   ProjectList,
@@ -110,6 +111,23 @@ export class ProjectsResource {
   }
 
   /**
+   * Diagnose a project's GitHub integration
+   *
+   * Returns machine-actionable source and destination access, spec readability, optional label setup, required status names, and the latest durable webhook delivery. The console renders this same result.
+   * `GET /projects/{project_id}/github`
+   */
+  async retrieveGithubHealth(projectId: ProjectId, options?: RequestOptions): Promise<ApiResult<GithubIntegrationHealth, ProjectsRetrieveGithubHealthError>> {
+    return this._core.request<GithubIntegrationHealth, ProjectsRetrieveGithubHealthError>({
+      method: "GET",
+      path: `/projects/${encodeURIComponent(String(projectId))}/github`,
+      errors: { "401": UnauthorizedError, "403": ForbiddenError, "404": NotFoundError, "429": RateLimitedError },
+      idempotent: true,
+      schemaKey: "projects.retrieveGithubHealth",
+      options,
+    });
+  }
+
+  /**
    * List a project's generations
    *
    * Auto-paginates: `for await (const item of …)` walks every page.
@@ -183,6 +201,9 @@ export type ProjectsDeleteError = UnauthorizedError | ForbiddenError | NotFoundE
 
 /** Every error `update` can produce, as a discriminated union. */
 export type ProjectsUpdateError = BadRequestError | UnauthorizedError | PaymentRequiredError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
+
+/** Every error `retrieveGithubHealth` can produce, as a discriminated union. */
+export type ProjectsRetrieveGithubHealthError = UnauthorizedError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
 
 export interface ProjectsListGenerationsParams {
   /** Maximum number of resources to return. */

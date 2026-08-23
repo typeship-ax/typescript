@@ -1129,9 +1129,22 @@ export interface DocsSource {
 }
 
 function docsPageUrl(source: DocsSource, pathOrFile: string): string | null {
-  if (/^https?:\/\//.test(pathOrFile)) return pathOrFile;
   const base = source.docsUrl();
-  return base === null ? null : base.replace(/\/+$/, "") + "/" + pathOrFile.replace(/^\/+/, "");
+  if (base === null) return null;
+  try {
+    const baseUrl = new URL(base);
+    if (baseUrl.protocol !== "https:" && baseUrl.protocol !== "http:") return null;
+    const target = /^https?:\/\//.test(pathOrFile)
+      ? new URL(pathOrFile)
+      : new URL(pathOrFile.replace(/^\/+/, ""), baseUrl.toString().replace(/\/+$/, "") + "/");
+    // llms.txt commonly contains absolute links, but a docs tool is not a
+    // general-purpose URL fetcher. Keeping every page on the configured
+    // origin prevents an agent from turning hosted MCP into an SSRF proxy.
+    if (target.origin !== baseUrl.origin || target.username || target.password) return null;
+    return target.toString();
+  } catch {
+    return null;
+  }
 }
 
 async function fetchDocs(source: DocsSource, pathOrFile: string): Promise<string | null> {
@@ -1283,15 +1296,50 @@ export async function callSharedTool(
   return undefined;
 }
 
-/** A fetch for docs pages: markdown preferred, 10s cap, null on any failure. */
+/** A fetch for docs pages: markdown preferred, same-origin redirects only,
+ * a 10s deadline, and a 2 MB streaming cap. The caller already constrained
+ * the first URL to its configured docs origin; redirects must not escape it. */
+export const MAX_DOCS_TEXT_BYTES = 2_000_000;
 export async function fetchDocsText(url: string): Promise<string | null> {
   try {
-    const response = await fetch(url, {
-      headers: { Accept: "text/markdown, text/plain, */*" },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!response.ok) return null;
-    return await response.text();
+    const allowedOrigin = new URL(url).origin;
+    let current = url;
+    const signal = AbortSignal.timeout(10_000);
+    for (let redirects = 0; redirects <= 3; redirects += 1) {
+      const response = await fetch(current, {
+        headers: { Accept: "text/markdown, text/plain, */*" },
+        redirect: "manual",
+        signal,
+      });
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get("location");
+        if (!location || redirects === 3) return null;
+        const next = new URL(location, current);
+        if (next.origin !== allowedOrigin || next.username || next.password) return null;
+        current = next.toString();
+        continue;
+      }
+      if (!response.ok) return null;
+      const declared = Number(response.headers.get("content-length"));
+      if (Number.isFinite(declared) && declared > MAX_DOCS_TEXT_BYTES) return null;
+      if (!response.body) return "";
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let bytes = 0;
+      let text = "";
+      for (;;) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        bytes += chunk.value.byteLength;
+        if (bytes > MAX_DOCS_TEXT_BYTES) {
+          await reader.cancel();
+          return null;
+        }
+        text += decoder.decode(chunk.value, { stream: true });
+      }
+      return text + decoder.decode();
+    }
+    return null;
   } catch {
     return null;
   }
