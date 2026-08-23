@@ -3,7 +3,16 @@
 
 import { HttpCore, type ApiResult, type RequestOptions } from "../core/http.js";
 import { paginate, PagePromise } from "../core/pagination.js";
-import { TransportError, UnexpectedApiError, ValidationError, BadRequestError, ForbiddenError, NotFoundError, RateLimitedError, UnauthorizedError } from "../errors.js";
+import {
+  TransportError,
+  UnexpectedApiError,
+  ValidationError,
+  BadRequestError,
+  ForbiddenError,
+  NotFoundError,
+  RateLimitedError,
+  UnauthorizedError,
+} from "../errors.js";
 import type { ApiKey, ApiKeyList } from "../types.js";
 
 export class ApiKeysResource {
@@ -11,7 +20,8 @@ export class ApiKeysResource {
   /**
    * List API keys
    *
-   * Keys are never returned in full — only their identity and last four. Creation stays in the console deliberately: a leaked key that can mint more keys is a leaked account.
+   * Keys are never returned in full — only their identity and last four. Creation stays in the
+   * console deliberately: a leaked key that can mint more keys is a leaked account.
    *
    * Auto-paginates: `for await (const item of …)` walks every page.
    * `GET /api_keys`
@@ -20,8 +30,16 @@ export class ApiKeysResource {
     return paginate<ApiKey, ApiKeysListError>(this._core, {
       method: "GET",
       path: "/api_keys",
-      query: { limit: params?.limit, cursor: params?.cursor },
-      errors: { "400": BadRequestError, "401": UnauthorizedError, "403": ForbiddenError, "429": RateLimitedError },
+      query: {
+        limit: params?.limit,
+        cursor: params?.cursor,
+      },
+      errors: {
+        "400": BadRequestError,
+        "401": UnauthorizedError,
+        "403": ForbiddenError,
+        "429": RateLimitedError,
+      },
       idempotent: true,
       schemaKey: "apiKeys.list",
       options,
@@ -38,14 +56,20 @@ export class ApiKeysResource {
   /**
    * Revoke an API key
    *
-   * Idempotent: revoking an already-revoked key returns the same body, so a rotation script that re-runs does not have to special-case having already succeeded.
+   * Idempotent: revoking an already-revoked key returns the same body, so a rotation script that
+   * re-runs does not have to special-case having already succeeded.
    * `DELETE /api_keys/{api_key_id}`
    */
   async revoke(apiKeyId: string, options?: RequestOptions): Promise<ApiResult<ApiKey, ApiKeysRevokeError>> {
     return this._core.request<ApiKey, ApiKeysRevokeError>({
       method: "DELETE",
       path: `/api_keys/${encodeURIComponent(String(apiKeyId))}`,
-      errors: { "401": UnauthorizedError, "403": ForbiddenError, "404": NotFoundError, "429": RateLimitedError },
+      errors: {
+        "401": UnauthorizedError,
+        "403": ForbiddenError,
+        "404": NotFoundError,
+        "429": RateLimitedError,
+      },
       idempotent: true,
       schemaKey: "apiKeys.revoke",
       options,
@@ -61,7 +85,21 @@ export interface ApiKeysListParams {
 }
 
 /** Every error `list` can produce, as a discriminated union. */
-export type ApiKeysListError = BadRequestError | UnauthorizedError | ForbiddenError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
+export type ApiKeysListError =
+  | BadRequestError
+  | UnauthorizedError
+  | ForbiddenError
+  | RateLimitedError
+  | UnexpectedApiError
+  | TransportError
+  | ValidationError;
 
 /** Every error `revoke` can produce, as a discriminated union. */
-export type ApiKeysRevokeError = UnauthorizedError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
+export type ApiKeysRevokeError =
+  | UnauthorizedError
+  | ForbiddenError
+  | NotFoundError
+  | RateLimitedError
+  | UnexpectedApiError
+  | TransportError
+  | ValidationError;

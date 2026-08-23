@@ -13,7 +13,7 @@ anonymously with the free plan's limits.
 ## Ground rules
 - Generated code: never edit files in this package by hand — changes are lost on regeneration. Wrap the client in your own code instead.
 - Zero runtime dependencies; everything runs on platform `fetch` (Node 18+, browsers, edge).
-- `api.md` in this package is the complete method reference: every operation, parameter, and error class. Read it before guessing.
+- `api.md` is the native method reference; `api.json` is the machine-readable operation, schema, safety, and example contract. Read them before guessing.
 
 ## Authentication
 - Bearer token: `TYPESHIP_TOKEN` env var, or the `bearerToken` client option.
@@ -30,8 +30,8 @@ const client = new TypeshipClient({ /* auth options above */ });
 - `debug: true` (or a function) on the client logs one redacted line per request.
 
 ## Using the CLI
-- `typeship <resource> <command>` exposes the same API operations as the SDK; `typeship docs search <term>` finds operations and guides; `typeship docs <resource> <command>` prints the full reference.
-- Flags only, JSON to stdout, exit codes 0/1/2 — safe to run from scripts and agents. Errors are one JSON envelope on stderr: `{status, issues: [{code, message}], next_steps, detail}`; branch on `issues[].code`. Deletes need `--force`.
+- `typeship <resource> <command>` exposes the same API operations as the SDK; `typeship docs search <term>` finds operations and guides; `typeship docs <resource> <command>` gives a concise contract and example (add `--schema` for full schemas or `--json` for the machine contract).
+- Path parameters are positional; other inputs are flags. JSON goes to stdout and exit codes are 0/1/2. Errors are one JSON envelope on stderr: `{status, issues: [{code, message}], next_steps, detail}`; branch on `issues[].code`. Every operation classified as destructive requires `--force` (or `--yes`).
 - `typeship agent-guide --format json` explains the conventions; `typeship help --json` is the command surface as data; `typeship init --all` connects this machine (credential, MCP clients, an AGENTS.md block); `typeship doctor` checks it.
 
 ## MCP server

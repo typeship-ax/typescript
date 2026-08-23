@@ -40,6 +40,7 @@
     "dist",
     "src",
     "api.md",
+    "api.json",
     "LICENSE"
   ],
   "sideEffects": false,

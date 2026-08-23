@@ -28,6 +28,7 @@ const BASIC: { envUser: string; envPass: string } | null = null;
 const EXCLUDED_OPS = 0;
 const VERSION = "0.6.0";
 const API_VERSION = "0.6.0";
+const SPEC_FORMAT = "openapi";
 const WHOAMI: { resource: string; method: string } | null = {"resource":"account","method":"retrieve"};
 const ENVIRONMENTS: Record<string, string> = {};
 const HAS_MCP = true;
@@ -67,7 +68,7 @@ const BUILTIN_BOOLEAN_FLAGS: Record<string, string[]> = {
   login: ["with-token", "no-browser"],
   upgrade: ["check"],
   mcp: ["claude", "cursor", "claude-desktop", "codex", "vscode", "windsurf", "gemini", "opencode", "zed", "all", "read-only"],
-  docs: ["web"],
+  docs: ["web", "schema"],
   init: ["all", "yes", "no-skills", "no-mcp", "no-agents-md"],
   auth: ["live"],
   doctor: [],
@@ -982,7 +983,7 @@ function commandSummaries(): CommandSummary[] {
     path: op.path,
     ...(op.summary ? { summary: op.summary } : {}),
     paginated: op.paginated,
-    destructive: op.httpMethod === "DELETE",
+    destructive: op.safety === "destructive",
     auth: op.auth,
     flags: op.params.filter((p) => p.kind !== "path").map((p) => ({ flag: p.flag, type: p.type, ...(p.items ? { items: p.items } : {}), ...(p.enum ? { enum: p.enum } : {}), required: p.required, ...(p.description ? { description: p.description.split("\n")[0] } : {}) })),
   }));
@@ -997,24 +998,33 @@ function helpJson(): Record<string, unknown> {
     byResource.set(c.resource, list);
   }
   return {
+    schema_version: "1",
     name: BIN,
     version: VERSION,
     api: API_TITLE,
     api_version: API_VERSION,
+    spec_format: SPEC_FORMAT,
     usage: BIN + " <resource> <command> [args] [--flags]",
     resources: [...byResource.entries()].map(([resource, commands]) => ({
       resource,
-      commands: commands.map((c) => ({
-        command: c.command,
-        method: c.method,
-        path: c.path,
-        ...(c.summary ? { summary: c.summary } : {}),
-        paginated: c.paginated,
-        destructive: c.destructive,
-        auth: c.auth,
-        positional: OPS.find((o) => o.command[0] === resource && o.command[1] === c.command)!.params.filter((p) => p.kind === "path").map((p) => p.name),
-        flags: c.flags,
-      })),
+      commands: commands.map((c) => {
+        const op = OPS.find((o) => o.command[0] === resource && o.command[1] === c.command)!;
+        return {
+          command: c.command,
+          method: c.method,
+          path: c.path,
+          ...(c.summary ? { summary: c.summary } : {}),
+          paginated: c.paginated,
+          safety: op.safety,
+          destructive: c.destructive,
+          auth: c.auth,
+          positional: op.params.filter((p) => p.kind === "path").map((p) => p.name),
+          flags: c.flags,
+          input_schema: op.inputSchema,
+          ...(op.outputSchema ? { output_schema: op.outputSchema } : {}),
+          example_arguments: op.exampleArguments,
+        };
+      }),
     })),
     builtins: BUILTIN_COMMANDS,
     global_flags: ["--help", "--version", "--debug", "--non-interactive", "--mode agent|human", "--yes", "--force", "--color on|off|auto", "--base-url <url>", "--data '<json>' | @<file> | -", "--fields <a,b.c>", "--all", "--validate", "--out <dir>", ...AUTH_SCALARS.map((a) => "--" + a.flag + " <value>")],
@@ -1457,12 +1467,39 @@ async function fetchDocs(pathOrFile: string): Promise<string | null> {
   }
 }
 
-function referenceFor(op: OpSpec): string {
+/** Token search across names, prose, paths, and arguments. A phrase such as
+ * "create project" should find the projects create command, even though that exact
+ * substring never occurs in the generated command. */
+function referenceSearchScore(op: OpSpec, query: string): number {
+  const terms = [...new Set(query.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().split(/[^a-z0-9]+/).filter((term) => term.length >= 2))];
+  if (terms.length === 0) return 0;
+  const names = [...op.command, op.tool].join("_").toLowerCase().split(/[^a-z0-9]+/);
+  const summary = (op.summary ?? "").toLowerCase();
+  const description = (op.description ?? "").toLowerCase();
+  const path = op.path.toLowerCase();
+  const params = op.params.flatMap((p) => [p.name.toLowerCase(), p.flag.toLowerCase()]);
+  let score = 0;
+  for (const term of terms) {
+    if (names.includes(term)) score += 10;
+    if (summary.split(/[^a-z0-9]+/).includes(term)) score += 5;
+    else if (summary.includes(term)) score += 3;
+    if (path.includes(term)) score += 3;
+    if (params.includes(term)) score += 3;
+    else if (params.some((param) => param.includes(term))) score += 1;
+    if (description.includes(term)) score += 1;
+  }
+  return score;
+}
+
+function referenceFor(op: OpSpec, includeSchemas = false): string {
   const lines: string[] = [];
   lines.push(paintOut("bold", usageLine(op)));
   if (op.summary) lines.push(op.summary);
   lines.push(wireOf(op) + (op.paginated ? "  (paginated: --all streams every item)" : ""));
   if (op.description) lines.push("", op.description.trim());
+  lines.push("", paintOut("bold", "Contract:"));
+  lines.push("  Safety: " + op.safety + (op.safety === "destructive" ? " (requires --force)" : ""));
+  lines.push("  Auth: " + op.auth);
   const groups: [string, ParamSpec[]][] = [
     ["Path arguments", op.params.filter((p) => p.kind === "path")],
     ["Flags", op.params.filter((p) => p.kind !== "path")],
@@ -1486,6 +1523,13 @@ function referenceFor(op: OpSpec): string {
     for (const [name, text] of extras) lines.push("  " + padPaint("cyan", name, 30) + text);
   }
   lines.push("", paintOut("bold", "Example:"), "  " + exampleLine(op));
+  if (includeSchemas) {
+    lines.push("", paintOut("bold", "Input schema:"), JSON.stringify(op.inputSchema, null, 2));
+    lines.push("", paintOut("bold", "Wire arguments:"), JSON.stringify(op.exampleArguments, null, 2));
+    if (op.outputSchema) lines.push("", paintOut("bold", "Output schema:"), JSON.stringify(op.outputSchema, null, 2));
+  } else {
+    lines.push("", "Add --schema for the complete input/output schemas, or --json for the machine contract.");
+  }
   return lines.join("\n");
 }
 
@@ -1507,7 +1551,9 @@ async function cmdDocs(parsed: Parsed): Promise<void> {
       BIN + " docs — API reference from the spec, plus the docs site's guides",
       "",
       "  " + BIN + " docs                          overview",
-      "  " + BIN + " docs <resource> <command>     full operation reference",
+      "  " + BIN + " docs <resource> <command>     operation contract and example",
+      "      --schema                              include input/output JSON Schema",
+      "      --json                                print the machine contract as JSON",
       "  " + BIN + " docs search <term>            search reference and guides",
       "  " + BIN + " docs read <page>              print a docs-site page in the terminal",
       "  " + BIN + " docs --web                    open the docs site in a browser",
@@ -1529,12 +1575,13 @@ async function cmdDocs(parsed: Parsed): Promise<void> {
   const sub = parsed.positionals[1];
 
   if (sub === "search") {
-    const term = parsed.positionals.slice(2).join(" ").toLowerCase();
+    const term = parsed.positionals.slice(2).join(" ");
     if (!term) fail(2, "docs search expects a term");
     const lines: string[] = [];
-    const refMatches = OPS.filter((op) =>
-      (op.command.join(" ") + " " + op.path + " " + (op.summary ?? "") + " " + (op.description ?? "") + " " +
-        op.params.map((p) => p.flag).join(" ")).toLowerCase().includes(term));
+    const refMatches = OPS.map((op) => ({ op, score: referenceSearchScore(op, term) }))
+      .filter((match) => match.score > 0)
+      .sort((a, b) => b.score - a.score || a.op.command.join(" ").localeCompare(b.op.command.join(" ")))
+      .map((match) => match.op);
     if (refMatches.length > 0) {
       lines.push(paintOut("bold", "Reference:"));
       for (const op of refMatches.slice(0, 15)) {
@@ -1547,7 +1594,7 @@ async function cmdDocs(parsed: Parsed): Promise<void> {
       const proseMatches: string[] = [];
       for (const line of prose.split("\n")) {
         if (/^#{1,3} /.test(line)) heading = line.replace(/^#+ /, "").trim();
-        else if (line.toLowerCase().includes(term) && proseMatches.length < 15) {
+        else if (line.toLowerCase().includes(term.toLowerCase()) && proseMatches.length < 15) {
           proseMatches.push("  " + padPaint("cyan", heading.slice(0, 32), 34) + line.trim().slice(0, 100));
         }
       }
@@ -1595,7 +1642,16 @@ async function cmdDocs(parsed: Parsed): Promise<void> {
       process.stdout.write(lines.join("\n") + "\n");
       await flushExit(0);
     }
-    process.stdout.write(referenceFor(op!) + "\n");
+    if (parsed.flags.get("json") === true) {
+      process.stdout.write(JSON.stringify({
+        schema_version: "1",
+        spec_format: SPEC_FORMAT,
+        api_version: API_VERSION,
+        operation: op,
+      }, null, 2) + "\n");
+      await flushExit(0);
+    }
+    process.stdout.write(referenceFor(op!, parsed.flags.get("schema") === true) + "\n");
     await flushExit(0);
   }
 
@@ -1971,11 +2027,11 @@ function printRoot(stream: NodeJS.WriteStream = process.stdout): void {
   const flagsText = "-v/--version, -h/--help, --debug, --non-interactive, --color on|off|auto, --base-url <url>, --data '<json>', --fields <a,b.c>, --all (paginated lists), --validate (schema-check bodies)" +
     (AUTH_SCALARS.length > 0 ? ", " + AUTH_SCALARS.map((a) => "--" + a.flag + " <value>").join(", ") : "");
   lines.push(...labeled(paintOut("bold", "Global flags:") + " ", flagsText, width, 14).map((l, i) => (i === 0 ? l : l)));
-  lines.push(...labeled("Auth env vars: ", [
+  lines.push(...labeled("Credential env vars: ", [
     ...AUTH_SCALARS.map((a) => a.env),
     ...(BASIC ? [BASIC.envUser, BASIC.envPass] : []),
-    "TYPESHIP_BASE_URL",
-  ].join(", "), width, 15));
+  ].join(", ") || "none", width, 21));
+  lines.push(...labeled("Endpoint env var: ", "TYPESHIP_BASE_URL", width, 18));
   lines.push(...labeled("Account: ", BIN + " login | logout | whoami | auth check  (stored at " + credsPath() + ")", width, 9));
   lines.push(...labeled("Setup: ", BIN + " init (connect this machine)" + " | " + BIN + " config (defaults)" + (HAS_MCP || MCP_URL ? " | " + BIN + " mcp install --all (agent clients)" : "") + " | " + BIN + " doctor | " + BIN + " upgrade | " + BIN + " completion <shell>", width, 7));
   lines.push(...labeled("Agents: ", BIN + " agent-guide | " + BIN + " help --json | --mode agent | -y/--yes/--force | --out <dir>  (JSON errors: {status, issues[{code}], next_steps})", width, 8));
@@ -2021,27 +2077,37 @@ function commandExtras(op: OpSpec): [string, string][] {
   const collectionField = collectionProperty(op.outputSchema);
   extras.push(["--fields <a,b.c>", "keep only these fields of the result" + (op.paginated ? " (per item)" : collectionField ? " (per item in " + collectionField + ")" : "")]);
   if (bundleProperty(op.outputSchema) !== null) extras.push(["--out <dir>", "write the response's files ({path, content}) into a directory"]);
-  if (op.httpMethod === "DELETE") extras.push(["--force, -y", "destructive: required without a terminal, skips the prompt with one"]);
+  if (op.safety === "destructive") extras.push(["--force, -y", "destructive: required without a terminal, skips the prompt with one"]);
   return extras;
 }
 
 /** One runnable example built from the required inputs. */
 function exampleLine(op: OpSpec): string {
-  const parts = [usageLine(op)];
+  const parts = [BIN, op.command[0], op.command[1]];
   for (const p of op.params) {
-    if (p.kind === "path" || !p.required) continue;
+    if (!p.required) continue;
+    const generated = p.type === "file" ? undefined : op.exampleArguments[p.name];
     const values = p.type === "array" ? p.items?.enum : p.enum;
-    const sample = p.type === "file" ? "./file"
+    const fallback: unknown = p.type === "file" ? "./file"
       : values ? values[0]!
-      : p.type === "number" ? "1"
-      : p.type === "boolean" ? "true"
-      : p.type === "object" ? "'{\"key\": \"value\"}'"
-      : p.type === "array" ? (p.items?.type === "number" ? "1,2" : p.items?.type === "object" || p.items?.type === "json" ? "'[{\"key\": \"value\"}]'" : "a,b")
-      : "<" + p.flag.replace(/-/g, "_") + ">";
-    parts.push("--" + p.flag + " " + sample);
+      : p.type === "number" ? 1
+      : p.type === "boolean" ? true
+      : p.type === "object" ? {}
+      : p.type === "array" ? [p.items?.type === "number" ? 1 : "value"]
+      : "value";
+    const value = generated ?? fallback;
+    const sample = typeof value === "string" ? shellQuote(value)
+      : typeof value === "object" ? shellQuote(JSON.stringify(value))
+      : String(value);
+    if (p.kind === "path") parts.push(sample);
+    else parts.push("--" + p.flag, sample);
   }
   const required = op.bodyStyle === "data" && ((op.inputSchema.required as string[] | undefined) ?? []).includes("body");
-  if (required) parts.push(op.bodyKind === "binary" ? "--file ./file" : "--data '<json>'");
+  if (required) {
+    const body = op.exampleArguments.body;
+    parts.push(op.bodyKind === "binary" ? "--file ./file" : "--data " + shellQuote(JSON.stringify(body ?? {})));
+  }
+  if (op.safety === "destructive") parts.push("--force");
   return parts.join(" ");
 }
 
@@ -2469,7 +2535,7 @@ async function main(): Promise<void> {
   // Destructive commands need --force. A person gets asked; an agent gets
   // an action_required envelope with the exact command to run, so nothing
   // is deleted on a guess.
-  if (op.httpMethod === "DELETE" && !assumeYes(parsed)) {
+  if (op.safety === "destructive" && !assumeYes(parsed)) {
     const rerun = BIN + " " + process.argv.slice(2).map((a) => (/\s/.test(a) ? JSON.stringify(a) : a)).join(" ") + " --force";
     if (nonInteractive(parsed) || !process.stdin.isTTY) {
       failWith({

@@ -16,7 +16,10 @@ export type RequestId = string;
 /** Identifies a cursor-paginated collection. */
 export type ListObject = "list";
 
-/** One customer-selected output. CLI and MCP include the private TypeScript request runtime they need; that dependency is not a selected or billable TypeScript SDK. */
+/**
+ * One customer-selected output. CLI and MCP include the private TypeScript request runtime they
+ * need; that dependency is not a selected or billable TypeScript SDK.
+ */
 export const OutputId = {
   TYPESCRIPT_SDK: "typescript-sdk",
   PYTHON_SDK: "python-sdk",
@@ -33,7 +36,10 @@ export interface UrlSpecInput {
    * Format: uri
    */
   url: string;
-  /** Request headers for a protected URL. Sent on the document GET and GraphQL introspection POST, never returned or retained by stateless generation. */
+  /**
+   * Request headers for a protected URL. Sent on the document GET and GraphQL introspection POST,
+   * never returned or retained by stateless generation.
+   */
   headers?: Record<string, string>;
 }
 
@@ -47,9 +53,15 @@ export type SpecInput = UrlSpecInput | InlineSpecInput;
 
 export interface GenerateRequest {
   spec: SpecInput;
-  /** Outputs for one delivery package. Choose one SDK output, or TypeScript SDK, CLI, and MCP in any combination. Linked projects can generate outputs in all ecosystems. */
+  /**
+   * Outputs for one delivery package. Choose one SDK output, or TypeScript SDK, CLI, and MCP in any
+   * combination. Linked projects can generate outputs in all ecosystems.
+   */
   outputs: OutputId[];
-  /** Registry name for the selected delivery package: an npm package, Python distribution, or Go module path. Defaults to a name derived from the API title. */
+  /**
+   * Registry name for the selected delivery package: an npm package, Python distribution, or Go
+   * module path. Defaults to a name derived from the API title.
+   */
   package_name?: string;
   config?: Config;
 }
@@ -81,17 +93,35 @@ export interface GenerationMeta {
   /** Pull request opened by this regeneration, when one was. */
   pr_url?: string | null;
   pr_number?: number | null;
-  /** Whether a destination pull request opened, was unnecessary because the generated tree already matched, or could not be opened. */
+  /**
+   * Whether a destination pull request opened, was unnecessary because the generated tree already
+   * matched, or could not be opened.
+   */
   pr_status?: "opened" | "no_changes" | "blocked";
-  /** Why the configured destination pull request was not opened. Generation itself still succeeded; fix this action and regenerate. */
+  /**
+   * Why the configured destination pull request was not opened. Generation itself still succeeded;
+   * fix this action and regenerate.
+   */
   pr_error?: string;
-  /** Markdown changelog entry for this regeneration, from the API surface diff. Absent on a first generation or when nothing changed. */
+  /**
+   * Markdown changelog entry for this regeneration, from the API surface diff. Absent on a first
+   * generation or when nothing changed.
+   */
   changelog?: string;
-  /** Breaking changes in the diff; removed methods and fields, changed types, inputs that became required. */
+  /**
+   * Breaking changes in the diff; removed methods and fields, changed types, inputs that became
+   * required.
+   */
   breaking_count?: number;
-  /** What the diff was measured against; "destination" means the .typeship/surface.json merged in the destination repository. */
+  /**
+   * What the diff was measured against; "destination" means the .typeship/surface.json merged in
+   * the destination repository.
+   */
   baseline?: "destination" | "last-generation" | "none";
-  /** The package compatibility verdict on the regeneration pull request; failure means breaking changes without a major version bump. */
+  /**
+   * The package compatibility verdict on the regeneration pull request; failure means breaking
+   * changes without a major version bump.
+   */
   package_compatibility?: "success" | "failure";
   /** The verdict in one line, as the commit status describes it. */
   package_compatibility_note?: string;
@@ -106,15 +136,23 @@ export interface GenerationResult {
   warnings: string[];
   meta: GenerationMeta;
   limits?: GenerationLimits;
-  /** Anonymous, URL-sourced generations only. A link a signed-in person can open to turn this run into a project in their organization (same spec, outputs, and config). Lasts seven days. Null for inline specs; absent on keyed calls. */
-  claim?: null | {
-    url: string;
-    /** Format: date-time */
-    expires_at: string;
-  };
+  /**
+   * Anonymous, URL-sourced generations only. A link a signed-in person can open to turn this run
+   * into a project in their organization (same spec, outputs, and config). Lasts seven days. Null
+   * for inline specs; absent on keyed calls.
+   */
+  claim?: null
+    | {
+        url: string;
+        /** Format: date-time */
+        expires_at: string;
+      };
 }
 
-/** Present when the generation was capped: by the free plan, or because the call was anonymous. Absent on uncapped generations. */
+/**
+ * Present when the generation was capped: by the free plan, or because the call was anonymous.
+ * Absent on uncapped generations.
+ */
 export interface GenerationLimits {
   /** How many operations this generation was allowed to include. */
   max_operations: number;
@@ -156,7 +194,12 @@ export interface UrlProjectSourceInput {
    * Format: uri
    */
   url: string;
-  /** Request headers for a protected URL. Values are never returned or recorded in revision history. When updating the same URL, omit headers to preserve the stored values or pass null to remove them. Changing the URL without headers clears the old values so a credential is never forwarded to a different source. */
+  /**
+   * Request headers for a protected URL. Values are never returned or recorded in revision history.
+   * When updating the same URL, omit headers to preserve the stored values or pass null to remove
+   * them. Changing the URL without headers clears the old values so a credential is never forwarded
+   * to a different source.
+   */
   headers?: Record<string, string> | null;
 }
 
@@ -201,12 +244,23 @@ export interface Destination {
 
 /** Registry identity and reviewed pull-request destination for one delivery package. */
 export interface PackageDelivery {
-  /** npm package name, Python distribution name, or Go module path. Null derives a name from the API title. */
+  /**
+   * npm package name, Python distribution name, or Go module path. Null derives a name from the API
+   * title.
+   */
   name?: string | null;
+  /**
+   * Release version for this ecosystem package. Null falls back to the legacy
+   * config.package.version, then the specification version.
+   */
+  version?: string | null;
   destination?: Destination | null;
 }
 
-/** Delivery packages keyed by registry ecosystem. TypeScript SDK, CLI, and MCP share npm delivery without becoming the same output. Python and Go SDKs use their own package ecosystems. */
+/**
+ * Delivery packages keyed by registry ecosystem. TypeScript SDK, CLI, and MCP share npm delivery
+ * without becoming the same output. Python and Go SDKs use their own package ecosystems.
+ */
 export interface Packages {
   npm?: PackageDelivery;
   python?: PackageDelivery;
@@ -220,14 +274,60 @@ export interface ProjectDestination {
 
 export interface ProjectPackageDelivery {
   name: string | null;
+  version: string | null;
   destination: ProjectDestination | null;
 }
 
-/** Complete package configuration. All ecosystems are returned even when their output is not selected, so saved delivery settings do not disappear when an output is disabled. */
+/**
+ * Complete package configuration. All ecosystems are returned even when their output is not
+ * selected, so saved delivery settings do not disappear when an output is disabled.
+ */
 export interface ProjectPackages {
   npm: ProjectPackageDelivery;
   python: ProjectPackageDelivery;
   go: ProjectPackageDelivery;
+}
+
+export interface GithubHealthIssue {
+  code: "installation_missing"
+    | "spec_unreadable"
+    | "contents_write_missing"
+    | "breaking_label_missing"
+    | "github_unavailable";
+  message: string;
+}
+
+export interface GithubRepositoryHealth {
+  repository: string;
+  roles: Array<"source" | "destination">;
+  status: "ready" | "action_required";
+  default_branch?: string;
+  can_read?: boolean;
+  can_write?: boolean;
+  breaking_label?: boolean | null;
+  spec?: "readable" | "missing";
+  issues: GithubHealthIssue[];
+}
+
+export interface GithubDeliveryHealth {
+  id: string;
+  event: string;
+  status: "queued" | "processing" | "succeeded" | "failed" | "superseded";
+  error: string | null;
+  /** Format: date-time */
+  created_at: string;
+}
+
+export interface GithubIntegrationHealth {
+  object: "github_integration_health";
+  project_id: ProjectId;
+  status: "ready" | "action_required";
+  repositories: GithubRepositoryHealth[];
+  required_statuses: {
+    source: string[];
+    destination: string[];
+  };
+  last_delivery: GithubDeliveryHealth | null;
 }
 
 export interface Project {
@@ -236,17 +336,31 @@ export interface Project {
   name: string;
   source: ProjectSource;
   packages: ProjectPackages;
-  /** Regenerate when the spec changes: on every push to the default branch for a repository source, every 30 minutes for a URL source. Off by default: the first generation is always one you asked for. Off means only "generate now" and POST /projects/{project_id}/generations regenerate. */
+  /**
+   * Regenerate when the spec changes: on every push to the default branch for a repository source,
+   * every 30 minutes for a URL source. Off by default: the first generation is always one you asked
+   * for. Off means only "generate now" and POST /projects/{project_id}/generations regenerate.
+   */
   auto_regen: boolean;
   spec_patches: SpecPatch[];
   config: Config | null;
-  /** Whether the hosted MCP endpoint is on. Requires the MCP output and Enterprise; turning the output off turns this off. */
+  /**
+   * Whether the hosted MCP endpoint is on. Requires the MCP output and Enterprise; turning the
+   * output off turns this off.
+   */
   mcp_enabled: boolean;
   /** Path of the hosted MCP endpoint while it is on; read-only. */
   mcp_url: string | null;
-  /** Whether the webhook relay is on, letting the generated CLI's webhooks listen command mint relay sessions. Requires the cli output and Pro; turning the output off turns this off. */
+  /**
+   * Whether the webhook relay is on, letting the generated CLI's webhooks listen command mint relay
+   * sessions. Requires the cli output and Pro; turning the output off turns this off.
+   */
   relay_enabled: boolean;
-  /** First-class generated outputs. Any non-empty combination is valid. Free keeps every selected output current for the first 25 operations in one linked project. On Pro, each selected output is billed once; shared implementation runtimes are included. */
+  /**
+   * First-class generated outputs. Any non-empty combination is valid. Free keeps every selected
+   * output current for the first 25 operations in one linked project. On Pro, each selected output
+   * is billed once; shared implementation runtimes are included.
+   */
   outputs: OutputId[];
   /** Format: date-time */
   created_at: string;
@@ -262,7 +376,10 @@ export interface CreateProjectRequest {
   source: ProjectSourceInput;
   /** First-class outputs Typeship will keep current for this project. */
   outputs: OutputId[];
-  /** Initial package names and destinations. Omitted ecosystems use derived names and no destination. */
+  /**
+   * Initial package names and destinations. Omitted ecosystems use derived names and no
+   * destination.
+   */
   packages?: Packages;
   /**
    * Whether Typeship should regenerate automatically when the source changes.
@@ -289,7 +406,10 @@ export interface UpdateProjectRequest {
   source?: ProjectSourceInput;
   /** Replaces the selected outputs; delivered files are not deleted. */
   outputs?: OutputId[];
-  /** Replaces package configuration for every ecosystem. Include any existing ecosystem settings you want to keep. */
+  /**
+   * Replaces package configuration for every ecosystem. Include any existing ecosystem settings you
+   * want to keep.
+   */
   packages?: Packages;
   auto_regen?: boolean;
   /** Replaces the full patch list. Pass an empty array to clear it. */
@@ -302,7 +422,10 @@ export interface UpdateProjectRequest {
   config?: Config | null;
 }
 
-/** The organization an API key belongs to. Members share its projects, keys, and plan; sign-in identity is not part of the API. */
+/**
+ * The organization an API key belongs to. Members share its projects, keys, and plan; sign-in
+ * identity is not part of the API.
+ */
 export interface Account {
   id: string;
   object: "account";
@@ -315,21 +438,45 @@ export interface Account {
 
 /** How the generated CLI behaves. Part of Config. */
 export interface CliBehavior {
-  /** resource.method of a zero-argument GET that the generated CLI's whoami command calls. Overrides auto-detection; a value that matches nothing is reported as a generation warning. */
+  /**
+   * resource.method of a zero-argument GET that the generated CLI's whoami command calls. Overrides
+   * auto-detection; a value that matches nothing is reported as a generation warning.
+   */
   whoami_operation?: string | null;
-  /** OAuth client id baked into the generated CLI for device-flow login. Without it, login prompts for a pasted credential. */
+  /**
+   * OAuth client id baked into the generated CLI for device-flow login. Without it, login prompts
+   * for a pasted credential.
+   */
   oauth_client_id?: string | null;
-  /** Scopes requested during device-flow login. Include offline_access if the authorization server gates refresh tokens behind it. */
+  /**
+   * Scopes requested during device-flow login. Include offline_access if the authorization server
+   * gates refresh tokens behind it.
+   */
   oauth_scopes?: string[];
-  /** Audience sent with the device-authorization request, for authorization servers that require one to issue API-valid access tokens. */
+  /**
+   * Audience sent with the device-authorization request, for authorization servers that require one
+   * to issue API-valid access tokens.
+   */
   oauth_audience?: string | null;
-  /** Opt in to a once-a-day registry check that prints an upgrade hint. Off by default; generated code phones nobody unless this is enabled. */
+  /**
+   * Opt in to a once-a-day registry check that prints an upgrade hint. Off by default; generated
+   * code phones nobody unless this is enabled.
+   */
   update_notice?: boolean;
-  /** Where the generated CLI's feedback command sends users. GitHub issues/new URLs get a prefilled title and environment details. */
+  /**
+   * Where the generated CLI's feedback command sends users. GitHub issues/new URLs get a prefilled
+   * title and environment details.
+   */
   support_url?: string | null;
-  /** Base URL of the browser-approval endpoint pair used by CLI login. The CLI keeps the verifier and receives the credential directly; no key is pasted through a conversation. */
+  /**
+   * Base URL of the browser-approval endpoint pair used by CLI login. The CLI keeps the verifier
+   * and receives the credential directly; no key is pasted through a conversation.
+   */
   auth_url?: string | null;
-  /** Hosted MCP endpoint installed by the generated CLI instead of launching the package's local stdio server. */
+  /**
+   * Hosted MCP endpoint installed by the generated CLI instead of launching the package's local
+   * stdio server.
+   */
   mcp_url?: string | null;
   /** GitHub owner/name of the skills package the generated CLI offers to install during init. */
   skills_repo?: string | null;
@@ -337,23 +484,46 @@ export interface CliBehavior {
 
 /** How the generated MCP server and the hosted endpoint behave. Part of Config. */
 export interface McpBehavior {
-  /** MCP tool shape. meta collapses per-operation tools into search_docs, read_docs, and execute so large APIs don't flood an agent's context window. Auto considers the serialized tool schemas, switching near 10k tokens or above 100 operations. */
+  /**
+   * MCP tool shape. meta collapses per-operation tools into search_docs, read_docs, and execute so
+   * large APIs don't flood an agent's context window. Auto considers the serialized tool schemas,
+   * switching near 10k tokens or above 100 operations.
+   */
   tool_mode?: "auto" | "operations" | "meta";
-  /** Guidance appended to the MCP server's instructions, which agents read once when they connect (server/discover): what to call first, conventions the spec does not state, what not to do. Carried by the package's server and the hosted endpoint alike. */
+  /**
+   * Guidance appended to the MCP server's instructions, which agents read once when they connect
+   * (server/discover): what to call first, conventions the spec does not state, what not to do.
+   * Carried by the package's server and the hosted endpoint alike.
+   */
   instructions?: string | null;
-  /** Hand-written MCP tool descriptions keyed by operationId or "METHOD /path". Each replaces the text typeship derives for that operation (summary, first sentence, method and path, deprecation and auth notes). For flows the spec cannot describe, such as a multi-step upload. Keys that match no operation are reported as generation warnings. */
+  /**
+   * Hand-written MCP tool descriptions keyed by operationId or "METHOD /path". Each replaces the
+   * text typeship derives for that operation (summary, first sentence, method and path, deprecation
+   * and auth notes). For flows the spec cannot describe, such as a multi-step upload. Keys that
+   * match no operation are reported as generation warnings.
+   */
   tool_descriptions?: Record<string, string>;
 }
 
-/** Published-package metadata the API spec does not own. Use version only when the client intentionally releases on a different cadence from info.version; repository is derived from each destination. */
+/**
+ * Published-package metadata the API spec does not own. Repository is derived from each
+ * destination; release versions belong to packages.
+ */
 export interface PackageBehavior {
-  /** Semantic version for the generated packages. Defaults to info.version. */
+  /**
+   * Legacy lockstep version fallback. Prefer packages.<ecosystem>.version so npm, PyPI, and Go
+   * releases can advance independently.
+   * @deprecated
+   */
   version?: string | null;
   /** Homepage written into registry metadata. */
   homepage?: string | null;
   /** SPDX identifier written into registry metadata. Defaults to info.license. */
   license?: string | null;
-  /** Exact LICENSE file contents. Supply this for licences the engine does not build in; MIT is built in when copyright is also set. */
+  /**
+   * Exact LICENSE file contents. Supply this for licences the engine does not build in; MIT is
+   * built in when copyright is also set.
+   */
   license_text?: string | null;
   /** Copyright line used in generated license files. */
   copyright?: string | null;
@@ -365,48 +535,82 @@ export interface PackageBehavior {
   mcp_name?: string | null;
 }
 
-/** Everything typeship needs beyond the spec, in one object: generation customization (globals, retries, pagination) and how the generated tooling behaves (cli, mcp, package, docs_url). Plain configuration. typeship never requires vendor extensions inside the spec itself. The same shape is accepted on a project and on POST /generate. */
+/**
+ * Everything typeship needs beyond the spec, in one object: generation customization (globals,
+ * retries, pagination) and how the generated tooling behaves (cli, mcp, package, docs_url). Plain
+ * configuration. typeship never requires vendor extensions inside the spec itself. The same shape
+ * is accepted on a project and on POST /generate.
+ */
 export interface Config {
-  /** Wire names of query/header parameters that become settable once on the generated client and auto-apply to every operation that accepts them; per-call values win. Names that match nothing are reported as generation warnings. */
+  /**
+   * Wire names of query/header parameters that become settable once on the generated client and
+   * auto-apply to every operation that accepts them; per-call values win. Names that match nothing
+   * are reported as generation warnings.
+   */
   globals?: string[];
   retries?: RetryTuning;
-  /** Per-operation pagination control, keyed by operationId or "METHOD /path". Unmatched keys are reported as generation warnings. */
+  /**
+   * Per-operation pagination control, keyed by operationId or "METHOD /path". Unmatched keys are
+   * reported as generation warnings.
+   */
   pagination?: Record<string, PaginationRule | boolean>;
   graphql?: GraphqlSettings;
   cli?: CliBehavior;
   mcp?: McpBehavior;
   package?: PackageBehavior;
-  /** The API's documentation site. Read through its llms.txt by the generated CLI's docs command, the MCP server's docs tools, and the package's AGENTS.md. Defaults to the spec's externalDocs URL. */
+  /**
+   * The API's documentation site. Read through its llms.txt by the generated CLI's docs command,
+   * the MCP server's docs tools, and the package's AGENTS.md. Defaults to the spec's externalDocs
+   * URL.
+   */
   docs_url?: string | null;
 }
 
 /** What a GraphQL schema cannot say about itself. Ignored for OpenAPI specs. */
 export interface GraphqlSettings {
   /**
-   * The URL every request is POSTed to; the generated client's default baseUrl. Defaults to the URL the schema was fetched from. Without either, baseUrl is a required client option.
+   * The URL every request is POSTed to; the generated client's default baseUrl. Defaults to the URL
+   * the schema was fetched from. Without either, baseUrl is a required client option.
    * Format: uri
    */
   endpoint?: string;
-  /** Named endpoints (sandbox, production). Each becomes a client environment; the first is the default unless endpoint is set. */
+  /**
+   * Named endpoints (sandbox, production). Each becomes a client environment; the first is the
+   * default unless endpoint is set.
+   */
   environments?: Array<{
     name: string;
     /** Format: uri */
     url: string;
   }>;
   /**
-   * How requests authenticate. bearer sends Authorization: Bearer; basic is for key-pair APIs (public key as username, private key as password); api_key sends a header named by api_key_header; none generates no auth option.
+   * How requests authenticate. bearer sends Authorization: Bearer; basic is for key-pair APIs
+   * (public key as username, private key as password); api_key sends a header named by
+   * api_key_header; none generates no auth option.
    * Default: "bearer"
    */
   auth?: "bearer" | "basic" | "api_key" | "none";
-  /** Header carrying the key when auth is api_key. Required for that mode; Typeship does not invent a vendor-specific header name. */
+  /**
+   * Header carrying the key when auth is api_key. Required for that mode; Typeship does not invent
+   * a vendor-specific header name.
+   */
   api_key_header?: string;
-  /** The API's name; drives the package and client names ("Braintree" gives braintree and BraintreeClient). Defaults to a name derived from the endpoint's host. */
+  /**
+   * The API's name; drives the package and client names ("Braintree" gives braintree and
+   * BraintreeClient). Defaults to a name derived from the endpoint's host.
+   */
   title?: string;
-  /** JSON representation of each custom scalar, keyed by GraphQL scalar name. Unmapped scalars generate as the language's untyped JSON value and produce a warning. Unmatched keys warn. */
+  /**
+   * JSON representation of each custom scalar, keyed by GraphQL scalar name. Unmapped scalars
+   * generate as the language's untyped JSON value and produce a warning. Unmatched keys warn.
+   */
   scalars?: Record<string, "string" | "integer" | "number" | "boolean" | "json">;
 }
 
-/** Retry behavior. Top-level fields adjust every operation; operations maps operationId or "METHOD /path" keys to per-operation overrides. */
+/**
+ * Retry behavior. Top-level fields adjust every operation; operations maps operationId or "METHOD
+ * /path" keys to per-operation overrides.
+ */
 export interface RetryTuning {
   max_retries?: number;
   /** Replaces the default retryable set (408, 429, 500, 502, 503, 504). */
@@ -442,7 +646,10 @@ export interface FileStub {
 export interface Generation {
   id: GenerationId;
   object: "generation";
-  /** Present and true when the generated output was too large to inline; files_index lists paths, fetched one at a time via GET /generations/{generation_id}/file. */
+  /**
+   * Present and true when the generated output was too large to inline; files_index lists paths,
+   * fetched one at a time via GET /generations/{generation_id}/file.
+   */
   files_omitted?: boolean;
   files_index?: FileStub[];
   project_id: ProjectId;
