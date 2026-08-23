@@ -3,20 +3,17 @@
 
 import { HttpCore, type ApiResult, type RequestOptions } from "../core/http.js";
 import { paginate, PagePromise } from "../core/pagination.js";
-import { TransportError, UnexpectedApiError, ValidationError, BadRequestError, ForbiddenError, InternalServerError, NotFoundError, PaymentRequiredError, RateLimitedError, UnauthorizedError, UnprocessableEntityError } from "../errors.js";
+import { TransportError, UnexpectedApiError, ValidationError, BadRequestError, ConflictError, ForbiddenError, InternalServerError, NotFoundError, PaymentRequiredError, RateLimitedError, UnauthorizedError, UnprocessableEntityError } from "../errors.js";
 import type {
-  Config,
+  CreateProjectRequest,
   DeletedProject,
   Generation,
-  GenerationFailure,
+  GenerationBatch,
   GenerationList,
-  OutputId,
-  Packages,
   Project,
   ProjectId,
   ProjectList,
-  SourceInput,
-  SpecPatch,
+  UpdateProjectRequest,
 } from "../types.js";
 
 export class ProjectsResource {
@@ -49,30 +46,19 @@ export class ProjectsResource {
   /**
    * Create a project
    *
-   * Stores a URL- or repository-sourced project. Free includes one stored project, every selected output, and the first 25 operations, while keeping manual and automatic regeneration, history, destination pull requests, and preview checks. Stateless POST /generate does not consume this slot. Pro adds projects and the whole spec.
+   * Stores a URL- or GitHub-sourced project. Free includes one stored project, every selected output, and the first 25 operations, while keeping manual and automatic regeneration, history, destination pull requests, and preview checks. Stateless POST /generate does not consume this slot. Pro adds projects and the whole spec.
+   *
+   * A `Idempotency-Key` UUID is generated per call (stable across retries) unless you pass one.
    * `POST /projects`
    */
-  async create(body: {
-    name: string;
-    /** Spec location for a URL-sourced project. Provide this or source; a project with neither has nothing to generate. */
-    spec_url?: string;
-    source?: SourceInput;
-    /** First-class outputs to keep current. Any non-empty combination is valid. */
-    outputs: OutputId[];
-    packages?: Packages;
-    auto_regen?: boolean;
-    spec_patches?: SpecPatch[];
-    /** Requires the MCP output and Enterprise. */
-    mcp_enabled?: boolean;
-    /** Requires the CLI output and Pro. */
-    relay_enabled?: boolean;
-    config?: Config | null;
-  }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsCreateError>> {
+  async create(body: CreateProjectRequest, params?: ProjectsCreateParams, options?: RequestOptions): Promise<ApiResult<Project, ProjectsCreateError>> {
     return this._core.request<Project, ProjectsCreateError>({
       method: "POST",
       path: "/projects",
+      headers: { "Idempotency-Key": params?.idempotencyKey === undefined ? undefined : String(params?.idempotencyKey) },
       body,
-      errors: { "400": BadRequestError, "401": UnauthorizedError, "402": PaymentRequiredError, "403": ForbiddenError, "429": RateLimitedError },
+      errors: { "400": BadRequestError, "401": UnauthorizedError, "402": PaymentRequiredError, "403": ForbiddenError, "409": ConflictError, "429": RateLimitedError, "500": InternalServerError },
+      idempotencyKey: "Idempotency-Key",
       schemaKey: "projects.create",
       options,
     });
@@ -112,22 +98,7 @@ export class ProjectsResource {
    * Update a project
    * `PATCH /projects/{project_id}`
    */
-  async update(projectId: ProjectId, body: {
-    name?: string;
-    spec_url?: string;
-    source?: SourceInput;
-    /** First-class outputs; replaces the selection. Turning one off stops generating it; nothing already delivered is removed. */
-    outputs?: OutputId[];
-    packages?: Packages;
-    auto_regen?: boolean;
-    spec_patches?: SpecPatch[];
-    /** Serve this project as a hosted remote MCP endpoint. Requires the MCP output and Enterprise. */
-    mcp_enabled?: boolean;
-    /** Enable the webhook relay so the generated CLI's webhooks listen command works for this API's users. Requires the CLI output and Pro. */
-    relay_enabled?: boolean;
-    /** Replaces the whole config. Pass null to clear it. */
-    config?: Config | null;
-  }, options?: RequestOptions): Promise<ApiResult<Project, ProjectsUpdateError>> {
+  async update(projectId: ProjectId, body: UpdateProjectRequest, options?: RequestOptions): Promise<ApiResult<Project, ProjectsUpdateError>> {
     return this._core.request<Project, ProjectsUpdateError>({
       method: "PATCH",
       path: `/projects/${encodeURIComponent(String(projectId))}`,
@@ -175,8 +146,8 @@ export class ProjectsResource {
    * regeneration runs after a source change.
    * `POST /projects/{project_id}/generations`
    */
-  async generate(projectId: ProjectId, options?: RequestOptions): Promise<ApiResult<ProjectsGenerateResponse, ProjectsGenerateError>> {
-    return this._core.request<ProjectsGenerateResponse, ProjectsGenerateError>({
+  async generate(projectId: ProjectId, options?: RequestOptions): Promise<ApiResult<GenerationBatch, ProjectsGenerateError>> {
+    return this._core.request<GenerationBatch, ProjectsGenerateError>({
       method: "POST",
       path: `/projects/${encodeURIComponent(String(projectId))}/generations`,
       errors: { "401": UnauthorizedError, "402": PaymentRequiredError, "403": ForbiddenError, "404": NotFoundError, "422": UnprocessableEntityError, "429": RateLimitedError, "500": InternalServerError },
@@ -196,8 +167,13 @@ export interface ProjectsListParams {
 /** Every error `list` can produce, as a discriminated union. */
 export type ProjectsListError = BadRequestError | UnauthorizedError | ForbiddenError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
 
+export interface ProjectsCreateParams {
+  /** Uniquely identifies this creation attempt. Retrying the same request with the same key returns the original response instead of creating another project. Reusing a key with different parameters returns 409. */
+  idempotencyKey?: string;
+}
+
 /** Every error `create` can produce, as a discriminated union. */
-export type ProjectsCreateError = BadRequestError | UnauthorizedError | PaymentRequiredError | ForbiddenError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
+export type ProjectsCreateError = BadRequestError | UnauthorizedError | PaymentRequiredError | ForbiddenError | ConflictError | RateLimitedError | InternalServerError | UnexpectedApiError | TransportError | ValidationError;
 
 /** Every error `retrieve` can produce, as a discriminated union. */
 export type ProjectsRetrieveError = UnauthorizedError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
@@ -219,11 +195,6 @@ export interface ProjectsListGenerationsParams {
 
 /** Every error `listGenerations` can produce, as a discriminated union. */
 export type ProjectsListGenerationsError = BadRequestError | UnauthorizedError | ForbiddenError | NotFoundError | RateLimitedError | UnexpectedApiError | TransportError | ValidationError;
-
-/** What `generate` resolves to. */
-export interface ProjectsGenerateResponse {
-  data: Array<Generation | GenerationFailure>;
-}
 
 /** Every error `generate` can produce, as a discriminated union. */
 export type ProjectsGenerateError = UnauthorizedError | PaymentRequiredError | ForbiddenError | NotFoundError | UnprocessableEntityError | RateLimitedError | InternalServerError | UnexpectedApiError | TransportError | ValidationError;
