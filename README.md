@@ -8,7 +8,6 @@ Generated from the OpenAPI spec by [typeship](https://typeship.dev). Change the 
 - **Typed error unions** — every call returns `ApiResult<T, E>` where `E` lists each documented error for that exact operation
 - **Auto-pagination** — `for await` any list call to stream every item across every page
 - **Retries built in** — idempotent requests retry with exponential backoff and `Retry-After` support
-- **Forward-compatible responses** — request enums stay closed, while response enums and discriminator unions preserve values the server added after this package was generated
 - **Optional runtime validation** — `validate: true` schema-checks request and response bodies against the spec, still zero dependencies
 - **Tree-shakeable SDK** — per-resource modules, `sideEffects: false`
 
@@ -23,7 +22,7 @@ npm install @typeship-ax/sdk
 ```ts
 import { TypeshipClient } from "@typeship-ax/sdk";
 
-const client = new TypeshipClient({ bearerToken: process.env.SDK_TOKEN! });
+const client = new TypeshipClient({ bearerToken: process.env.TYPESHIP_TOKEN! });
 
 for await (const item of client.projects.list()) {
   console.log(item);
