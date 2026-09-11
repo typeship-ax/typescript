@@ -5,6 +5,7 @@ import {
   HttpCore,
   formatDebugEvent,
   type AuthValue,
+  type SecurityCredential,
   type DebugEvent,
   type RequestContext,
   bearerAuth,
@@ -21,8 +22,8 @@ import { AccountResource } from "./resources/account.js";
 import { ApiKeysResource } from "./resources/api-keys.js";
 
 /** This package's version, also sent as the `User-Agent`. */
-export const VERSION = "0.9.0";
-const USER_AGENT = "@typeship-ax/sdk/0.9.0 (typeship)";
+export const VERSION = "0.10.0";
+const USER_AGENT = "@typeship-ax/sdk/0.10.0 (typeship)";
 
 export interface ClientOptions {
   /** Override the server URL. Default: `https://typeship.dev/api/v1` */
@@ -32,6 +33,13 @@ export interface ClientOptions {
    * before every attempt.
    */
   bearerToken?: string | (() => string | Promise<string>);
+  /**
+   * Credentials keyed by the Definition's security scheme names. Only one complete alternative is
+   * sent for each operation. Named values take precedence over convenience options.
+   */
+  credentials?: {
+    "apiKey"?: AuthValue;
+  };
   /** Per-attempt timeout in milliseconds. Default: 30000. */
   timeoutMs?: number;
   /** Retries after the first attempt (retryable failures only). Default: 2. */
@@ -57,8 +65,8 @@ export interface ClientOptions {
   onError?: (error: unknown, request: { method: string; path: string }) => void | Promise<void>;
   /**
    * One redacted line per attempt: true logs to console.error; a function receives the structured
-   * DebugEvent for your own logger. Also enabled by the SDK_DEBUG=1 env var. Never includes headers
-   * or bodies.
+   * DebugEvent for your own logger. Also enabled by the TYPESHIP_DEBUG=1 env var. Never includes
+   * headers or bodies.
    */
   debug?: boolean | ((event: DebugEvent) => void);
   /**
@@ -71,7 +79,7 @@ export interface ClientOptions {
 }
 
 /**
- * typeship — v0.9.0
+ * typeship — v0.10.0
  *
  * Resolve an OpenAPI or GraphQL Definition, diagnose it, and keep every
  * selected SDK, CLI, and MCP Target current.
@@ -98,14 +106,30 @@ export class TypeshipClient {
     // control their own User-Agent); override via defaultHeaders.
     const headers: Record<string, AuthValue> = { "User-Agent": USER_AGENT, ...options.defaultHeaders };
     const debugOption = options.debug
-      ?? (typeof process !== "undefined" && process.env?.["SDK_DEBUG"] === "1");
+      ?? (typeof process !== "undefined" && process.env?.["TYPESHIP_DEBUG"] === "1");
     const debug = typeof debugOption === "function"
       ? debugOption
       : debugOption === true
-        ? (event: DebugEvent) => console.error(formatDebugEvent("sdk", event))
+        ? (event: DebugEvent) => console.error(formatDebugEvent("typeship", event))
         : undefined;
     const query: Record<string, AuthValue> = {};
-    if (options.bearerToken !== undefined) headers["Authorization"] = bearerAuth(options.bearerToken);
+    const authHeaders: Record<string, AuthValue> = {};
+    const authQuery: Record<string, AuthValue> = {};
+
+    let bearerCredential: AuthValue | undefined;
+
+    if (options.bearerToken !== undefined) bearerCredential = bearerAuth(options.bearerToken);
+
+    const allowedCredentials = new Set<string>(["apiKey"]);
+    for (const name of Object.keys(options.credentials ?? {})) {
+      if (!allowedCredentials.has(name)) throw new Error("Unknown security scheme: " + name);
+    }
+    const credentials: Record<string, SecurityCredential> = Object.create(null);
+    {
+      const named = options.credentials && Object.hasOwn(options.credentials, "apiKey") ? options.credentials["apiKey"] : undefined;
+      const value = named !== undefined ? bearerAuth(named) : bearerCredential;
+      if (value !== undefined) credentials["apiKey"] = { headers: { ["Authorization"]: value } };
+    }
     const v = options.validate;
     const validate = v
       ? {
@@ -118,6 +142,7 @@ export class TypeshipClient {
       baseUrl: options.baseUrl ?? "https://typeship.dev/api/v1",
       headers,
       query,
+      credentials,
       fetch: options.fetch ?? fetch,
       timeoutMs: options.timeoutMs ?? 30_000,
       maxRetries: options.maxRetries ?? 2,
