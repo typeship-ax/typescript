@@ -12,13 +12,28 @@ Generated from the OpenAPI spec by [typeship](https://typeship.dev). Change the 
 - **Optional runtime validation** — `validate: true` schema-checks request and response bodies against the spec, still zero dependencies
 - **Tree-shakeable SDK** — per-resource modules, `sideEffects: false`
 
-## Install
+## Build from source
+
+Run these commands in the downloaded or cloned package directory:
 
 ```sh
-npm install @typeship-ax/sdk
+npm install
+npm run build
 ```
 
-## TypeScript SDK
+Requires Node.js 18+ or a modern browser/edge runtime with `fetch`, `AbortController`, and Web Streams. The package is ESM.
+
+Save the quickstart example below in the package directory. The package import resolves to the local build.
+
+## Install a published package
+
+Generation does not publish a package. Before using the registry command below, confirm `name` and `version` in `package.json`, publish under a name you control, and verify that release is available on npm.
+
+```sh
+npm install @typeship-ax/sdk@0.9.0
+```
+
+## Quickstart
 
 ```ts
 import { TypeshipClient } from "@typeship-ax/sdk";
@@ -75,6 +90,10 @@ if (page.ok) {
 }
 ```
 
+## Response metadata
+
+Every successful result includes `response.status`, `response.headers`, `response.requestId`, and `response.rawBody`. HTTP errors expose the same metadata on `error.response`; transport errors have no response.
+
 ## SDK configuration
 
 ```ts
@@ -87,3 +106,7 @@ new TypeshipClient({
 ```
 
 Per-call overrides ride on the last argument: `{ timeoutMs, maxRetries, headers, signal }`.
+
+Timeouts apply to each attempt. By default, the client makes up to two retries for `408`, `429`, `500`, `502`, `503`, and `504`; non-idempotent calls retry only on `429`, when the operation declares an idempotency key, or when explicitly enabled. `Retry-After` takes precedence over exponential backoff.
+
+Use `onRequest`, `onResponse`, and `onError` for instrumentation. `debug` receives one structured event per attempt and never includes headers or bodies.
