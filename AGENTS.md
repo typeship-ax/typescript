@@ -1,6 +1,6 @@
 # typeship — agent context
 
-This package contains the generated TypeScript SDK for **typeship** (API v1.0.0, package v0.10.0).
+This package contains the generated TypeScript SDK for **typeship** (API v1.0.0, package v0.10.1).
 
 Resolve an OpenAPI or GraphQL Definition, diagnose it, and keep every
 selected SDK, CLI, and MCP Target current.
@@ -27,7 +27,7 @@ which works anonymously with the free plan's limits.
 import { TypeshipClient } from "@typeship-ax/sdk";
 const client = new TypeshipClient({ /* auth options above */ });
 ```
-- Awaiting a call returns `ApiResult<T, E>`: check `result.ok`, or `unwrap(result)` to throw the typed error.
+- Awaiting a call returns `ApiResult<T, E>`: check `result.ok`, or `unwrap(result)` to throw the typed error. Malformed successful JSON is `ResponseParseError`.
 - Paginated methods return a `PagePromise`: awaiting it returns the first page's `ApiResult`; `for await (const item of client.x.list())` walks every page and throws the typed API error if a page fails.
 - Every method takes a last `{ timeoutMs, maxRetries, headers, signal }` argument for per-call overrides; every result carries `response: { status, headers, requestId }`.
 - Uploads take a `Blob` (a `File` for a filename).

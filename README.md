@@ -30,7 +30,7 @@ Save the quickstart example below in the package directory. The package import r
 Generation does not publish a package. Before using the registry command below, confirm `name` and `version` in `package.json`, publish under a name you control, and verify that release is available on npm.
 
 ```sh
-npm install @typeship-ax/sdk@0.10.0
+npm install @typeship-ax/sdk@0.10.1
 ```
 
 ## Quickstart
@@ -55,14 +55,17 @@ if (result.ok) {
 ## Error handling
 
 Awaiting a call returns a discriminated result instead of throwing on request errors.
-The error side is a union of the documented error classes for that operation:
+The error side includes the documented HTTP errors for that operation plus `ResponseParseError`, validation, and transport failures:
 
 ```ts
-import { UnauthorizedError } from "@typeship-ax/sdk";
+import { ResponseParseError, UnauthorizedError } from "@typeship-ax/sdk";
 
 const result = await client.account.retrieve();
 
 if (!result.ok) {
+  if (result.error instanceof ResponseParseError) {
+    console.error(result.error.body); // malformed successful JSON, preserved as text
+  }
   if (result.error instanceof UnauthorizedError) {
     // result.error.body is fully typed for this status
   }
@@ -93,7 +96,7 @@ if (page.ok) {
 
 ## Response metadata
 
-Every successful result includes `response.status`, `response.headers`, `response.requestId`, and `response.rawBody`. HTTP errors expose the same metadata on `error.response`; transport errors have no response.
+Every successful result includes `response.status`, `response.headers`, `response.requestId`, and `response.rawBody`. HTTP and response-parse errors expose the same metadata on `error.response`. A transport failure can still include `result.response` when headers arrived before the body read failed.
 
 ## SDK configuration
 
