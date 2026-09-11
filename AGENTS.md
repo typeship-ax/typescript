@@ -1,6 +1,6 @@
 # typeship — agent context
 
-This package contains the generated TypeScript SDK for **typeship** (API v1.0.0, package v0.9.0).
+This package contains the generated TypeScript SDK for **typeship** (API v1.0.0, package v0.10.0).
 
 Resolve an OpenAPI or GraphQL Definition, diagnose it, and keep every
 selected SDK, CLI, and MCP Target current.
@@ -13,9 +13,11 @@ session is not a credential for this API. The exception is POST /generate,
 which works anonymously with the free plan's limits.
 
 ## Ground rules
-- Generated code: never edit files in this package by hand — changes are lost on regeneration. Wrap the client in your own code instead.
+- Typeship owns the files it generates. Change the API definition, generation settings, or definition patches, then regenerate those files. Repository delivery preserves files outside its generated-file ownership manifest; preserving a file does not add it to the package's exports, build, or tests.
+- Keep application wrappers in application-owned code. Adding a helper to the official generated package is not a supported extension path; do not assume a preserved file will be published or exported.
 - Zero runtime dependencies; everything runs on platform `fetch` (Node 18+, browsers, edge).
 - `api.md` is the native method reference; `api.json` is the machine-readable operation, schema, safety, and example contract. Read them before guessing.
+- Start with the local build or installation instructions in `README.md`. Generation does not publish a registry package.
 
 ## Authentication
 - TypeScript SDK: pass the `bearerToken` client option explicitly; the SDK does not read credential environment variables.
