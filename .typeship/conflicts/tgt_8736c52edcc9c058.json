@@ -1,16 +1,16 @@
 {
   "schema": 2,
   "target_id": "tgt_8736c52edcc9c058",
-  "attempt_id": "int_8ujfbvta2asebvbd",
+  "attempt_id": "int_irxdk67pt5aldwpk",
   "current_release_id": "rel_z0367dy6jils7qve",
   "previous_generation_id": null,
   "previous_generated_snapshot_id": null,
   "previous_combined_snapshot_id": null,
-  "current_snapshot_id": "snap_5skhcu72qgnqvah0",
-  "next_generation_id": "gen_ug9e52c0p4sc8xnb",
-  "next_generated_snapshot_id": "snap_ifvsh1bvvy4hv2ze",
+  "current_snapshot_id": "snap_1fcgchk9yoem0xuu",
+  "next_generation_id": "gen_x17v5zs0s8v4j6lv",
+  "next_generated_snapshot_id": "snap_ozmg5i6bztgigk5u",
   "default_revision": "1ea283b80e2daf7faebcbef2f007879754c63843",
-  "draft_revision": "b50b53f2aaadc6718967d3e8344d9c89161bac2d",
+  "draft_revision": "febeb4eb4543ee245cee590a5742fcc86dedb0c3",
   "conflict_stage": "generation",
   "conflicts": [
     {
@@ -116,7 +116,7 @@
     {
       "path": ".typeship/conflicts/tgt_8736c52edcc9c058.json",
       "kind": "missing_baseline",
-      "fingerprint": "sha256:fd62d7b7d8492275f87b16c4e305bc4f4fd8e9d9e591c556179078318d56db57",
+      "fingerprint": "sha256:49adf565e6627f5cf2711daad1522e1ac3aee606ea9bbb1b5189021cc6f1300a",
       "previous": {
         "present": false,
         "mode": null,
@@ -125,7 +125,7 @@
       "current": {
         "present": true,
         "mode": "100644",
-        "hash": "sha256:4426270e614575bcd4691f79cc9543b6e91a02c3a2c957fe8da472afeaaf82d3"
+        "hash": "sha256:bce9b5878a928f8f3952a602598740640a9c3105200ad93222d9c542ba0b9ee9"
       },
       "next": {
         "present": false,
@@ -156,7 +156,7 @@
     {
       "path": "AGENTS.md",
       "kind": "missing_baseline",
-      "fingerprint": "sha256:c7372956be868f8578dfdf0cea1e4fb81c08f40a6ec311f3b70e45b0464d58eb",
+      "fingerprint": "sha256:94bdc3d58e8c6b518a46e9767c4322da468758aec4174c32cae3e0f1121f71de",
       "previous": {
         "present": false,
         "mode": null,
@@ -170,7 +170,7 @@
       "next": {
         "present": true,
         "mode": "100644",
-        "hash": "sha256:44a25ea7e94e0eaec09c00f4ecd7c4e5c9f537cf82c9de49a73b11e501ec6c4f"
+        "hash": "sha256:270ba0542076bfaa660f58c0ebaf0041e3bdcacb70cda6678bb5fc3ab5572bca"
       }
     },
     {
@@ -236,7 +236,7 @@
     {
       "path": "README.md",
       "kind": "missing_baseline",
-      "fingerprint": "sha256:159eb7c803700de0d2d78828590a2d5f9f21733127a7d378ded90333d74b2be7",
+      "fingerprint": "sha256:31db11d34205af7af87ee743b283e371ae22c8fcdeecf0be86eac8114393327f",
       "previous": {
         "present": false,
         "mode": null,
@@ -250,7 +250,7 @@
       "next": {
         "present": true,
         "mode": "100644",
-        "hash": "sha256:c6d332555b7b9bb67f6fc71e2a52237befc7f9080c63c946d43668f9acaffcda"
+        "hash": "sha256:a91a53f260af2792c1aaf67ba148799094c473d3d4c023d454d2093ad0cd1893"
       }
     },
     {
@@ -296,7 +296,7 @@
     {
       "path": "api.md",
       "kind": "missing_baseline",
-      "fingerprint": "sha256:f8a88b78f6deefc50d5c4e49815908d5f42b42df55fb63cb97edfaf4bcfe883c",
+      "fingerprint": "sha256:b50d8914fd96367ab2c091d867a715ee5bd69cee92fa7a80de09734fd55ee1ea",
       "previous": {
         "present": false,
         "mode": null,
@@ -310,13 +310,13 @@
       "next": {
         "present": true,
         "mode": "100644",
-        "hash": "sha256:5f1ea117fc50d301be76c7eb03256c67f0790ea36a1e2ac0a4b063f69cfff66c"
+        "hash": "sha256:0dff6407d9afc31c1150f5a0dc3aeec72d68b2ec47fb393b1903ad4c0c3ac1ea"
       }
     },
     {
       "path": "package.json",
       "kind": "missing_baseline",
-      "fingerprint": "sha256:4b83d52013151ebac71dd6d780011e968ef6429f9ed5f4ea36f485f7a14abbc6",
+      "fingerprint": "sha256:c3e58e0e7b62d31250fd983e115a81e69fbe6acc603e3d1ad379216eda65f6f8",
       "previous": {
         "present": false,
         "mode": null,
@@ -330,7 +330,7 @@
       "next": {
         "present": true,
         "mode": "100644",
-        "hash": "sha256:de276c2e8bd99256115409daabea7e6fbe38bb38a72a4ce6773a0ced07080c96"
+        "hash": "sha256:6e1ef7a84645ec6d4f11a6074847f87b8f8cbc8831876acd9c9af46bcdc02dba"
       }
     },
     {
@@ -396,7 +396,7 @@
     {
       "path": "src/index.ts",
       "kind": "missing_baseline",
-      "fingerprint": "sha256:92add14b4b14340d66f427aad581acffe9322ec498da6e520d564092748f9458",
+      "fingerprint": "sha256:d3c6679d7ee753bc8d331d2673461650b200d14df283edd9ec830bbfc5b56900",
       "previous": {
         "present": false,
         "mode": null,
@@ -410,7 +410,7 @@
       "next": {
         "present": true,
         "mode": "100644",
-        "hash": "sha256:0dc5182375fbdd374ba6db0a0b76a8eee9d0092066b7c2596a743a454670cb1a"
+        "hash": "sha256:cc33d835ea3229eeb066ffbcdd3a9b13bba13959df3ba7b49c7fd5c63a0a2eac"
       }
     },
     {
