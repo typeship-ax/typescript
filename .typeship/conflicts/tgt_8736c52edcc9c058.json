@@ -1,122 +1,22 @@
 {
   "schema": 2,
   "target_id": "tgt_8736c52edcc9c058",
-  "attempt_id": "int_irxdk67pt5aldwpk",
+  "attempt_id": "int_grhe12ssdd7kem67",
   "current_release_id": "rel_z0367dy6jils7qve",
   "previous_generation_id": null,
   "previous_generated_snapshot_id": null,
   "previous_combined_snapshot_id": null,
-  "current_snapshot_id": "snap_1fcgchk9yoem0xuu",
-  "next_generation_id": "gen_x17v5zs0s8v4j6lv",
-  "next_generated_snapshot_id": "snap_ozmg5i6bztgigk5u",
+  "current_snapshot_id": "snap_dzxdtismf9sy03q2",
+  "next_generation_id": "gen_79zx0u9bfug96h2e",
+  "next_generated_snapshot_id": "snap_eeq4sa29kus1pgzc",
   "default_revision": "1ea283b80e2daf7faebcbef2f007879754c63843",
-  "draft_revision": "febeb4eb4543ee245cee590a5742fcc86dedb0c3",
+  "draft_revision": "907a91d3c77bfb432baf3d6aed060b324fed0f73",
   "conflict_stage": "generation",
   "conflicts": [
     {
-      "path": ".github/dependabot.yml",
-      "kind": "missing_baseline",
-      "fingerprint": "sha256:b0e790a10663898cd61058d5f649856dbdd6480f1d8e4aba7ce2e704c0def819",
-      "previous": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      },
-      "current": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:fbdaf09b0a6c019dc5c96006b474b33710912346e15cd63e80a4ca2365960b02"
-      },
-      "next": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      }
-    },
-    {
-      "path": ".github/workflows/ci.yml",
-      "kind": "missing_baseline",
-      "fingerprint": "sha256:64b73b34ea6ef067e6163faa155d48767ae7c10d91d5c40500967ae80263b887",
-      "previous": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      },
-      "current": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:0d6806133dcba7258e5dffd83127070cce6150e2b230e05a885551e6314b9739"
-      },
-      "next": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      }
-    },
-    {
-      "path": ".github/workflows/publish.yml",
-      "kind": "missing_baseline",
-      "fingerprint": "sha256:7dce4e9a734addb221f1f1f998d7e03413a9ec22728e369f3b465e2dfc5296f0",
-      "previous": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      },
-      "current": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:962fa2aa607008ee3509880119c6ac4fa44f9091ab09ca716f8b1bf2b28931d9"
-      },
-      "next": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      }
-    },
-    {
-      "path": ".gitignore",
-      "kind": "missing_baseline",
-      "fingerprint": "sha256:86c9420d787713dd29c3e4059873c3bbe991e847dd6d68c4fcc734033713cc1b",
-      "previous": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      },
-      "current": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:e8e70120c7fb8891ed746bb896e739a62f7f6ea1df6225461506760c146f6614"
-      },
-      "next": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:e8e70120c7fb8891ed746bb896e739a62f7f6ea1df6225461506760c146f6614"
-      }
-    },
-    {
-      "path": ".typeship/.gitattributes",
-      "kind": "missing_baseline",
-      "fingerprint": "sha256:c4d0435713425620dbcad7a724940aa6a06e10c986eb07147cbdd0e233270bc0",
-      "previous": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      },
-      "current": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:fa12257a7a2d16071fba627ba9cab3e66180b1e4e9cc2c18da3b33c05da23b74"
-      },
-      "next": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      }
-    },
-    {
       "path": ".typeship/conflicts/tgt_8736c52edcc9c058.json",
       "kind": "missing_baseline",
-      "fingerprint": "sha256:49adf565e6627f5cf2711daad1522e1ac3aee606ea9bbb1b5189021cc6f1300a",
+      "fingerprint": "sha256:11b61279970ebd424ab57697ae209a3e319a99db05e9a97bfd69f3ca96708c62",
       "previous": {
         "present": false,
         "mode": null,
@@ -125,147 +25,7 @@
       "current": {
         "present": true,
         "mode": "100644",
-        "hash": "sha256:bce9b5878a928f8f3952a602598740640a9c3105200ad93222d9c542ba0b9ee9"
-      },
-      "next": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      }
-    },
-    {
-      "path": ".typeship/surface.json",
-      "kind": "missing_baseline",
-      "fingerprint": "sha256:529640c05f24f62b57fab71cab44392d4e891fb9ac0c898572a61ed546072bc3",
-      "previous": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      },
-      "current": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:8ff68642048e44450e8873f0c1333b7e246c3a5922fbd8dd9288ffc18f4b5feb"
-      },
-      "next": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      }
-    },
-    {
-      "path": "AGENTS.md",
-      "kind": "missing_baseline",
-      "fingerprint": "sha256:94bdc3d58e8c6b518a46e9767c4322da468758aec4174c32cae3e0f1121f71de",
-      "previous": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      },
-      "current": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:90646f94216bc9b91225c185de99346f48470d392e5843041c6f10dfbe963238"
-      },
-      "next": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:270ba0542076bfaa660f58c0ebaf0041e3bdcacb70cda6678bb5fc3ab5572bca"
-      }
-    },
-    {
-      "path": "CHANGELOG.md",
-      "kind": "missing_baseline",
-      "fingerprint": "sha256:d7f6c96c2947e5e027c22f8395c97716b2f1a24fce426627fc29a9735d4316ae",
-      "previous": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      },
-      "current": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:c0825e4c62aa9f2fe5bb6fe6df9646fcb0052185d31f782ea94af7477f2fbf59"
-      },
-      "next": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      }
-    },
-    {
-      "path": "CONTRIBUTING.md",
-      "kind": "missing_baseline",
-      "fingerprint": "sha256:4ee342c0a5417da9ee4029ad3a653158b1e0a15b1729dd98a8ebf430f259ed40",
-      "previous": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      },
-      "current": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:38ab1ca1001355d7796fb7643d3facec00050be49813ba64505524f02ba34f73"
-      },
-      "next": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      }
-    },
-    {
-      "path": "LICENSE",
-      "kind": "missing_baseline",
-      "fingerprint": "sha256:d027bfc7513d03325ed4667a5378ee456212857da5bb29b1e89a2c8e50a6579e",
-      "previous": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      },
-      "current": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:0f87129cf9dbfd2f88fe57a7b63da0ab3208c11417c3f7c2f52205c9efb1c262"
-      },
-      "next": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:0f87129cf9dbfd2f88fe57a7b63da0ab3208c11417c3f7c2f52205c9efb1c262"
-      }
-    },
-    {
-      "path": "README.md",
-      "kind": "missing_baseline",
-      "fingerprint": "sha256:31db11d34205af7af87ee743b283e371ae22c8fcdeecf0be86eac8114393327f",
-      "previous": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      },
-      "current": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:a91a53f260af2792c1aaf67ba148799094c473d3d4c023d454d2093ad0cd1893"
-      },
-      "next": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:a91a53f260af2792c1aaf67ba148799094c473d3d4c023d454d2093ad0cd1893"
-      }
-    },
-    {
-      "path": "SECURITY.md",
-      "kind": "missing_baseline",
-      "fingerprint": "sha256:a54723b28c14bb502417ac553a357f959022658a286edef275b3a03cceb6cfd6",
-      "previous": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      },
-      "current": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:73a6149bcde1c2f67e518abcdbc45036974892507d8d24129104e325def0467d"
+        "hash": "sha256:93b76a77ced7b488fa0bb9f61422677ac9d5b74cd24edf60072cea0dbd816947"
       },
       "next": {
         "present": false,
@@ -314,26 +74,6 @@
       }
     },
     {
-      "path": "package.json",
-      "kind": "missing_baseline",
-      "fingerprint": "sha256:c3e58e0e7b62d31250fd983e115a81e69fbe6acc603e3d1ad379216eda65f6f8",
-      "previous": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      },
-      "current": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:6e1ef7a84645ec6d4f11a6074847f87b8f8cbc8831876acd9c9af46bcdc02dba"
-      },
-      "next": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:6e1ef7a84645ec6d4f11a6074847f87b8f8cbc8831876acd9c9af46bcdc02dba"
-      }
-    },
-    {
       "path": "src/core/http.ts",
       "kind": "missing_baseline",
       "fingerprint": "sha256:c49cd21f3f3acadd14ffa17cc7e454c114978f38568b9321f1b96df74616ddba",
@@ -351,46 +91,6 @@
         "present": true,
         "mode": "100644",
         "hash": "sha256:5fdddd515f317a765590e68b2ce07f08e1b30054d5404c630c379588b5ca9c0d"
-      }
-    },
-    {
-      "path": "src/core/pagination.ts",
-      "kind": "missing_baseline",
-      "fingerprint": "sha256:273525773fc6d2a97acbf5e74e81caa2c3c61d81144d175b880971dfe6ac2963",
-      "previous": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      },
-      "current": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:efc55ccb84bf567a7a1cd5c7a0efeb3112e0712e5a4d04ef689d51ea6906d5b6"
-      },
-      "next": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:efc55ccb84bf567a7a1cd5c7a0efeb3112e0712e5a4d04ef689d51ea6906d5b6"
-      }
-    },
-    {
-      "path": "src/errors.ts",
-      "kind": "missing_baseline",
-      "fingerprint": "sha256:68d2d827b6de1579773bb8bcedd2d842ab8fd9a1321622847e3a6dbd294c6159",
-      "previous": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      },
-      "current": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:1ddbd684c94294c02b29dbccf83571ba8f2ed4756591e88a564572f44396622e"
-      },
-      "next": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:1ddbd684c94294c02b29dbccf83571ba8f2ed4756591e88a564572f44396622e"
       }
     },
     {
@@ -734,26 +434,6 @@
       }
     },
     {
-      "path": "tests/helper.mjs",
-      "kind": "missing_baseline",
-      "fingerprint": "sha256:4f96f072629cf3bc986657d8a39f3967e6654c0bfcf744afe01d0ac1bbd4bd5b",
-      "previous": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      },
-      "current": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:e6906fadab6f3521a92b268cf431913032f5dc6a91a6f781267d8644e42a4336"
-      },
-      "next": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:e6906fadab6f3521a92b268cf431913032f5dc6a91a6f781267d8644e42a4336"
-      }
-    },
-    {
       "path": "tests/projects.test.mjs",
       "kind": "missing_baseline",
       "fingerprint": "sha256:968e831d6f174333340133bb43ef11b95f45e8f0a67d6ad93071266de4106f1e",
@@ -811,26 +491,6 @@
         "present": true,
         "mode": "100644",
         "hash": "sha256:b4f526d86dffb4a0eacb66361eee504aee24dda57c90591927bac408fafe40c2"
-      }
-    },
-    {
-      "path": "tsconfig.json",
-      "kind": "missing_baseline",
-      "fingerprint": "sha256:914978247d61f15a5540274e19265038b880434b3325f6f2e2c2f465d26e84e8",
-      "previous": {
-        "present": false,
-        "mode": null,
-        "hash": null
-      },
-      "current": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:9b203d78b53dbfc1aaa0b1e72f4b7b4e0ea6fd07716d5c01d578c4f1ef2f282f"
-      },
-      "next": {
-        "present": true,
-        "mode": "100644",
-        "hash": "sha256:9b203d78b53dbfc1aaa0b1e72f4b7b4e0ea6fd07716d5c01d578c4f1ef2f282f"
       }
     }
   ]
