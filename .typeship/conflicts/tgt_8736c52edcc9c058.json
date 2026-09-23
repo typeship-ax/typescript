@@ -1,0 +1,117 @@
+{
+  "schema": 2,
+  "target_id": "tgt_8736c52edcc9c058",
+  "attempt_id": "int_m4p2wiie6r7wpy01",
+  "current_release_id": "rel_v715dyd9w13qmyje",
+  "previous_generation_id": "gen_jwz3yrdwy7xwh8md",
+  "previous_generated_snapshot_id": "snap_jeuu71y3j9u70kz4",
+  "previous_combined_snapshot_id": "snap_df1bmdzy57yrnxpt",
+  "current_snapshot_id": "snap_yg0dtgk09eie3rhf",
+  "next_generation_id": "gen_bsutxirnzmvkklyg",
+  "next_generated_snapshot_id": "snap_am3bf30ayiw3u18k",
+  "default_revision": "1f185d4aa2d1ca2bb0855269c9740f5f7c18d9e0",
+  "draft_revision": "7a5d8546fe3efc15091a337cf7514e4517f3c364",
+  "conflict_stage": "generation",
+  "conflicts": [
+    {
+      "path": "AGENTS.md",
+      "kind": "overlapping_text",
+      "fingerprint": "sha256:98954772a3e99f1a565ad531df58e7c43ea7bc40eae45c5d028cde7fe4a05638",
+      "previous": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:ef1309d84de28bf4f2d69cd162094df2c374b2f9f5364dcb8e382bd8efa1525e"
+      },
+      "current": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:9a1dfc2b9979f8de196b247957d8ae89c1981e13388a7ba2d75e94aecd1159d2"
+      },
+      "next": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:840d2507179d87c7cbec2d828f4c3f2a6e0def1bb58ce22750a2cbdf089f9873"
+      }
+    },
+    {
+      "path": "README.md",
+      "kind": "overlapping_text",
+      "fingerprint": "sha256:9a6e5b23754f2a486401cdcd1083dccd204f46fa11e9f0adba1e8a387b8b274c",
+      "previous": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:ce165cf968b8573fadcfa6eefff342117cf276d81bbcf8674b9447a8e49a685d"
+      },
+      "current": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:a075d9ca07e15a9092cd48d183b9e1d6db2c5443cf1784d3597e527e64a0b4b9"
+      },
+      "next": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:30968b2511096b6af9b1330095651fc1c1cb8fffd4ebbeced7b4958896babea7"
+      }
+    },
+    {
+      "path": "api.md",
+      "kind": "overlapping_text",
+      "fingerprint": "sha256:182c33353a2c52c710aa275b0364baefbf0bc482e4768d248e99029d343de9ef",
+      "previous": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:343f5c33b6a4185ea86c1a6dd3e26a0fe6d7d3b3e8a79ff0556898c0d8b2a03f"
+      },
+      "current": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:cbb9315718c3f98cfd50d832509d1f29d1384f4fd6083a6733b9279c86b2dc08"
+      },
+      "next": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:32962fcd6d1296a1da1dd28feb9722e4e0f900e3878cfb83df562f9028faef6d"
+      }
+    },
+    {
+      "path": "package.json",
+      "kind": "overlapping_text",
+      "fingerprint": "sha256:85288ad8a47d7afe082693020b599995ae31bdafec471353ed8ed98164d5c1a5",
+      "previous": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:f860f2e520a3f2908000eafb83ae495995e2c267d94d5eadcb5929b229d36716"
+      },
+      "current": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:f9a15eb68e8297bccbb96eca1ff4e59df13655fe1f687ed7f513f7b96c38c13d"
+      },
+      "next": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:f66bb1f70967bca7c1c5111d137f97aebeff19de7ff8b118af8fabd2e87069d3"
+      }
+    },
+    {
+      "path": "src/index.ts",
+      "kind": "overlapping_text",
+      "fingerprint": "sha256:cda14769fa55931a6eeee963e7763bbbe5c2124619f2353bc699456b2885e9d5",
+      "previous": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:38aeed60e53920570dd1c222ef288de24593a6b9715b394234fc766b0c247c84"
+      },
+      "current": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:ec818b1867ba27a73e279a950b34389398ffe88c2d4baa7e4247a69409d3bdde"
+      },
+      "next": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:52a38e03e267e52fbcda51e894e33776d31fe9c5fc7dd5755d8e048205e6052d"
+      }
+    }
+  ]
+}
