@@ -1,0 +1,57 @@
+{
+  "schema": 2,
+  "target_id": "tgt_8736c52edcc9c058",
+  "attempt_id": "int_h4sn901t1mul3wgf",
+  "current_release_id": "rel_altslhab5temibez",
+  "previous_generation_id": "gen_a2l3h09jyeyhpni1",
+  "previous_generated_snapshot_id": "snap_twsjyd5esx2ny5cx",
+  "previous_combined_snapshot_id": "snap_idlfo5xuf2baavab",
+  "current_snapshot_id": "snap_ol1jf15b4cu9iqds",
+  "next_generation_id": "gen_hl6xc3fxq1z8y6pv",
+  "next_generated_snapshot_id": "snap_jo2cpi1stl8rlodr",
+  "default_revision": "831e389af8f5259e1d9ed9ee5d26c24a8edf57f4",
+  "draft_revision": "d3b36c9b99e0341c59edf1a5c173caedf78465ae",
+  "conflict_stage": "generation",
+  "conflicts": [
+    {
+      "path": "api.json",
+      "kind": "overlapping_text",
+      "fingerprint": "sha256:7a846c90b30ba6cfacb2c41bf5be19d6c4060495dcd81643fda93cbf3a7ae6ea",
+      "previous": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:3435db650d06088731ffdff4aa6e6b1ea5d2995cf3f378f4d00b2c5510183b38"
+      },
+      "current": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:ffdba28f98e63819efc0b8660f6daa61a06709502f86f0e17aa27cf2ee63f859"
+      },
+      "next": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:0cee3fddbbb347e804920a2f4b569b20eb64b8ba37d3a60a617b87749f2592a4"
+      }
+    },
+    {
+      "path": "api.md",
+      "kind": "overlapping_text",
+      "fingerprint": "sha256:5e347b264cdf7efcc28f8ea6fa594d0631543ca36eacc6fcbcb4df4ad495db2b",
+      "previous": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:5793fa4cbd19b678e556bd5e8705c0963a1536f9f50d828992abab756d54aef5"
+      },
+      "current": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:3056dce82b856ba649fc94330311b17af18daace4e79a2226fcdac24b3ae1e6c"
+      },
+      "next": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:924413373cea964f52215fef6cd4a1f73de1df0dc9166fd4e3da01f88cd9c1d6"
+      }
+    }
+  ]
+}
