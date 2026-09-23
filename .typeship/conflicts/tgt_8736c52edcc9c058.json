@@ -1,0 +1,117 @@
+{
+  "schema": 2,
+  "target_id": "tgt_8736c52edcc9c058",
+  "attempt_id": "int_3f7ocwar7t2boldq",
+  "current_release_id": "rel_eoyac1qoviki8gpc",
+  "previous_generation_id": "gen_awzyopnoaegoj5m6",
+  "previous_generated_snapshot_id": "snap_4wtvbpx18llhvpc1",
+  "previous_combined_snapshot_id": "snap_r0f1wnlf45nppj4p",
+  "current_snapshot_id": "snap_abok7jkeei7pid5m",
+  "next_generation_id": "gen_w5mfmrzkvgt8hbes",
+  "next_generated_snapshot_id": "snap_bb0tc7jakj30kfsz",
+  "default_revision": "7c0bf6138f6b55101c98242863398448465610b2",
+  "draft_revision": "1e9a04d2f3f97a5918b153472e1003afcc9b08df",
+  "conflict_stage": "generation",
+  "conflicts": [
+    {
+      "path": "AGENTS.md",
+      "kind": "overlapping_text",
+      "fingerprint": "sha256:9a1dcf48ba2545f86ba55cf2fd87a93cabbf1a03f788bd569002b37d52e3f2f5",
+      "previous": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:840d2507179d87c7cbec2d828f4c3f2a6e0def1bb58ce22750a2cbdf089f9873"
+      },
+      "current": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:acbb3c7468ac7ba137de1c63eb043ba4701436e0e01e37893f86acdb79e0a21b"
+      },
+      "next": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:84f5579c9866cf5483e877e55b8b70ee3e416957b66c553bf87eda5ede7b3305"
+      }
+    },
+    {
+      "path": "README.md",
+      "kind": "overlapping_text",
+      "fingerprint": "sha256:4301e3609108bec6a1b81a255e595197f6581f9085fc5cd512093877c52dbfb1",
+      "previous": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:30968b2511096b6af9b1330095651fc1c1cb8fffd4ebbeced7b4958896babea7"
+      },
+      "current": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:41c9dbd9bb13c569c76ca82dc58615c16d2e76b95c3642dbf382f9ce8f027c91"
+      },
+      "next": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:5479fac18438518d166389606d12e9d1ef0d96ec867320757c21796b3ba57736"
+      }
+    },
+    {
+      "path": "api.md",
+      "kind": "overlapping_text",
+      "fingerprint": "sha256:779f6a156c11d2b77ce197a34ea48bdc06e6792fbab8bad66c435e48e3857e19",
+      "previous": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:32962fcd6d1296a1da1dd28feb9722e4e0f900e3878cfb83df562f9028faef6d"
+      },
+      "current": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:90fccb365c2915a6e2738ad2360f2e97465555a3742c4e338de87a3789235026"
+      },
+      "next": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:edf35a65f8a7ff0bc411007e413a62721ca4c6870dc44e9c94b5240055f25bd8"
+      }
+    },
+    {
+      "path": "package.json",
+      "kind": "overlapping_text",
+      "fingerprint": "sha256:c4bead4e2b1627bfd32ed6c87303f557feebe7bba0f12776a80a7f2f073b1138",
+      "previous": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:f66bb1f70967bca7c1c5111d137f97aebeff19de7ff8b118af8fabd2e87069d3"
+      },
+      "current": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:8b6019cfd968f338dd4ba324c5ca373c8b31c669d9c9f6d64d49f25f7ffe59c7"
+      },
+      "next": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:56b6b3f30d3f3704eeeebc8d6500820f7331cad2934bd19bd74a40b6c4ec6cbd"
+      }
+    },
+    {
+      "path": "src/index.ts",
+      "kind": "overlapping_text",
+      "fingerprint": "sha256:d004601e6cb5f51676ea9c40bcd82cce97f7484d1ba3aa1747e40a31f832505f",
+      "previous": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:52a38e03e267e52fbcda51e894e33776d31fe9c5fc7dd5755d8e048205e6052d"
+      },
+      "current": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:04a0b86866b37b240c5dae1ef3a972179161c0c479c7b24bebb822f8e424a707"
+      },
+      "next": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:1cebeb732383b48f16bf93eea5fb3daa7d76e4afed36a83364a35d0c41cb388c"
+      }
+    }
+  ]
+}
