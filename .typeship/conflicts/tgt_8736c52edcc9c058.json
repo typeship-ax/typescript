@@ -1,0 +1,57 @@
+{
+  "schema": 2,
+  "target_id": "tgt_8736c52edcc9c058",
+  "attempt_id": "int_u594e7tpv31qagzc",
+  "current_release_id": "rel_eqjo3yjoc4lcufvc",
+  "previous_generation_id": "gen_im3mpqpf1jzb3nr0",
+  "previous_generated_snapshot_id": "snap_tamaq6me1bf6n7nm",
+  "previous_combined_snapshot_id": "snap_nm506j37ii5ipx9q",
+  "current_snapshot_id": "snap_7nhgmasymevb48cv",
+  "next_generation_id": "gen_ta8xyaqbvkdsrcdg",
+  "next_generated_snapshot_id": "snap_qbbol0h9jyh458aq",
+  "default_revision": "26503dea16e775ab817f1cc876d5a4eab603f6e4",
+  "draft_revision": "714bb3a2eafef69872bed49e9362d0d7a3d8022d",
+  "conflict_stage": "generation",
+  "conflicts": [
+    {
+      "path": "src/schemas.ts",
+      "kind": "overlapping_text",
+      "fingerprint": "sha256:cd67c6fec209fb324cd5f64a6f8331dcc15209ca5524a5e860aaccafc24c2839",
+      "previous": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:d832e18658a137011930bb13b5f015ff08a77f2638d1e783259d5234c5e94448"
+      },
+      "current": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:9bff0dd3ff951a6f39f29bb95cfffdcd4c01d2765fcd9fd0fc2a840f0bbcff82"
+      },
+      "next": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:aef1fccce9c8a931d8d3b4949de887cf22fac3c581810cfe5dc75425115355ee"
+      }
+    },
+    {
+      "path": "src/types.ts",
+      "kind": "overlapping_text",
+      "fingerprint": "sha256:e38ee904463387af8f9b9ff36a739f63c8303e6ed189f688d2fecfd146539ef2",
+      "previous": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:0e6ba4cdf68a217fbce7a3f5a4b6a9f62c65344326682a6873fe96721e10ff99"
+      },
+      "current": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:3e0414dee7eab99a8f6a61f8da218763ffa8941c5450ada85058b6c3252223ce"
+      },
+      "next": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:b4d18842048ccea93c870ee2710dde6273709fc77fd5adaf39cd8d8efa57c1c1"
+      }
+    }
+  ]
+}
