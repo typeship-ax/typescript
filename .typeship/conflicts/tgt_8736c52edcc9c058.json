@@ -1,22 +1,22 @@
 {
   "schema": 2,
   "target_id": "tgt_8736c52edcc9c058",
-  "attempt_id": "int_u594e7tpv31qagzc",
+  "attempt_id": "int_nx7pv494eaaz3yw2",
   "current_release_id": "rel_eqjo3yjoc4lcufvc",
   "previous_generation_id": "gen_im3mpqpf1jzb3nr0",
   "previous_generated_snapshot_id": "snap_tamaq6me1bf6n7nm",
   "previous_combined_snapshot_id": "snap_nm506j37ii5ipx9q",
-  "current_snapshot_id": "snap_7nhgmasymevb48cv",
-  "next_generation_id": "gen_ta8xyaqbvkdsrcdg",
-  "next_generated_snapshot_id": "snap_qbbol0h9jyh458aq",
+  "current_snapshot_id": "snap_j1f3iw48osbabrg7",
+  "next_generation_id": "gen_0gnjpfu9kixub2b1",
+  "next_generated_snapshot_id": "snap_oijf2gcjzzwrnd56",
   "default_revision": "26503dea16e775ab817f1cc876d5a4eab603f6e4",
-  "draft_revision": "714bb3a2eafef69872bed49e9362d0d7a3d8022d",
+  "draft_revision": "00d8e1cc32f0de814f13e36374ecd2abec5b1fd9",
   "conflict_stage": "generation",
   "conflicts": [
     {
       "path": "src/schemas.ts",
       "kind": "overlapping_text",
-      "fingerprint": "sha256:cd67c6fec209fb324cd5f64a6f8331dcc15209ca5524a5e860aaccafc24c2839",
+      "fingerprint": "sha256:a5b34b7e80d24a60d6454ff8cd24b22397a98be6bc702dec9bcbadc5fa6fb727",
       "previous": {
         "present": true,
         "mode": "100644",
@@ -30,13 +30,13 @@
       "next": {
         "present": true,
         "mode": "100644",
-        "hash": "sha256:aef1fccce9c8a931d8d3b4949de887cf22fac3c581810cfe5dc75425115355ee"
+        "hash": "sha256:c54c31a6f5b6d892d7ad044027fc99b3a677e670310988f36e6e11dba25af769"
       }
     },
     {
       "path": "src/types.ts",
       "kind": "overlapping_text",
-      "fingerprint": "sha256:e38ee904463387af8f9b9ff36a739f63c8303e6ed189f688d2fecfd146539ef2",
+      "fingerprint": "sha256:8e2cf3ec0a4a76d99448a45c24c650ff897f9d859626220107932e436f6ec2a8",
       "previous": {
         "present": true,
         "mode": "100644",
@@ -50,7 +50,7 @@
       "next": {
         "present": true,
         "mode": "100644",
-        "hash": "sha256:b4d18842048ccea93c870ee2710dde6273709fc77fd5adaf39cd8d8efa57c1c1"
+        "hash": "sha256:6873a29f3ff33c544f7c713b07f989ebea666fe87130660b1ed986aae63dc0ed"
       }
     }
   ]
