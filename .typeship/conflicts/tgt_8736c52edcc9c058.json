@@ -1,0 +1,117 @@
+{
+  "schema": 2,
+  "target_id": "tgt_8736c52edcc9c058",
+  "attempt_id": "int_wa5z7glxav4tyy7m",
+  "current_release_id": "rel_ohe2qvmocg6fj0hq",
+  "previous_generation_id": "gen_xwgwfyqcw8fd2rgq",
+  "previous_generated_snapshot_id": "snap_4yjoa7elwxnsj0oc",
+  "previous_combined_snapshot_id": "snap_02r8copurit8ry3e",
+  "current_snapshot_id": "snap_qnn4qd34bg1qosvy",
+  "next_generation_id": "gen_7ot5951amfnrsd8c",
+  "next_generated_snapshot_id": "snap_sorj3m2vwtg8zogi",
+  "default_revision": "42a0863ae8cfdc0192f5c0de13d82d76c2259545",
+  "draft_revision": "71c072d6980bd5a64249dde8987e73db6b3d9a83",
+  "conflict_stage": "generation",
+  "conflicts": [
+    {
+      "path": "AGENTS.md",
+      "kind": "overlapping_text",
+      "fingerprint": "sha256:0a622dc1172e251a45612b49df514fddf15c302a472f04ad3c536780383be743",
+      "previous": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:1f2f131f297a2c0617637f2bc7c82bfc9c6e79899a3b57c9f20f2e62e5917945"
+      },
+      "current": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:14203e917d23dc303638c2f4e084ad961f311a4bbe2b330b15ada6822bb85b35"
+      },
+      "next": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:095e4ce019d01dbe110d19dbde6eed24484cf3fb276b029c6e54920647394735"
+      }
+    },
+    {
+      "path": "README.md",
+      "kind": "overlapping_text",
+      "fingerprint": "sha256:aae6405bc236b77a05a39b442670f9f477bb82e6e7b3086820cc97c38f90bfca",
+      "previous": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:ee14e80bff4889af8613ec9f813659a837bb25b109cfcb47959130f81bdc3bae"
+      },
+      "current": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:00a26c5ae20b7ce6489cb01e30833fe955c393539f77cdb0e164d958fc19ff66"
+      },
+      "next": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:941ba01989f8a67c6bdfa0e2ddfe8996ee09e7fc7238ed33b87c5febdd4310f4"
+      }
+    },
+    {
+      "path": "api.md",
+      "kind": "overlapping_text",
+      "fingerprint": "sha256:c63cc65c66aa78b100e8e86bae44cf3cded55c2827c27649698a1ec2e3acaec1",
+      "previous": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:fd42115c37d4c59ef92f2dcf1d2162a8c454bbac067fe59c4fc3d3a977db7fd6"
+      },
+      "current": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:45d7d5db925d799a21fdfdf8f7858212f14d2fc7270fd798de933b599041ef6e"
+      },
+      "next": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:5793fa4cbd19b678e556bd5e8705c0963a1536f9f50d828992abab756d54aef5"
+      }
+    },
+    {
+      "path": "package.json",
+      "kind": "overlapping_text",
+      "fingerprint": "sha256:239383a373df15bdddf120f82e52a2e3aa8638405b8b144f243bef458d960075",
+      "previous": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:cd5d41824a1587a4d3ec3a3559165c36653eb34b2e310a612bebf8ea274caed9"
+      },
+      "current": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:63d03b784bcf244524debd9dd7f19aa5a327bfdd0dc800e34336f1837a5c7c07"
+      },
+      "next": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:be0608b44103e5fa4e902ec21e7a5ae9dacad5f6e9157c5ab3f8344a7634d39b"
+      }
+    },
+    {
+      "path": "src/index.ts",
+      "kind": "overlapping_text",
+      "fingerprint": "sha256:0a66ffab0842b0a21e5225c923c5e867158f35a6d741b0daeb34728c358e524f",
+      "previous": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:527c1b1393215b4efb9abc99635389503b709f94d9c2adfd6d59d9945113b767"
+      },
+      "current": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:c2fe979a82c6c4aab6efb5a96431cd6d134a76caaf1ec82e0175080a2db31573"
+      },
+      "next": {
+        "present": true,
+        "mode": "100644",
+        "hash": "sha256:d327e3b8691380b61f917f224ea23820148beb21b489163f1cd3b3b6f7da8e0f"
+      }
+    }
+  ]
+}
