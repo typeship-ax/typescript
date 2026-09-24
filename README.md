@@ -2,9 +2,9 @@
 
 TypeScript SDK for typeship. [API reference](./api.md)
 
-Generated from the OpenAPI spec by [typeship](https://typeship.dev). Change the spec or generation settings, then regenerate; generated files are not hand-edited.
+Generated from the OpenAPI spec by [typeship](https://typeship.dev).
 
-- **Zero runtime dependencies** — built on the platform `fetch` (Node 18+, browsers, edge runtimes)
+- **Zero runtime dependencies** — built on the platform `fetch` (Node 20+, browsers, edge runtimes)
 - **Typed error unions** — every call returns `ApiResult<T, E>` where `E` lists each documented error for that exact operation
 - **Auto-pagination** — `for await` any list call to stream every item across every page
 - **Retries built in** — idempotent requests retry with exponential backoff and `Retry-After` support
@@ -21,7 +21,7 @@ npm install
 npm run build
 ```
 
-Requires Node.js 18+ or a modern browser/edge runtime with `fetch`, `AbortController`, and Web Streams. The package is ESM.
+Requires Node.js 20+ or a modern browser/edge runtime with `fetch`, `AbortController`, and Web Streams. The package is ESM.
 
 Save the quickstart example below in the package directory. The package import resolves to the local build.
 
@@ -30,7 +30,7 @@ Save the quickstart example below in the package directory. The package import r
 Generation does not publish a package. Before using the registry command below, confirm `name` and `version` in `package.json`, publish under a name you control, and verify that release is available on npm.
 
 ```sh
-npm install @typeship-ax/sdk@0.20.1
+npm install @typeship-ax/sdk@0.21.0
 ```
 
 ## Quickstart

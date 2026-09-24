@@ -1,6 +1,6 @@
 {
   "name": "@typeship-ax/sdk",
-  "version": "0.20.1",
+  "version": "0.21.0",
   "description": "TypeScript SDK for typeship.",
   "keywords": [
     "typeship",
@@ -42,7 +42,7 @@
     "prepublishOnly": "npm run build"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "devDependencies": {
     "typescript": "^5.5.0",
