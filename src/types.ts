@@ -1079,6 +1079,51 @@ export type DeliveryRead = RepositoryDeliveryRead
   | Record<string, unknown> & { kind?: string };
 
 /**
+ * Repository fields are present for a repository Delivery; url is present for a hosted_mcp
+ * Delivery.
+ */
+export interface DeliveryResponse {
+  id: DeliveryId;
+  object: "delivery";
+  target_id: TargetId;
+  kind: "repository" | "hosted_mcp";
+  state: "active" | "disabled";
+  repository?: RepositoryReferenceResponse;
+  directory?: string | null;
+  package_name?: string | null;
+  module_path?: string | null;
+  publish_on_merge?: boolean;
+  /** Format: uri */
+  url?: string | null;
+  /** Format: date-time */
+  created_at: string;
+  /** Format: date-time */
+  updated_at: string;
+  request_id: RequestId;
+}
+
+/** Response shape for DeliveryResponse. */
+export interface DeliveryResponseRead {
+  id: DeliveryId;
+  object: "delivery" | (string & {});
+  target_id: TargetId;
+  kind: ("repository" | "hosted_mcp") | (string & {});
+  state: ("active" | "disabled") | (string & {});
+  repository?: RepositoryReferenceResponseRead;
+  directory?: string | null;
+  package_name?: string | null;
+  module_path?: string | null;
+  publish_on_merge?: boolean;
+  /** Format: uri */
+  url?: string | null;
+  /** Format: date-time */
+  created_at: string;
+  /** Format: date-time */
+  updated_at: string;
+  request_id: RequestId;
+}
+
+/**
  * One Target generated from a sibling Target. A go-cli Target carries kind go_sdk_module, naming
  * the Go SDK Target it is generated against.
  */
@@ -1549,6 +1594,17 @@ export interface PublicationRead {
   /** Format: date-time */
   updated_at: string;
 }
+
+export type PublicationResponse = Publication & {
+  /** Format: date-time */
+  created_at: string;
+} & ResponseMetadata;
+
+/** Response shape for PublicationResponse. */
+export type PublicationResponseRead = PublicationRead & {
+  /** Format: date-time */
+  created_at: string;
+} & ResponseMetadata;
 
 export type TargetDraftSelection = {
   mode: "automatic";
@@ -2912,7 +2968,13 @@ export interface FileStubRead {
   mode: ("100644" | "100755") | (string & {});
 }
 
+/**
+ * A Generation moves from queued to running, then succeeds when its files are saved or fails.
+ * Delivery and Draft status are separate.
+ */
 export const GenerationStatus = {
+  QUEUED: "queued",
+  RUNNING: "running",
   SUCCEEDED: "succeeded",
   FAILED: "failed",
 } as const;
@@ -2969,7 +3031,7 @@ export interface Generation {
   /** Resolved generator implementation; provenance rather than resource identity. */
   generator: GeneratorKind;
   provenance: GenerationProvenance;
-  /** Null only for a failed or legacy generation that produced no metadata. */
+  /** Null while queued or running, or when a failed or legacy generation produced no metadata. */
   meta: GenerationMeta | null;
   warnings: string[];
   /** Present on retrieve and create; omitted in lists. */
@@ -2999,7 +3061,7 @@ export interface GenerationWrite {
   /** Resolved generator implementation; provenance rather than resource identity. */
   generator: GeneratorKind;
   provenance: GenerationProvenance;
-  /** Null only for a failed or legacy generation that produced no metadata. */
+  /** Null while queued or running, or when a failed or legacy generation produced no metadata. */
   meta: GenerationMeta | null;
   warnings: string[];
   /** Present on retrieve and create; omitted in lists. */
@@ -3030,7 +3092,7 @@ export interface GenerationRead {
   /** Resolved generator implementation; provenance rather than resource identity. */
   generator: GeneratorKind | (string & {});
   provenance: GenerationProvenanceRead;
-  /** Null only for a failed or legacy generation that produced no metadata. */
+  /** Null while queued or running, or when a failed or legacy generation produced no metadata. */
   meta: GenerationMetaRead | null;
   warnings: string[];
   /** Present on retrieve and create; omitted in lists. */
@@ -3137,23 +3199,23 @@ export interface GenerationFailureRead {
 }
 
 /**
- * Metadata for each Target generation attempted by a Project run. Retrieve one Generation
- * separately for generated files.
+ * One Generation per selected Target. Retrieve each Generation for current status and generated
+ * files.
  */
 export interface GenerationBatch {
-  data: Array<GenerationSummary | GenerationFailure>;
+  data: GenerationSummary[];
   request_id: RequestId;
 }
 
 /** Request shape for GenerationBatch. */
 export interface GenerationBatchWrite {
-  data: Array<GenerationSummaryWrite | GenerationFailure>;
+  data: GenerationSummaryWrite[];
   request_id: RequestId;
 }
 
 /** Response shape for GenerationBatch. */
 export interface GenerationBatchRead {
-  data: Array<GenerationSummaryRead | GenerationFailureRead>;
+  data: GenerationSummaryRead[];
   request_id: RequestId;
 }
 
@@ -3251,6 +3313,35 @@ export interface DefinitionDocumentRead {
   coordinate: string;
   sha256: string;
   size_bytes: number;
+}
+
+export interface DefinitionDocumentResponse {
+  id: DefinitionDocumentId;
+  object: "definition_document";
+  definition_revision_id: DefinitionRevisionId;
+  role: "entrypoint" | "reference";
+  /** Repository-relative path or same-origin URL captured in this revision. */
+  coordinate: string;
+  sha256: string;
+  size_bytes: number;
+  /** Format: date-time */
+  created_at: string;
+  request_id: RequestId;
+}
+
+/** Response shape for DefinitionDocumentResponse. */
+export interface DefinitionDocumentResponseRead {
+  id: DefinitionDocumentId;
+  object: "definition_document" | (string & {});
+  definition_revision_id: DefinitionRevisionId;
+  role: ("entrypoint" | "reference") | (string & {});
+  /** Repository-relative path or same-origin URL captured in this revision. */
+  coordinate: string;
+  sha256: string;
+  size_bytes: number;
+  /** Format: date-time */
+  created_at: string;
+  request_id: RequestId;
 }
 
 export interface DefinitionRevision {
