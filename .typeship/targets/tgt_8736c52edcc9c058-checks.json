@@ -20,6 +20,10 @@
     {
       "name": "public_entrypoint",
       "command": "node -e \"const p=require('./package.json');let e=typeof p.exports==='string'?p.exports:(p.exports&&p.exports['.']);e=typeof e==='string'?e:(e&&((e.import||e.require||e.default)));e=e||p.module||p.main;if(!e)throw Error('package has no public entry point');import(require('url').pathToFileURL(require('path').resolve(e)).href)\""
+    },
+    {
+      "name": "generated_surface",
+      "command": "node \".typeship/targets/tgt_8736c52edcc9c058-surface.mjs\""
     }
   ]
 }
