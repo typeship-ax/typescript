@@ -30,7 +30,7 @@ Save the quickstart example below in the package directory. The package import r
 Generation does not publish a package. Before using the registry command below, confirm `name` and `version` in `package.json`, publish under a name you control, and verify that release is available on npm.
 
 ```sh
-npm install @typeship-ax/sdk@0.24.1
+npm install @typeship-ax/sdk@0.25.0
 ```
 
 ## Quickstart
