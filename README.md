@@ -30,7 +30,7 @@ Save the quickstart example below in the package directory. The package import r
 Generation does not publish a package. Before using the registry command below, confirm `name` and `version` in `package.json`, publish under a name you control, and verify that release is available on npm.
 
 ```sh
-npm install @typeship-ax/sdk@0.24.0
+npm install @typeship-ax/sdk@0.24.1
 ```
 
 ## Quickstart
@@ -40,9 +40,8 @@ import { TypeshipClient } from "@typeship-ax/sdk";
 
 const client = new TypeshipClient({ bearerToken: process.env.TYPESHIP_TOKEN! });
 
-for await (const item of client.projects.list()) {
-  console.log(item);
-}
+const result = await client.organization.get();
+console.log(result);
 ```
 
 ## Authentication
@@ -57,17 +56,17 @@ Awaiting a call returns the response data. Failures throw typed errors.
 Documented HTTP errors have per-status classes. Parse, validation, and transport failures have distinct classes:
 
 ```ts
-import { ResponseParseError, BadRequestError } from "@typeship-ax/sdk";
+import { ResponseParseError, UnauthorizedError } from "@typeship-ax/sdk";
 
 try {
-  const result = await client.projects.list();
+  const result = await client.organization.get();
 
   console.log(result); // typed success payload
 } catch (error) {
   if (error instanceof ResponseParseError) {
     console.error(error.body); // malformed successful JSON, preserved as text
   }
-  if (error instanceof BadRequestError) {
+  if (error instanceof UnauthorizedError) {
     // error.body is fully typed for this status
   }
   throw error;
