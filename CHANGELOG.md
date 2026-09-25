@@ -3,6 +3,78 @@
 
 
 
+
+## 0.26.0 (2026-09-25) (20 breaking)
+
+### Added
+- `releases.retry()`: POST `/releases/{release_id}/retry`
+
+### Removed (breaking)
+- `releases.republish()`: POST `/releases/{release_id}/republish`
+
+### Changed
+- `targets.adopt()`
+  - **breaking** `return-type-changed`: response.channel removed \(was \("stable" \| "prerelease"\) \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.publications\[\].destination removed \(was \("github" \| "npm" \| "pypi" \| "go" \| "mcp"\) \| \(string &amp; \{\}\)\)
+  - `return-type-changed`: response.publications\[\].status enum values removed: "disabled", "pending", "published", "publishing"
+  - **breaking** `return-type-changed`: response.publications\[\].status enum values added: "completed", "queued", "running"
+  - `return-type-changed`: response.publications\[\].type added: \("github" \| "npm" \| "pypi" \| "go" \| "mcp"\) \| \(string &amp; \{\}\) \(required\)
+  - `return-type-changed`: response.release\_channel added: \("stable" \| "prerelease"\) \| \(string &amp; \{\}\) \(required\)
+  - `return-type-changed`: response.updated\_at added: string \(required\)
+- `releases.list()`
+  - **breaking** `return-type-changed`: response.data\[\].channel removed \(was \("stable" \| "prerelease"\) \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.data\[\].publications\[\].destination removed \(was \("github" \| "npm" \| "pypi" \| "go" \| "mcp"\) \| \(string &amp; \{\}\)\)
+  - `return-type-changed`: response.data\[\].publications\[\].status enum values removed: "disabled", "pending", "published", "publishing"
+  - **breaking** `return-type-changed`: response.data\[\].publications\[\].status enum values added: "completed", "queued", "running"
+  - `return-type-changed`: response.data\[\].publications\[\].type added: \("github" \| "npm" \| "pypi" \| "go" \| "mcp"\) \| \(string &amp; \{\}\) \(required\)
+  - `return-type-changed`: response.data\[\].release\_channel added: \("stable" \| "prerelease"\) \| \(string &amp; \{\}\) \(required\)
+  - `return-type-changed`: response.data\[\].updated\_at added: string \(required\)
+- `releases.get()`
+  - **breaking** `return-type-changed`: response.channel removed \(was \("stable" \| "prerelease"\) \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.publications\[\].destination removed \(was \("github" \| "npm" \| "pypi" \| "go" \| "mcp"\) \| \(string &amp; \{\}\)\)
+  - `return-type-changed`: response.publications\[\].status enum values removed: "disabled", "pending", "published", "publishing"
+  - **breaking** `return-type-changed`: response.publications\[\].status enum values added: "completed", "queued", "running"
+  - `return-type-changed`: response.publications\[\].type added: \("github" \| "npm" \| "pypi" \| "go" \| "mcp"\) \| \(string &amp; \{\}\) \(required\)
+  - `return-type-changed`: response.release\_channel added: \("stable" \| "prerelease"\) \| \(string &amp; \{\}\) \(required\)
+  - `return-type-changed`: response.updated\_at added: string \(required\)
+  - `documentation-changed`: summary or description changed
+- `publications.list()`
+  - `param-added`: request parameter.status added: "queued" \| "running" \| "completed" \| "failed" \(optional\)
+  - **breaking** `return-type-changed`: response.data\[\].destination removed \(was \("github" \| "npm" \| "pypi" \| "go" \| "mcp"\) \| \(string &amp; \{\}\)\)
+  - `return-type-changed`: response.data\[\].status enum values removed: "disabled", "pending", "published", "publishing"
+  - **breaking** `return-type-changed`: response.data\[\].status enum values added: "completed", "queued", "running"
+  - `return-type-changed`: response.data\[\].type added: \("github" \| "npm" \| "pypi" \| "go" \| "mcp"\) \| \(string &amp; \{\}\) \(required\)
+- `publications.get()`
+  - **breaking** `return-type-changed`: response.destination removed \(was \("github" \| "npm" \| "pypi" \| "go" \| "mcp"\) \| \(string &amp; \{\}\)\)
+  - `return-type-changed`: response.status enum values removed: "disabled", "pending", "published", "publishing"
+  - **breaking** `return-type-changed`: response.status enum values added: "completed", "queued", "running"
+  - `return-type-changed`: response.type added: \("github" \| "npm" \| "pypi" \| "go" \| "mcp"\) \| \(string &amp; \{\}\) \(required\)
+  - `documentation-changed`: summary or description changed
+
+### Package contract (breaking)
+- SDK declaration `DraftReadiness.status` changed
+- SDK declaration `DraftReadinessRead.status` changed
+- **Breaking:** SDK declaration `Publication.destination` removed
+- SDK declaration `Publication.status` changed
+- **Breaking:** SDK declaration `PublicationRead.destination` removed
+- SDK declaration `PublicationRead.status` changed
+- **Breaking:** SDK declaration `Release.channel` removed
+- **Breaking:** SDK declaration `ReleaseRead.channel` removed
+- **Breaking:** SDK declaration `ReleasesRepublishError` removed
+- **Breaking:** SDK declaration `ReleasesRepublishParams` removed
+- **Breaking:** SDK declaration `ReleasesResource.republish` removed
+- **Breaking:** SDK declaration `TypeshipClient.releases.republish` removed
+- **Breaking:** SDK declaration `Publication.type` added
+- **Breaking:** SDK declaration `PublicationRead.type` added
+- SDK declaration `PublicationsListParams.status` added
+- **Breaking:** SDK declaration `Release.release_channel` added
+- **Breaking:** SDK declaration `Release.updated_at` added
+- **Breaking:** SDK declaration `ReleaseRead.release_channel` added
+- **Breaking:** SDK declaration `ReleaseRead.updated_at` added
+- SDK declaration `ReleasesResource.retry` added
+- SDK declaration `ReleasesRetryError` added
+- SDK declaration `ReleasesRetryParams` added
+- SDK declaration `TypeshipClient.releases.retry` added
 ## 0.25.0 (2026-09-25) (41 breaking)
 
 ### Changed
