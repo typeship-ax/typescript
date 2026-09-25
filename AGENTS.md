@@ -1,8 +1,8 @@
 # typeship — agent context
 
-This package contains the generated TypeScript SDK for **typeship** (API v1.0.0, package v0.23.0).
+This package contains the generated TypeScript SDK for **typeship** (API v1.0.0, package v0.24.0).
 
-Resolve an OpenAPI or GraphQL Definition, diagnose it, and keep every
+Resolve an OpenAPI or GraphQL Spec, diagnose it, and keep every
 selected CLI, MCP, and SDK Target current.
 
 Every operation but one requires a bearer credential: an organization
@@ -14,7 +14,7 @@ which works anonymously with the free plan's limits.
 
 Examples use Parcel, a fictional delivery service. Replace its domains,
 repository names, and resource identifiers with your own. The hosted
-petstore Definition is a runnable sample.
+petstore Spec is a runnable sample.
 
 ## Ground rules
 - Maintaining this package: when its repository receives reviewed regeneration pull requests, committed customizations are preserved and edits that overlap a generated change stop for review. Regenerating into a directory replaces its files.
@@ -32,9 +32,9 @@ petstore Definition is a runnable sample.
 import { TypeshipClient } from "@typeship-ax/sdk";
 const client = new TypeshipClient({ /* auth options above */ });
 ```
-- Awaiting a call returns `ApiResult<T, E>`: check `result.ok`, or `unwrap(result)` to throw the typed error. Malformed successful JSON is `ResponseParseError`.
-- Paginated methods return a `PagePromise`: awaiting it returns the first page's `ApiResult`; `for await (const item of client.x.list())` walks every page and throws the typed API error if a page fails.
-- Every method takes a last `{ timeoutMs, maxRetries, headers, signal }` argument for per-call overrides; every result carries `response: { status, headers, requestId }`.
+- Awaiting a call returns the response data or throws a typed error. Catch `ApiError` for HTTP failures, `ResponseParseError` for malformed successful JSON, or `TransportError` for connection failures.
+- Paginated methods return a `PagePromise`: awaiting it returns the first `Page`; `for await (const item of client.x.list())` walks every page and throws the typed error if a page fails.
+- Every method takes a last `{ timeoutMs, maxRetries, headers, signal }` argument for per-call overrides. Errors carry `code`, `status`, `requestId`, `body`, and an actionable message; pages carry response metadata.
 - Uploads take a `Blob` (a `File` for a filename).
 - `debug: true` (or a function) on the client logs one redacted line per request.
 

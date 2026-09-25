@@ -1,5 +1,1729 @@
 # Changelog
 
+
+## 0.24.0 (2026-09-25) (634 breaking)
+
+### Added
+- `projects.get()`: GET `/projects/{project_id}`
+- `specs.get()`: GET `/specs/{spec_id}`
+- `specs.update()`: PATCH `/specs/{spec_id}`
+- `specs.refresh()`: POST `/specs/{spec_id}/refresh`
+- `specRevisions.list()`: GET `/spec-revisions`
+- `specRevisions.get()`: GET `/spec-revisions/{spec_revision_id}`
+- `specRevisions.listFiles()`: GET `/spec-revisions/{spec_revision_id}/files`
+- `targets.get()`: GET `/targets/{target_id}`
+- `targets.adopt()`: POST `/targets/{target_id}/adopt`
+- `drafts.list()`: GET `/drafts`
+- `drafts.get()`: GET `/drafts/{draft_id}`
+- `drafts.update()`: PATCH `/drafts/{draft_id}`
+- `drafts.listFiles()`: GET `/drafts/{draft_id}/files`
+- `drafts.resolve()`: POST `/drafts/{draft_id}/resolve`
+- `drafts.recover()`: POST `/drafts/{draft_id}/recover`
+- `releases.list()`: GET `/releases`
+- `releases.get()`: GET `/releases/{release_id}`
+- `releases.republish()`: POST `/releases/{release_id}/republish`
+- `deliveries.list()`: GET `/deliveries`
+- `deliveries.get()`: GET `/deliveries/{delivery_id}`
+- `publications.list()`: GET `/publications`
+- `publications.get()`: GET `/publications/{publication_id}`
+- `generations.list()`: GET `/generations`
+- `generations.get()`: GET `/generations/{generation_id}`
+- `generations.listFiles()`: GET `/generations/{generation_id}/files`
+- `files.get()`: GET `/files/{file_id}`
+- `organization.get()`: GET `/organization`
+- `apiKeys.get()`: GET `/api-keys/{api_key_id}`
+
+### Removed (breaking)
+- `projects.retrieve()`: GET `/projects/{project_id}`
+- `projects.retrieveDiagnostics()`: GET `/projects/{project_id}/diagnostics`
+- `projects.refreshDiagnostics()`: POST `/projects/{project_id}/diagnostics`
+- `projects.remediateDiagnostics()`: POST `/projects/{project_id}/diagnostics/remediations`
+- `projects.retrieveIntegrationHealth()`: GET `/projects/{project_id}/integration-health`
+- `projects.listGenerations()`: GET `/projects/{project_id}/generations`
+- `definitions.retrieve()`: GET `/definitions/{definition_id}`
+- `definitions.update()`: PATCH `/definitions/{definition_id}`
+- `targets.retrieve()`: GET `/targets/{target_id}`
+- `targets.listReleases()`: GET `/targets/{target_id}/releases`
+- `targets.retrieveDraft()`: GET `/targets/{target_id}/draft`
+- `targets.updateDraft()`: PATCH `/targets/{target_id}/draft`
+- `targets.adoptRelease()`: POST `/targets/{target_id}/adopt`
+- `targets.retrieveRelease()`: GET `/target-releases/{target_release_id}`
+- `targets.republishRelease()`: POST `/target-releases/{target_release_id}/republish`
+- `targets.listDraftFiles()`: GET `/targets/{target_id}/draft/files`
+- `targets.retrieveDraftFileContent()`: GET `/targets/{target_id}/draft/files/content`
+- `targets.resolveDraftConflicts()`: POST `/targets/{target_id}/draft/conflicts/resolve`
+- `targets.discardDraftCustomizations()`: POST `/targets/{target_id}/draft/customizations/discard`
+- `targets.recoverDraftHistory()`: POST `/targets/{target_id}/draft/history/recover`
+- `targets.retrieveDelivery()`: GET `/deliveries/{delivery_id}`
+- `targets.retrievePublication()`: GET `/publications/{publication_id}`
+- `generations.retrieve()`: GET `/generations/{generation_id}`
+- `generations.retrieveFile()`: GET `/generations/{generation_id}/file`
+- `definitionRevisions.list()`: GET `/definitions/{definition_id}/revisions`
+- `definitionRevisions.retrieve()`: GET `/definition-revisions/{definition_revision_id}`
+- `definitionRevisions.retrieveContent()`: GET `/definition-revisions/{definition_revision_id}/content`
+- `definitionRevisions.retrieveDocumentContent()`: GET `/definition-revisions/{definition_revision_id}/documents/{document_id}/content`
+- `definitionRevisions.retrieveDocument()`: GET `/definition-documents/{definition_document_id}`
+- `account.retrieve()`: GET `/me`
+- `apiKeys.retrieve()`: GET `/api-keys/{api_key_id}`
+
+### Changed
+- `generate.run()`
+  - **breaking** `body-field-added`: request body.spec added: SpecInput \(required\)
+  - **breaking** `body-field-type-changed`: request body.target.generator removed \(was GeneratorKind\)
+  - **breaking** `body-field-type-changed`: request body.target.type added: GeneratorKind \(required\)
+  - **breaking** `body-field-type-changed`: request body.go\_sdk.definition\_digest removed \(was string\)
+  - **breaking** `body-field-type-changed`: request body.go\_sdk.edition removed \(was string\)
+  - **breaking** `body-field-type-changed`: request body.go\_sdk.spec\_digest added: string \(required\)
+  - **breaking** `body-field-type-changed`: request body.config.pagination.\*.style enum value removed: "cursorFromLastId"
+  - `body-field-type-changed`: request body.config.pagination.\*.style enum value added: "cursor\_from\_last\_id"
+  - **breaking** `body-field-removed`: request body.definition removed \(was DefinitionInput\)
+  - **breaking** `return-type-changed`: response.limits removed \(was GenerationLimits\)
+  - **breaking** `return-type-changed`: response.meta removed \(was GenerationMeta\)
+  - `return-type-changed`: response.warnings\[\].code added: string \(required\)
+  - `return-type-changed`: response.warnings\[\].message added: string \(required\)
+  - `return-type-changed`: response.warnings\[\].operation added: string \(optional\)
+  - `return-type-changed`: response.coverage added: GenerationCoverage \(required\)
+  - `documentation-changed`: summary or description changed
+  - `error-schema-changed`: error 400.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 400.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 400.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 401.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 401.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 401.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 403.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 403.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 403.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 409.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 409.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 409.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 409.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 409.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 413.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 413.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 413.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 413.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 413.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 422.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 422.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 422.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 422.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 422.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 429.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 429.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 429.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 500.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 500.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 500.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error default.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error default.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error default.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error default.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error default.errors\[\].type enum value removed: "unknown\_error"
+- `generate.downloadPackage()`
+  - `error-schema-changed`: error 400.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 400.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 400.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 404.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 404.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 404.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 404.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 404.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 429.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 429.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 429.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 500.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 500.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 500.errors\[\].type enum value removed: "unknown\_error"
+- `projects.list()`
+  - **breaking** `return-type-changed`: response.data\[\].definition\_id removed \(was DefinitionId\)
+  - `return-type-changed`: response.data\[\].spec\_id added: SpecId \(required\)
+  - `error-schema-changed`: error 400.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 400.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 400.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 401.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 401.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 401.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 403.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 403.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 403.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 429.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 429.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 429.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 500.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 500.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 500.errors\[\].type enum value removed: "unknown\_error"
+- `projects.create()`
+  - **breaking** `body-field-added`: request body.spec added: SpecFields \(required\)
+  - `body-field-type-changed`: request body.targets\[\].config.cli.relay added: boolean \(optional\)
+  - **breaking** `body-field-type-changed`: request body.targets\[\].config.pagination.\*.style enum value removed: "cursorFromLastId"
+  - `body-field-type-changed`: request body.targets\[\].config.pagination.\*.style enum value added: "cursor\_from\_last\_id"
+  - **breaking** `body-field-type-changed`: request body.targets\[\].deliveries\[\].kind removed \(was "hosted\_mcp"\)
+  - **breaking** `body-field-type-changed`: request body.targets\[\].deliveries\[\].type added: "hosted\_mcp" \(required\)
+  - **breaking** `body-field-type-changed`: request body.targets\[\].deliveries\[\].directory removed \(was string \| null\)
+  - **breaking** `body-field-type-changed`: request body.targets\[\].deliveries\[\].kind removed \(was "repository"\)
+  - **breaking** `body-field-type-changed`: request body.targets\[\].deliveries\[\].module\_path removed \(was string \| null\)
+  - **breaking** `body-field-type-changed`: request body.targets\[\].deliveries\[\].package\_name removed \(was string \| null\)
+  - **breaking** `body-field-type-changed`: request body.targets\[\].deliveries\[\].publish\_on\_merge removed \(was boolean\)
+  - **breaking** `body-field-type-changed`: request body.targets\[\].deliveries\[\].repository.identifier type changed: string -&gt; RepositoryIdentifier
+  - **breaking** `body-field-type-changed`: request body.targets\[\].deliveries\[\].repository.provider type changed: "github" -&gt; RepositoryProvider
+  - `body-field-type-changed`: request body.targets\[\].deliveries\[\].repository.directory added: string \| null \(optional\)
+  - `body-field-type-changed`: request body.targets\[\].deliveries\[\].repository.module\_path added: string \| null \(optional\)
+  - `body-field-type-changed`: request body.targets\[\].deliveries\[\].repository.package\_name added: string \| null \(optional\)
+  - `body-field-type-changed`: request body.targets\[\].deliveries\[\].repository.publish\_on\_merge added: boolean \(optional\)
+  - **breaking** `body-field-type-changed`: request body.targets\[\].deliveries\[\].type added: "repository" \(required\)
+  - **breaking** `body-field-type-changed`: request body.targets\[\].edition removed \(was string\)
+  - **breaking** `body-field-type-changed`: request body.targets\[\].generator removed \(was GeneratorKind\)
+  - **breaking** `body-field-type-changed`: request body.targets\[\].proposed\_version removed \(was string \| null\)
+  - **breaking** `body-field-type-changed`: request body.targets\[\].state removed \(was "active" \| "disabled"\)
+  - `body-field-type-changed`: request body.targets\[\].status added: "active" \| "disabled" \(optional\)
+  - **breaking** `body-field-type-changed`: request body.targets\[\].type added: GeneratorKind \(required\)
+  - **breaking** `body-field-type-changed`: request body.config.pagination.\*.style enum value removed: "cursorFromLastId"
+  - `body-field-type-changed`: request body.config.pagination.\*.style enum value added: "cursor\_from\_last\_id"
+  - **breaking** `body-field-removed`: request body.definition removed \(was DefinitionFields\)
+  - **breaking** `body-field-removed`: request body.relay\_enabled removed \(was boolean\)
+  - `return-type-changed`: response.config.pagination.\*.style enum value removed: "cursorFromLastId"
+  - **breaking** `return-type-changed`: response.config.pagination.\*.style enum value added: "cursor\_from\_last\_id"
+  - **breaking** `return-type-changed`: response.definition\_id removed \(was DefinitionId\)
+  - **breaking** `return-type-changed`: response.relay\_enabled removed \(was boolean\)
+  - `return-type-changed`: response.spec\_id added: SpecId \(required\)
+  - `documentation-changed`: summary or description changed
+  - `error-schema-changed`: error 400.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 400.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 400.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 401.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 401.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 401.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 402.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 402.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 402.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 402.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 402.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 403.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 403.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 403.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 409.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 409.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 409.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 409.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 409.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 422.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 422.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 422.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 422.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 422.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 429.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 429.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 429.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 500.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 500.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 500.errors\[\].type enum value removed: "unknown\_error"
+- `projects.delete()`
+  - `error-schema-changed`: error 400.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 400.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 400.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 401.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 401.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 401.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 403.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 403.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 403.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 404.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 404.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 404.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 404.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 404.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 412.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 412.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 412.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 412.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 412.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 429.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 429.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 429.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 500.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 500.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 500.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 502.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 502.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 502.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 502.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 502.errors\[\].type enum value removed: "unknown\_error"
+- `projects.update()`
+  - **breaking** `body-field-type-changed`: request body.config.pagination.\*.style enum value removed: "cursorFromLastId"
+  - `body-field-type-changed`: request body.config.pagination.\*.style enum value added: "cursor\_from\_last\_id"
+  - **breaking** `body-field-removed`: request body.relay\_enabled removed \(was boolean\)
+  - `return-type-changed`: response.config.pagination.\*.style enum value removed: "cursorFromLastId"
+  - **breaking** `return-type-changed`: response.config.pagination.\*.style enum value added: "cursor\_from\_last\_id"
+  - **breaking** `return-type-changed`: response.definition\_id removed \(was DefinitionId\)
+  - **breaking** `return-type-changed`: response.relay\_enabled removed \(was boolean\)
+  - `return-type-changed`: response.spec\_id added: SpecId \(required\)
+  - `documentation-changed`: summary or description changed
+  - `error-schema-changed`: error 400.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 400.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 400.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 401.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 401.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 401.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 402.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 402.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 402.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 402.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 402.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 403.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 403.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 403.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 404.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 404.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 404.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 404.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 404.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 409.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 409.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 409.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 409.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 409.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 412.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 412.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 412.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 412.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 412.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 422.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 422.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 422.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 422.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 422.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 429.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 429.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 429.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 500.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 500.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 500.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 502.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 502.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 502.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 502.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 502.errors\[\].type enum value removed: "unknown\_error"
+- `projects.generate()`
+  - `return-type-changed`: response.data\[\] intersection added: Generation
+  - **breaking** `return-type-changed`: response.data\[\].created\_at removed \(was string\)
+  - **breaking** `return-type-changed`: response.data\[\].definition\_revision\_id removed \(was DefinitionRevisionId \| null\)
+  - **breaking** `return-type-changed`: response.data\[\].errors removed \(was DomainError\[\]\)
+  - **breaking** `return-type-changed`: response.data\[\].generator removed \(was GeneratorKind \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.data\[\].id removed \(was GenerationId\)
+  - **breaking** `return-type-changed`: response.data\[\].meta removed \(was GenerationMeta \| null\)
+  - **breaking** `return-type-changed`: response.data\[\].object removed \(was "generation" \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.data\[\].project\_id removed \(was ProjectId\)
+  - **breaking** `return-type-changed`: response.data\[\].provenance removed \(was GenerationProvenance\)
+  - **breaking** `return-type-changed`: response.data\[\].status removed \(was GenerationStatus \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.data\[\].target\_id removed \(was TargetId \| null\)
+  - **breaking** `return-type-changed`: response.data\[\].trigger removed \(was GenerationTrigger \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.data\[\].warnings removed \(was string\[\]\)
+  - `http-changed`: POST /projects/\{project\_id\}/generations -&gt; POST /projects/\{project\_id\}/generate
+  - `documentation-changed`: summary or description changed
+  - `error-schema-changed`: error 400.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 400.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 400.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 401.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 401.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 401.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 402.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 402.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 402.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 402.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 402.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 403.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 403.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 403.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 404.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 404.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 404.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 404.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 404.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 409.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 409.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 409.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 409.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 409.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 413.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 413.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 413.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 413.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 413.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 422.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 422.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 422.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 422.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 422.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 429.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 429.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 429.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 500.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 500.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 500.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 502.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 502.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 502.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 502.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 502.errors\[\].type enum value removed: "unknown\_error"
+- `targets.list()`
+  - `return-type-changed`: response.data\[\].config.cli.relay added: boolean \(optional\)
+  - `return-type-changed`: response.data\[\].config.pagination.\*.style enum value removed: "cursorFromLastId"
+  - **breaking** `return-type-changed`: response.data\[\].config.pagination.\*.style enum value added: "cursor\_from\_last\_id"
+  - **breaking** `return-type-changed`: response.data\[\].current\_version removed \(was string \| null\)
+  - **breaking** `return-type-changed`: response.data\[\].definition\_id removed \(was DefinitionId\)
+  - **breaking** `return-type-changed`: response.data\[\].deliveries\[\].kind removed \(was "hosted\_mcp" \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.data\[\].deliveries\[\].state removed \(was \("active" \| "disabled"\) \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.data\[\].deliveries\[\].url removed \(was string \| null\)
+  - `return-type-changed`: response.data\[\].deliveries\[\].hosted\_mcp added: HostedMcpDeliverySettings \(required\)
+  - `return-type-changed`: response.data\[\].deliveries\[\].status added: \("active" \| "disabled"\) \| \(string &amp; \{\}\) \(required\)
+  - `return-type-changed`: response.data\[\].deliveries\[\].type added: "hosted\_mcp" \| \(string &amp; \{\}\) \(required\)
+  - **breaking** `return-type-changed`: response.data\[\].deliveries\[\].directory removed \(was string \| null\)
+  - **breaking** `return-type-changed`: response.data\[\].deliveries\[\].kind removed \(was "repository" \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.data\[\].deliveries\[\].module\_path removed \(was string \| null\)
+  - **breaking** `return-type-changed`: response.data\[\].deliveries\[\].package\_name removed \(was string \| null\)
+  - **breaking** `return-type-changed`: response.data\[\].deliveries\[\].publish\_on\_merge removed \(was boolean\)
+  - **breaking** `return-type-changed`: response.data\[\].deliveries\[\].repository.identifier type changed: string -&gt; RepositoryIdentifier
+  - **breaking** `return-type-changed`: response.data\[\].deliveries\[\].repository.provider type changed: "github" \| \(string &amp; \{\}\) -&gt; RepositoryProvider \| \(string &amp; \{\}\)
+  - `return-type-changed`: response.data\[\].deliveries\[\].repository.directory added: string \| null \(required\)
+  - `return-type-changed`: response.data\[\].deliveries\[\].repository.module\_path added: string \| null \(required\)
+  - `return-type-changed`: response.data\[\].deliveries\[\].repository.package\_name added: string \| null \(required\)
+  - `return-type-changed`: response.data\[\].deliveries\[\].repository.publish\_on\_merge added: boolean \(required\)
+  - **breaking** `return-type-changed`: response.data\[\].deliveries\[\].state removed \(was \("active" \| "disabled"\) \| \(string &amp; \{\}\)\)
+  - `return-type-changed`: response.data\[\].deliveries\[\].issues added: RepositoryDeliveryIssue\[\] \(required\)
+  - `return-type-changed`: response.data\[\].deliveries\[\].last\_event added: RepositoryDeliveryEvent \| null \(required\)
+  - `return-type-changed`: response.data\[\].deliveries\[\].required\_checks added: string\[\] \(required\)
+  - `return-type-changed`: response.data\[\].deliveries\[\].status added: \("active" \| "action\_required" \| "disabled"\) \| \(string &amp; \{\}\) \(required\)
+  - `return-type-changed`: response.data\[\].deliveries\[\].type added: "repository" \| \(string &amp; \{\}\) \(required\)
+  - **breaking** `return-type-changed`: response.data\[\].dependency.kind removed \(was "go\_sdk\_module" \| \(string &amp; \{\}\)\)
+  - `return-type-changed`: response.data\[\].dependency.type added: "go\_sdk\_module" \| \(string &amp; \{\}\) \(required\)
+  - **breaking** `return-type-changed`: response.data\[\].edition removed \(was string\)
+  - **breaking** `return-type-changed`: response.data\[\].generator removed \(was GeneratorKind \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.data\[\].proposed\_version removed \(was string \| null\)
+  - **breaking** `return-type-changed`: response.data\[\].proposed\_version\_source removed \(was \("console" \| "api" \| "github" \| null\) \| \(string &amp; \{\}\) \| null\)
+  - **breaking** `return-type-changed`: response.data\[\].state removed \(was \("active" \| "disabled"\) \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.data\[\].version\_policy removed \(was \{   mode: "reviewed\_semver" \| \(string &amp; \{\}\);   pre1\_breaking: "minor" \| \(string &amp; \{\}\); \}\)
+  - `return-type-changed`: response.data\[\].draft\_id added: DraftId \(required\)
+  - `return-type-changed`: response.data\[\].spec\_id added: SpecId \(required\)
+  - `return-type-changed`: response.data\[\].status added: \("active" \| "disabled"\) \| \(string &amp; \{\}\) \(required\)
+  - `return-type-changed`: response.data\[\].type added: GeneratorKind \| \(string &amp; \{\}\) \(required\)
+  - `return-type-changed`: response.data\[\].version\_current added: string \| null \(required\)
+  - `http-changed`: GET /projects/\{project\_id\}/targets -&gt; GET /targets
+  - `documentation-changed`: summary or description changed
+  - `error-schema-changed`: error 400.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 400.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 400.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 401.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 401.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 401.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 403.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 403.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 403.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 404.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 404.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 404.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 404.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 404.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 429.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 429.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 429.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 500.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 500.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 500.errors\[\].type enum value removed: "unknown\_error"
+- `targets.create()`
+  - **breaking** `param-removed`: request parameter.project\_id removed \(was ProjectId\)
+  - **breaking** `body-field-added`: request body.project\_id added: ProjectId \(required\)
+  - **breaking** `body-field-added`: request body.spec\_id added: SpecId \(required\)
+  - **breaking** `body-field-added`: request body.type added: GeneratorKind \(required\)
+  - `body-field-added`: request body.status added: "active" \| "disabled" \(optional\)
+  - `body-field-type-changed`: request body.config.cli.relay added: boolean \(optional\)
+  - **breaking** `body-field-type-changed`: request body.config.pagination.\*.style enum value removed: "cursorFromLastId"
+  - `body-field-type-changed`: request body.config.pagination.\*.style enum value added: "cursor\_from\_last\_id"
+  - **breaking** `body-field-type-changed`: request body.deliveries\[\].kind removed \(was "hosted\_mcp"\)
+  - **breaking** `body-field-type-changed`: request body.deliveries\[\].type added: "hosted\_mcp" \(required\)
+  - **breaking** `body-field-type-changed`: request body.deliveries\[\].directory removed \(was string \| null\)
+  - **breaking** `body-field-type-changed`: request body.deliveries\[\].kind removed \(was "repository"\)
+  - **breaking** `body-field-type-changed`: request body.deliveries\[\].module\_path removed \(was string \| null\)
+  - **breaking** `body-field-type-changed`: request body.deliveries\[\].package\_name removed \(was string \| null\)
+  - **breaking** `body-field-type-changed`: request body.deliveries\[\].publish\_on\_merge removed \(was boolean\)
+  - **breaking** `body-field-type-changed`: request body.deliveries\[\].repository.identifier type changed: string -&gt; RepositoryIdentifier
+  - **breaking** `body-field-type-changed`: request body.deliveries\[\].repository.provider type changed: "github" -&gt; RepositoryProvider
+  - `body-field-type-changed`: request body.deliveries\[\].repository.directory added: string \| null \(optional\)
+  - `body-field-type-changed`: request body.deliveries\[\].repository.module\_path added: string \| null \(optional\)
+  - `body-field-type-changed`: request body.deliveries\[\].repository.package\_name added: string \| null \(optional\)
+  - `body-field-type-changed`: request body.deliveries\[\].repository.publish\_on\_merge added: boolean \(optional\)
+  - **breaking** `body-field-type-changed`: request body.deliveries\[\].type added: "repository" \(required\)
+  - **breaking** `body-field-removed`: request body.definition\_id removed \(was DefinitionId\)
+  - **breaking** `body-field-removed`: request body.generator removed \(was GeneratorKind\)
+  - **breaking** `body-field-removed`: request body.state removed \(was "active" \| "disabled"\)
+  - **breaking** `body-field-removed`: request body.edition removed \(was string\)
+  - **breaking** `body-field-removed`: request body.proposed\_version removed \(was string \| null\)
+  - `return-type-changed`: response.config.cli.relay added: boolean \(optional\)
+  - `return-type-changed`: response.config.pagination.\*.style enum value removed: "cursorFromLastId"
+  - **breaking** `return-type-changed`: response.config.pagination.\*.style enum value added: "cursor\_from\_last\_id"
+  - **breaking** `return-type-changed`: response.current\_version removed \(was string \| null\)
+  - **breaking** `return-type-changed`: response.definition\_id removed \(was DefinitionId\)
+  - **breaking** `return-type-changed`: response.deliveries\[\].kind removed \(was "hosted\_mcp" \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.deliveries\[\].state removed \(was \("active" \| "disabled"\) \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.deliveries\[\].url removed \(was string \| null\)
+  - `return-type-changed`: response.deliveries\[\].hosted\_mcp added: HostedMcpDeliverySettings \(required\)
+  - `return-type-changed`: response.deliveries\[\].status added: \("active" \| "disabled"\) \| \(string &amp; \{\}\) \(required\)
+  - `return-type-changed`: response.deliveries\[\].type added: "hosted\_mcp" \| \(string &amp; \{\}\) \(required\)
+  - **breaking** `return-type-changed`: response.deliveries\[\].directory removed \(was string \| null\)
+  - **breaking** `return-type-changed`: response.deliveries\[\].kind removed \(was "repository" \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.deliveries\[\].module\_path removed \(was string \| null\)
+  - **breaking** `return-type-changed`: response.deliveries\[\].package\_name removed \(was string \| null\)
+  - **breaking** `return-type-changed`: response.deliveries\[\].publish\_on\_merge removed \(was boolean\)
+  - **breaking** `return-type-changed`: response.deliveries\[\].repository.identifier type changed: string -&gt; RepositoryIdentifier
+  - **breaking** `return-type-changed`: response.deliveries\[\].repository.provider type changed: "github" \| \(string &amp; \{\}\) -&gt; RepositoryProvider \| \(string &amp; \{\}\)
+  - `return-type-changed`: response.deliveries\[\].repository.directory added: string \| null \(required\)
+  - `return-type-changed`: response.deliveries\[\].repository.module\_path added: string \| null \(required\)
+  - `return-type-changed`: response.deliveries\[\].repository.package\_name added: string \| null \(required\)
+  - `return-type-changed`: response.deliveries\[\].repository.publish\_on\_merge added: boolean \(required\)
+  - **breaking** `return-type-changed`: response.deliveries\[\].state removed \(was \("active" \| "disabled"\) \| \(string &amp; \{\}\)\)
+  - `return-type-changed`: response.deliveries\[\].issues added: RepositoryDeliveryIssue\[\] \(required\)
+  - `return-type-changed`: response.deliveries\[\].last\_event added: RepositoryDeliveryEvent \| null \(required\)
+  - `return-type-changed`: response.deliveries\[\].required\_checks added: string\[\] \(required\)
+  - `return-type-changed`: response.deliveries\[\].status added: \("active" \| "action\_required" \| "disabled"\) \| \(string &amp; \{\}\) \(required\)
+  - `return-type-changed`: response.deliveries\[\].type added: "repository" \| \(string &amp; \{\}\) \(required\)
+  - **breaking** `return-type-changed`: response.dependency.kind removed \(was "go\_sdk\_module" \| \(string &amp; \{\}\)\)
+  - `return-type-changed`: response.dependency.type added: "go\_sdk\_module" \| \(string &amp; \{\}\) \(required\)
+  - **breaking** `return-type-changed`: response.edition removed \(was string\)
+  - **breaking** `return-type-changed`: response.generator removed \(was GeneratorKind \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.proposed\_version removed \(was string \| null\)
+  - **breaking** `return-type-changed`: response.proposed\_version\_source removed \(was \("console" \| "api" \| "github" \| null\) \| \(string &amp; \{\}\) \| null\)
+  - **breaking** `return-type-changed`: response.state removed \(was \("active" \| "disabled"\) \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.version\_policy removed \(was \{   mode: "reviewed\_semver" \| \(string &amp; \{\}\);   pre1\_breaking: "minor" \| \(string &amp; \{\}\); \}\)
+  - `return-type-changed`: response.draft\_id added: DraftId \(required\)
+  - `return-type-changed`: response.spec\_id added: SpecId \(required\)
+  - `return-type-changed`: response.status added: \("active" \| "disabled"\) \| \(string &amp; \{\}\) \(required\)
+  - `return-type-changed`: response.type added: GeneratorKind \| \(string &amp; \{\}\) \(required\)
+  - `return-type-changed`: response.version\_current added: string \| null \(required\)
+  - `http-changed`: POST /projects/\{project\_id\}/targets -&gt; POST /targets
+  - `error-schema-changed`: error 400.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 400.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 400.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 401.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 401.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 401.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 402.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 402.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 402.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 402.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 402.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 403.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 403.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 403.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 404.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 404.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 404.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 404.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 404.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 409.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 409.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 409.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 409.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 409.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 422.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 422.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 422.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 422.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 422.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 429.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 429.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 429.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 500.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 500.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 500.errors\[\].type enum value removed: "unknown\_error"
+- `targets.delete()`
+  - `error-schema-changed`: error 400.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 400.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 400.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 401.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 401.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 401.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 403.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 403.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 403.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 404.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 404.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 404.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 404.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 404.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 409.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 409.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 409.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 409.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 409.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 412.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 412.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 412.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 412.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 412.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 429.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 429.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 429.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 500.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 500.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 500.errors\[\].type enum value removed: "unknown\_error"
+- `targets.update()`
+  - `body-field-added`: request body.status added: "active" \| "disabled" \(optional\)
+  - `body-field-type-changed`: request body.config.cli.relay added: boolean \(optional\)
+  - **breaking** `body-field-type-changed`: request body.config.pagination.\*.style enum value removed: "cursorFromLastId"
+  - `body-field-type-changed`: request body.config.pagination.\*.style enum value added: "cursor\_from\_last\_id"
+  - **breaking** `body-field-type-changed`: request body.deliveries\[\].kind removed \(was "hosted\_mcp"\)
+  - **breaking** `body-field-type-changed`: request body.deliveries\[\].type added: "hosted\_mcp" \(required\)
+  - **breaking** `body-field-type-changed`: request body.deliveries\[\].directory removed \(was string \| null\)
+  - **breaking** `body-field-type-changed`: request body.deliveries\[\].kind removed \(was "repository"\)
+  - **breaking** `body-field-type-changed`: request body.deliveries\[\].module\_path removed \(was string \| null\)
+  - **breaking** `body-field-type-changed`: request body.deliveries\[\].package\_name removed \(was string \| null\)
+  - **breaking** `body-field-type-changed`: request body.deliveries\[\].publish\_on\_merge removed \(was boolean\)
+  - **breaking** `body-field-type-changed`: request body.deliveries\[\].repository.identifier type changed: string -&gt; RepositoryIdentifier
+  - **breaking** `body-field-type-changed`: request body.deliveries\[\].repository.provider type changed: "github" -&gt; RepositoryProvider
+  - `body-field-type-changed`: request body.deliveries\[\].repository.directory added: string \| null \(optional\)
+  - `body-field-type-changed`: request body.deliveries\[\].repository.module\_path added: string \| null \(optional\)
+  - `body-field-type-changed`: request body.deliveries\[\].repository.package\_name added: string \| null \(optional\)
+  - `body-field-type-changed`: request body.deliveries\[\].repository.publish\_on\_merge added: boolean \(optional\)
+  - **breaking** `body-field-type-changed`: request body.deliveries\[\].type added: "repository" \(required\)
+  - **breaking** `body-field-removed`: request body.state removed \(was "active" \| "disabled"\)
+  - **breaking** `body-field-removed`: request body.edition removed \(was string\)
+  - **breaking** `body-field-removed`: request body.proposed\_version removed \(was string \| null\)
+  - `return-type-changed`: response.config.cli.relay added: boolean \(optional\)
+  - `return-type-changed`: response.config.pagination.\*.style enum value removed: "cursorFromLastId"
+  - **breaking** `return-type-changed`: response.config.pagination.\*.style enum value added: "cursor\_from\_last\_id"
+  - **breaking** `return-type-changed`: response.current\_version removed \(was string \| null\)
+  - **breaking** `return-type-changed`: response.definition\_id removed \(was DefinitionId\)
+  - **breaking** `return-type-changed`: response.deliveries\[\].kind removed \(was "hosted\_mcp" \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.deliveries\[\].state removed \(was \("active" \| "disabled"\) \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.deliveries\[\].url removed \(was string \| null\)
+  - `return-type-changed`: response.deliveries\[\].hosted\_mcp added: HostedMcpDeliverySettings \(required\)
+  - `return-type-changed`: response.deliveries\[\].status added: \("active" \| "disabled"\) \| \(string &amp; \{\}\) \(required\)
+  - `return-type-changed`: response.deliveries\[\].type added: "hosted\_mcp" \| \(string &amp; \{\}\) \(required\)
+  - **breaking** `return-type-changed`: response.deliveries\[\].directory removed \(was string \| null\)
+  - **breaking** `return-type-changed`: response.deliveries\[\].kind removed \(was "repository" \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.deliveries\[\].module\_path removed \(was string \| null\)
+  - **breaking** `return-type-changed`: response.deliveries\[\].package\_name removed \(was string \| null\)
+  - **breaking** `return-type-changed`: response.deliveries\[\].publish\_on\_merge removed \(was boolean\)
+  - **breaking** `return-type-changed`: response.deliveries\[\].repository.identifier type changed: string -&gt; RepositoryIdentifier
+  - **breaking** `return-type-changed`: response.deliveries\[\].repository.provider type changed: "github" \| \(string &amp; \{\}\) -&gt; RepositoryProvider \| \(string &amp; \{\}\)
+  - `return-type-changed`: response.deliveries\[\].repository.directory added: string \| null \(required\)
+  - `return-type-changed`: response.deliveries\[\].repository.module\_path added: string \| null \(required\)
+  - `return-type-changed`: response.deliveries\[\].repository.package\_name added: string \| null \(required\)
+  - `return-type-changed`: response.deliveries\[\].repository.publish\_on\_merge added: boolean \(required\)
+  - **breaking** `return-type-changed`: response.deliveries\[\].state removed \(was \("active" \| "disabled"\) \| \(string &amp; \{\}\)\)
+  - `return-type-changed`: response.deliveries\[\].issues added: RepositoryDeliveryIssue\[\] \(required\)
+  - `return-type-changed`: response.deliveries\[\].last\_event added: RepositoryDeliveryEvent \| null \(required\)
+  - `return-type-changed`: response.deliveries\[\].required\_checks added: string\[\] \(required\)
+  - `return-type-changed`: response.deliveries\[\].status added: \("active" \| "action\_required" \| "disabled"\) \| \(string &amp; \{\}\) \(required\)
+  - `return-type-changed`: response.deliveries\[\].type added: "repository" \| \(string &amp; \{\}\) \(required\)
+  - **breaking** `return-type-changed`: response.dependency.kind removed \(was "go\_sdk\_module" \| \(string &amp; \{\}\)\)
+  - `return-type-changed`: response.dependency.type added: "go\_sdk\_module" \| \(string &amp; \{\}\) \(required\)
+  - **breaking** `return-type-changed`: response.edition removed \(was string\)
+  - **breaking** `return-type-changed`: response.generator removed \(was GeneratorKind \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.proposed\_version removed \(was string \| null\)
+  - **breaking** `return-type-changed`: response.proposed\_version\_source removed \(was \("console" \| "api" \| "github" \| null\) \| \(string &amp; \{\}\) \| null\)
+  - **breaking** `return-type-changed`: response.state removed \(was \("active" \| "disabled"\) \| \(string &amp; \{\}\)\)
+  - **breaking** `return-type-changed`: response.version\_policy removed \(was \{   mode: "reviewed\_semver" \| \(string &amp; \{\}\);   pre1\_breaking: "minor" \| \(string &amp; \{\}\); \}\)
+  - `return-type-changed`: response.draft\_id added: DraftId \(required\)
+  - `return-type-changed`: response.spec\_id added: SpecId \(required\)
+  - `return-type-changed`: response.status added: \("active" \| "disabled"\) \| \(string &amp; \{\}\) \(required\)
+  - `return-type-changed`: response.type added: GeneratorKind \| \(string &amp; \{\}\) \(required\)
+  - `return-type-changed`: response.version\_current added: string \| null \(required\)
+  - `documentation-changed`: summary or description changed
+  - `error-schema-changed`: error 400.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 400.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 400.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 401.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 401.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 401.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 402.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 402.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 402.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 402.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 402.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 403.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 403.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 403.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 404.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 404.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 404.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 404.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 404.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 409.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 409.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 409.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 409.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 409.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 412.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 412.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 412.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 412.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 412.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 422.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 422.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 422.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 422.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 422.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 429.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 429.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 429.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 500.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 500.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 500.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 502.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 502.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 502.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 502.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 502.errors\[\].type enum value removed: "unknown\_error"
+- `apiKeys.list()`
+  - `return-type-changed`: response.data\[\].updated\_at added: string \(required\)
+  - `error-schema-changed`: error 400.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 400.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 400.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 401.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 401.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 401.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 403.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 403.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 403.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 429.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 429.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 429.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 500.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 500.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 500.errors\[\].type enum value removed: "unknown\_error"
+- `apiKeys.revoke()`
+  - `return-type-changed`: response.updated\_at added: string \(required\)
+  - `documentation-changed`: summary or description changed
+  - `error-schema-changed`: error 400.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 400.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 400.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 400.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 401.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 401.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 401.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 401.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 403.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 403.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 403.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 403.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 404.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 404.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 404.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 404.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 404.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 412.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 412.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 412.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 412.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 412.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 429.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 429.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 429.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 429.errors\[\].type enum value removed: "unknown\_error"
+  - `error-schema-changed`: error 500.errors\[\].code enum values removed: "definition\_changed", "dependency\_edition\_incompatible", "edition\_unavailable", "generation\_stale", "no\_changes", "release\_analysis\_stale", "stale\_draft", "unclassified\_error"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "draft\_merged", "resource\_changed"
+  - `error-schema-changed`: error 500.errors\[\].phase enum value removed: "definition"
+  - **breaking** `error-schema-changed`: error 500.errors\[\].phase enum value added: "spec"
+  - `error-schema-changed`: error 500.errors\[\].type enum value removed: "unknown\_error"
+
+### Package contract (breaking)
+- **Breaking:** SDK declaration `AcceptedCompatibilityRisk` removed
+- **Breaking:** SDK declaration `AcceptedCompatibilityRiskRead` removed
+- **Breaking:** SDK declaration `Account` removed
+- **Breaking:** SDK declaration `AccountRead` removed
+- **Breaking:** SDK declaration `AccountResource` removed
+- **Breaking:** SDK declaration `AccountRetrieveError` removed
+- SDK declaration `ApiError` changed
+- **Breaking:** SDK declaration `ApiKeysResource.retrieve` removed
+- **Breaking:** SDK declaration `ApiKeysResource.revoke` changed
+- **Breaking:** SDK declaration `ApiKeysRetrieveError` removed
+- **Breaking:** SDK declaration `ApiResult` removed
+- **Breaking:** SDK declaration `CreateProjectRequest.definition` removed
+- **Breaking:** SDK declaration `CreateProjectRequest.relay_enabled` removed
+- **Breaking:** SDK declaration `CreateProjectRequestRead.definition` removed
+- **Breaking:** SDK declaration `CreateProjectRequestRead.relay_enabled` removed
+- **Breaking:** SDK declaration `Definition` removed
+- **Breaking:** SDK declaration `DefinitionDocument` removed
+- **Breaking:** SDK declaration `DefinitionDocumentId` removed
+- **Breaking:** SDK declaration `DefinitionDocumentRead` removed
+- **Breaking:** SDK declaration `DefinitionDocumentResponse` removed
+- **Breaking:** SDK declaration `DefinitionDocumentResponseRead` removed
+- **Breaking:** SDK declaration `DefinitionFields` removed
+- **Breaking:** SDK declaration `DefinitionFieldsRead` removed
+- **Breaking:** SDK declaration `DefinitionId` removed
+- **Breaking:** SDK declaration `DefinitionInput` removed
+- **Breaking:** SDK declaration `DefinitionInputRead` removed
+- **Breaking:** SDK declaration `DefinitionPatch` removed
+- **Breaking:** SDK declaration `DefinitionPatchRead` removed
+- **Breaking:** SDK declaration `DefinitionPatchResponse` removed
+- **Breaking:** SDK declaration `DefinitionPatchResponseRead` removed
+- **Breaking:** SDK declaration `DefinitionRead` removed
+- **Breaking:** SDK declaration `DefinitionRevision` removed
+- **Breaking:** SDK declaration `DefinitionRevisionId` removed
+- **Breaking:** SDK declaration `DefinitionRevisionList` removed
+- **Breaking:** SDK declaration `DefinitionRevisionListRead` removed
+- **Breaking:** SDK declaration `DefinitionRevisionRead` removed
+- **Breaking:** SDK declaration `DefinitionRevisionResponse` removed
+- **Breaking:** SDK declaration `DefinitionRevisionResponseRead` removed
+- **Breaking:** SDK declaration `DefinitionRevisionSource` removed
+- **Breaking:** SDK declaration `DefinitionRevisionSourceRead` removed
+- **Breaking:** SDK declaration `DefinitionRevisionsListError` removed
+- **Breaking:** SDK declaration `DefinitionRevisionsListParams` removed
+- **Breaking:** SDK declaration `DefinitionRevisionsResource` removed
+- **Breaking:** SDK declaration `DefinitionRevisionsRetrieveContentError` removed
+- **Breaking:** SDK declaration `DefinitionRevisionsRetrieveDocumentContentError` removed
+- **Breaking:** SDK declaration `DefinitionRevisionsRetrieveDocumentError` removed
+- **Breaking:** SDK declaration `DefinitionRevisionsRetrieveError` removed
+- **Breaking:** SDK declaration `DefinitionSource` removed
+- **Breaking:** SDK declaration `DefinitionSourceInput` removed
+- **Breaking:** SDK declaration `DefinitionSourceInputRead` removed
+- **Breaking:** SDK declaration `DefinitionSourceRead` removed
+- **Breaking:** SDK declaration `DefinitionSourceWrite` removed
+- **Breaking:** SDK declaration `DefinitionUpdateRequest` removed
+- **Breaking:** SDK declaration `DefinitionUpdateRequestRead` removed
+- **Breaking:** SDK declaration `DefinitionWrite` removed
+- **Breaking:** SDK declaration `DefinitionsResource` removed
+- **Breaking:** SDK declaration `DefinitionsRetrieveError` removed
+- **Breaking:** SDK declaration `DefinitionsUpdateError` removed
+- **Breaking:** SDK declaration `DefinitionsUpdateParams` removed
+- SDK declaration `DeliveryInputRead` changed
+- SDK declaration `DeliveryRead` changed
+- **Breaking:** SDK declaration `DeliveryResponse.directory` removed
+- **Breaking:** SDK declaration `DeliveryResponse.kind` removed
+- **Breaking:** SDK declaration `DeliveryResponse.module_path` removed
+- **Breaking:** SDK declaration `DeliveryResponse.package_name` removed
+- **Breaking:** SDK declaration `DeliveryResponse.publish_on_merge` removed
+- SDK declaration `DeliveryResponse.repository` changed
+- **Breaking:** SDK declaration `DeliveryResponse.state` removed
+- **Breaking:** SDK declaration `DeliveryResponse.url` removed
+- **Breaking:** SDK declaration `DeliveryResponseRead.directory` removed
+- **Breaking:** SDK declaration `DeliveryResponseRead.kind` removed
+- **Breaking:** SDK declaration `DeliveryResponseRead.module_path` removed
+- **Breaking:** SDK declaration `DeliveryResponseRead.package_name` removed
+- **Breaking:** SDK declaration `DeliveryResponseRead.publish_on_merge` removed
+- SDK declaration `DeliveryResponseRead.repository` changed
+- **Breaking:** SDK declaration `DeliveryResponseRead.state` removed
+- **Breaking:** SDK declaration `DeliveryResponseRead.url` removed
+- **Breaking:** SDK declaration `Diagnostic.description` removed
+- **Breaking:** SDK declaration `Diagnostic.evidence_basis` removed
+- **Breaking:** SDK declaration `Diagnostic.impact` removed
+- **Breaking:** SDK declaration `Diagnostic.surface_impact` removed
+- **Breaking:** SDK declaration `DiagnosticDelta` removed
+- **Breaking:** SDK declaration `DiagnosticDeltaRead` removed
+- **Breaking:** SDK declaration `DiagnosticEvaluation` removed
+- **Breaking:** SDK declaration `DiagnosticEvaluationRead` removed
+- **Breaking:** SDK declaration `DiagnosticFix.kind` removed
+- SDK declaration `DiagnosticFix.patches` changed
+- **Breaking:** SDK declaration `DiagnosticFixRead.kind` removed
+- SDK declaration `DiagnosticFixRead.patches` changed
+- **Breaking:** SDK declaration `DiagnosticLocation.document` removed
+- **Breaking:** SDK declaration `DiagnosticQualitySignals` removed
+- **Breaking:** SDK declaration `DiagnosticRead.description` removed
+- **Breaking:** SDK declaration `DiagnosticRead.evidence_basis` removed
+- **Breaking:** SDK declaration `DiagnosticRead.impact` removed
+- **Breaking:** SDK declaration `DiagnosticRead.surface_impact` removed
+- **Breaking:** SDK declaration `DiagnosticReference` removed
+- **Breaking:** SDK declaration `DiagnosticReferenceRead` removed
+- **Breaking:** SDK declaration `DiagnosticRemediation` removed
+- **Breaking:** SDK declaration `DiagnosticRemediationRead` removed
+- **Breaking:** SDK declaration `DiagnosticRemediationRequest` removed
+- **Breaking:** SDK declaration `DiagnosticReport` removed
+- **Breaking:** SDK declaration `DiagnosticReportRead` removed
+- **Breaking:** SDK declaration `DiagnosticSummary.auto_fixable` removed
+- **Breaking:** SDK declaration `DiagnosticSummary.diagnostics` removed
+- **Breaking:** SDK declaration `DiagnosticSummary.errors` removed
+- **Breaking:** SDK declaration `DiagnosticSummary.occurrences` removed
+- **Breaking:** SDK declaration `DiagnosticSummary.suggestions` removed
+- **Breaking:** SDK declaration `DiagnosticSummary.warnings` removed
+- **Breaking:** SDK declaration `DiagnosticSuppressionSignal` removed
+- **Breaking:** SDK declaration `DiscardDraftCustomizations` removed
+- SDK declaration `DraftConflictDecision` changed
+- SDK declaration `DraftConflictDecisionRead` changed
+- **Breaking:** SDK declaration `DraftConflictResolution` removed
+- **Breaking:** SDK declaration `DraftConflictResolutionRead` removed
+- **Breaking:** SDK declaration `DraftConflictResolutionResponse` removed
+- **Breaking:** SDK declaration `DraftConflictResolutionResponseRead` removed
+- **Breaking:** SDK declaration `DraftCustomizationDiscard` removed
+- **Breaking:** SDK declaration `DraftCustomizationDiscardRead` removed
+- **Breaking:** SDK declaration `DraftCustomizationDiscardResponse` removed
+- **Breaking:** SDK declaration `DraftCustomizationDiscardResponseRead` removed
+- SDK declaration `DraftFile.sides` changed
+- SDK declaration `DraftFileConflict.decision` changed
+- **Breaking:** SDK declaration `DraftFileConflict.kind` removed
+- SDK declaration `DraftFileConflictRead.decision` changed
+- **Breaking:** SDK declaration `DraftFileConflictRead.kind` removed
+- **Breaking:** SDK declaration `DraftFileContent` removed
+- **Breaking:** SDK declaration `DraftFileContentRead` removed
+- **Breaking:** SDK declaration `DraftFileContentResponse` removed
+- **Breaking:** SDK declaration `DraftFileContentResponseRead` removed
+- SDK declaration `DraftFileRead.sides` changed
+- SDK declaration `DraftFileSide` changed
+- **Breaking:** SDK declaration `DraftFileSideSummary` removed
+- **Breaking:** SDK declaration `DraftFileSideSummaryRead` removed
+- **Breaking:** SDK declaration `DraftHistoryRecovery.default_revision` removed
+- **Breaking:** SDK declaration `DraftHistoryRecovery.head_revision` removed
+- **Breaking:** SDK declaration `DraftHistoryRecovery.object` removed
+- **Breaking:** SDK declaration `DraftHistoryRecovery.status` removed
+- **Breaking:** SDK declaration `DraftHistoryRecovery.target_id` removed
+- **Breaking:** SDK declaration `DraftHistoryRecoveryRead` removed
+- **Breaking:** SDK declaration `DraftHistoryRecoveryResponse` removed
+- **Breaking:** SDK declaration `DraftHistoryRecoveryResponseRead` removed
+- **Breaking:** SDK declaration `DraftPlannedFile` removed
+- **Breaking:** SDK declaration `DraftPlannedFileRead` removed
+- SDK declaration `DraftStatus` changed
+- SDK declaration `ErrorCode` changed
+- SDK declaration `ErrorDetail.code` changed
+- SDK declaration `ErrorDetail.type` changed
+- SDK declaration `ErrorType` changed
+- SDK declaration `FailurePhase` changed
+- **Breaking:** SDK declaration `GenerateRequest.definition` removed
+- SDK declaration `GenerateRequest.target` changed
+- **Breaking:** SDK declaration `GenerateRequestRead.definition` removed
+- SDK declaration `GenerateRequestRead.target` changed
+- **Breaking:** SDK declaration `GenerateResource.downloadPackage` changed
+- **Breaking:** SDK declaration `GenerateResource.run` changed
+- SDK declaration `GenerateRunError` changed
+- **Breaking:** SDK declaration `Generation.definition_revision_id` removed
+- **Breaking:** SDK declaration `Generation.files` removed
+- **Breaking:** SDK declaration `Generation.files_index` removed
+- **Breaking:** SDK declaration `Generation.files_omitted` removed
+- **Breaking:** SDK declaration `Generation.generator` removed
+- **Breaking:** SDK declaration `Generation.meta` removed
+- **Breaking:** SDK declaration `Generation.provenance` removed
+- **Breaking:** SDK declaration `Generation.request_id` removed
+- SDK declaration `Generation.status` changed
+- SDK declaration `Generation.trigger` changed
+- SDK declaration `Generation.warnings` changed
+- SDK declaration `GenerationBatch.data` changed
+- SDK declaration `GenerationBatchRead.data` changed
+- SDK declaration `GenerationBatchWrite.data` changed
+- **Breaking:** SDK declaration `GenerationFailure.generator` removed
+- **Breaking:** SDK declaration `GenerationFailureRead.generator` removed
+- **Breaking:** SDK declaration `GenerationLimits` removed
+- **Breaking:** SDK declaration `GenerationLimitsRead` removed
+- SDK declaration `GenerationList.data` changed
+- SDK declaration `GenerationListRead.data` changed
+- SDK declaration `GenerationListWrite.data` changed
+- **Breaking:** SDK declaration `GenerationMeta` removed
+- **Breaking:** SDK declaration `GenerationMetaRead` removed
+- **Breaking:** SDK declaration `GenerationProvenance` removed
+- **Breaking:** SDK declaration `GenerationProvenanceRead` removed
+- **Breaking:** SDK declaration `GenerationRead.definition_revision_id` removed
+- **Breaking:** SDK declaration `GenerationRead.files` removed
+- **Breaking:** SDK declaration `GenerationRead.files_index` removed
+- **Breaking:** SDK declaration `GenerationRead.files_omitted` removed
+- **Breaking:** SDK declaration `GenerationRead.generator` removed
+- **Breaking:** SDK declaration `GenerationRead.meta` removed
+- **Breaking:** SDK declaration `GenerationRead.provenance` removed
+- **Breaking:** SDK declaration `GenerationRead.request_id` removed
+- SDK declaration `GenerationRead.warnings` changed
+- **Breaking:** SDK declaration `GenerationResult.limits` removed
+- **Breaking:** SDK declaration `GenerationResult.meta` removed
+- SDK declaration `GenerationResult.warnings` changed
+- **Breaking:** SDK declaration `GenerationResultRead.limits` removed
+- **Breaking:** SDK declaration `GenerationResultRead.meta` removed
+- SDK declaration `GenerationResultRead.warnings` changed
+- SDK declaration `GenerationStatus` changed
+- SDK declaration `GenerationSummary` changed
+- **Breaking:** SDK declaration `GenerationSummary.created_at` removed
+- **Breaking:** SDK declaration `GenerationSummary.definition_revision_id` removed
+- **Breaking:** SDK declaration `GenerationSummary.errors` removed
+- **Breaking:** SDK declaration `GenerationSummary.generator` removed
+- **Breaking:** SDK declaration `GenerationSummary.id` removed
+- **Breaking:** SDK declaration `GenerationSummary.meta` removed
+- **Breaking:** SDK declaration `GenerationSummary.object` removed
+- **Breaking:** SDK declaration `GenerationSummary.project_id` removed
+- **Breaking:** SDK declaration `GenerationSummary.provenance` removed
+- **Breaking:** SDK declaration `GenerationSummary.status` removed
+- **Breaking:** SDK declaration `GenerationSummary.target_id` removed
+- **Breaking:** SDK declaration `GenerationSummary.trigger` removed
+- **Breaking:** SDK declaration `GenerationSummary.warnings` removed
+- SDK declaration `GenerationSummaryRead` changed
+- **Breaking:** SDK declaration `GenerationSummaryRead.created_at` removed
+- **Breaking:** SDK declaration `GenerationSummaryRead.definition_revision_id` removed
+- **Breaking:** SDK declaration `GenerationSummaryRead.errors` removed
+- **Breaking:** SDK declaration `GenerationSummaryRead.generator` removed
+- **Breaking:** SDK declaration `GenerationSummaryRead.id` removed
+- **Breaking:** SDK declaration `GenerationSummaryRead.meta` removed
+- **Breaking:** SDK declaration `GenerationSummaryRead.object` removed
+- **Breaking:** SDK declaration `GenerationSummaryRead.project_id` removed
+- **Breaking:** SDK declaration `GenerationSummaryRead.provenance` removed
+- **Breaking:** SDK declaration `GenerationSummaryRead.status` removed
+- **Breaking:** SDK declaration `GenerationSummaryRead.target_id` removed
+- **Breaking:** SDK declaration `GenerationSummaryRead.trigger` removed
+- **Breaking:** SDK declaration `GenerationSummaryRead.warnings` removed
+- SDK declaration `GenerationSummaryWrite` changed
+- **Breaking:** SDK declaration `GenerationSummaryWrite.created_at` removed
+- **Breaking:** SDK declaration `GenerationSummaryWrite.definition_revision_id` removed
+- **Breaking:** SDK declaration `GenerationSummaryWrite.errors` removed
+- **Breaking:** SDK declaration `GenerationSummaryWrite.generator` removed
+- **Breaking:** SDK declaration `GenerationSummaryWrite.id` removed
+- **Breaking:** SDK declaration `GenerationSummaryWrite.meta` removed
+- **Breaking:** SDK declaration `GenerationSummaryWrite.project_id` removed
+- **Breaking:** SDK declaration `GenerationSummaryWrite.provenance` removed
+- **Breaking:** SDK declaration `GenerationSummaryWrite.status` removed
+- **Breaking:** SDK declaration `GenerationSummaryWrite.target_id` removed
+- **Breaking:** SDK declaration `GenerationSummaryWrite.trigger` removed
+- **Breaking:** SDK declaration `GenerationSummaryWrite.warnings` removed
+- SDK declaration `GenerationTrigger` changed
+- **Breaking:** SDK declaration `GenerationWrite.definition_revision_id` removed
+- **Breaking:** SDK declaration `GenerationWrite.files` removed
+- **Breaking:** SDK declaration `GenerationWrite.files_index` removed
+- **Breaking:** SDK declaration `GenerationWrite.files_omitted` removed
+- **Breaking:** SDK declaration `GenerationWrite.generator` removed
+- **Breaking:** SDK declaration `GenerationWrite.meta` removed
+- **Breaking:** SDK declaration `GenerationWrite.provenance` removed
+- **Breaking:** SDK declaration `GenerationWrite.request_id` removed
+- SDK declaration `GenerationWrite.status` changed
+- SDK declaration `GenerationWrite.trigger` changed
+- SDK declaration `GenerationWrite.warnings` changed
+- **Breaking:** SDK declaration `GenerationsResource.retrieve` removed
+- **Breaking:** SDK declaration `GenerationsResource.retrieveFile` removed
+- **Breaking:** SDK declaration `GenerationsResource.wait` changed
+- **Breaking:** SDK declaration `GenerationsRetrieveError` removed
+- **Breaking:** SDK declaration `GenerationsRetrieveFileError` removed
+- **Breaking:** SDK declaration `GenerationsRetrieveFileParams` removed
+- SDK declaration `GeneratorKind` changed
+- **Breaking:** SDK declaration `GoSdkDescriptor.definition_digest` removed
+- **Breaking:** SDK declaration `GoSdkDescriptor.edition` removed
+- **Breaking:** SDK declaration `HostedMcpDelivery.kind` removed
+- **Breaking:** SDK declaration `HostedMcpDelivery.state` removed
+- **Breaking:** SDK declaration `HostedMcpDelivery.url` removed
+- **Breaking:** SDK declaration `HostedMcpDeliveryInput.kind` removed
+- **Breaking:** SDK declaration `HostedMcpDeliveryInputRead.kind` removed
+- **Breaking:** SDK declaration `HostedMcpDeliveryRead.kind` removed
+- **Breaking:** SDK declaration `HostedMcpDeliveryRead.state` removed
+- **Breaking:** SDK declaration `HostedMcpDeliveryRead.url` removed
+- **Breaking:** SDK declaration `InitialTargetFields.edition` removed
+- **Breaking:** SDK declaration `InitialTargetFields.generator` removed
+- **Breaking:** SDK declaration `InitialTargetFields.proposed_version` removed
+- **Breaking:** SDK declaration `InitialTargetFields.state` removed
+- **Breaking:** SDK declaration `InitialTargetFieldsRead.edition` removed
+- **Breaking:** SDK declaration `InitialTargetFieldsRead.generator` removed
+- **Breaking:** SDK declaration `InitialTargetFieldsRead.proposed_version` removed
+- **Breaking:** SDK declaration `InitialTargetFieldsRead.state` removed
+- **Breaking:** SDK declaration `InlineDefinitionInput` removed
+- **Breaking:** SDK declaration `PackageCheck.revision` removed
+- **Breaking:** SDK declaration `PackageCheck.state` removed
+- **Breaking:** SDK declaration `PackageCheckRead.revision` removed
+- **Breaking:** SDK declaration `PackageCheckRead.state` removed
+- **Breaking:** SDK declaration `Page.new` changed
+- **Breaking:** SDK declaration `PagePromise.new` changed
+- **Breaking:** SDK declaration `PagePromise.then` changed
+- SDK declaration `PaginationRule.style` changed
+- SDK declaration `PaginationRuleRead.style` changed
+- SDK declaration `PaginationRuleResponse.style` changed
+- SDK declaration `PaginationRuleResponseRead.style` changed
+- **Breaking:** SDK declaration `Project.definition_id` removed
+- **Breaking:** SDK declaration `Project.relay_enabled` removed
+- **Breaking:** SDK declaration `ProjectRead.definition_id` removed
+- **Breaking:** SDK declaration `ProjectRead.relay_enabled` removed
+- **Breaking:** SDK declaration `ProjectSummary.definition_id` removed
+- **Breaking:** SDK declaration `ProjectSummaryRead.definition_id` removed
+- **Breaking:** SDK declaration `ProjectWrite.definition_id` removed
+- **Breaking:** SDK declaration `ProjectWrite.relay_enabled` removed
+- SDK declaration `ProjectsCreateError` changed
+- SDK declaration `ProjectsGenerateError` changed
+- **Breaking:** SDK declaration `ProjectsListGenerationsError` removed
+- **Breaking:** SDK declaration `ProjectsListGenerationsParams` removed
+- **Breaking:** SDK declaration `ProjectsRefreshDiagnosticsError` removed
+- **Breaking:** SDK declaration `ProjectsRefreshDiagnosticsParams` removed
+- **Breaking:** SDK declaration `ProjectsRemediateDiagnosticsError` removed
+- **Breaking:** SDK declaration `ProjectsRemediateDiagnosticsParams` removed
+- **Breaking:** SDK declaration `ProjectsResource.create` changed
+- **Breaking:** SDK declaration `ProjectsResource.delete` changed
+- **Breaking:** SDK declaration `ProjectsResource.generate` changed
+- **Breaking:** SDK declaration `ProjectsResource.listGenerations` removed
+- **Breaking:** SDK declaration `ProjectsResource.refreshDiagnostics` removed
+- **Breaking:** SDK declaration `ProjectsResource.remediateDiagnostics` removed
+- **Breaking:** SDK declaration `ProjectsResource.retrieve` removed
+- **Breaking:** SDK declaration `ProjectsResource.retrieveDiagnostics` removed
+- **Breaking:** SDK declaration `ProjectsResource.retrieveIntegrationHealth` removed
+- **Breaking:** SDK declaration `ProjectsResource.update` changed
+- **Breaking:** SDK declaration `ProjectsRetrieveDiagnosticsError` removed
+- **Breaking:** SDK declaration `ProjectsRetrieveError` removed
+- **Breaking:** SDK declaration `ProjectsRetrieveIntegrationHealthError` removed
+- SDK declaration `ProjectsUpdateError` changed
+- **Breaking:** SDK declaration `Publication.state` removed
+- **Breaking:** SDK declaration `Publication.target_release_id` removed
+- **Breaking:** SDK declaration `PublicationRead.state` removed
+- **Breaking:** SDK declaration `PublicationRead.target_release_id` removed
+- SDK declaration `PublicationResponse` changed
+- SDK declaration `PublicationResponseRead` changed
+- **Breaking:** SDK declaration `RecoverDraftHistory` removed
+- **Breaking:** SDK declaration `RepositoryDefinitionRevisionSource` removed
+- **Breaking:** SDK declaration `RepositoryDefinitionRevisionSourceRead` removed
+- **Breaking:** SDK declaration `RepositoryDefinitionSource` removed
+- **Breaking:** SDK declaration `RepositoryDefinitionSourceInput` removed
+- **Breaking:** SDK declaration `RepositoryDefinitionSourceInputRead` removed
+- **Breaking:** SDK declaration `RepositoryDefinitionSourceRead` removed
+- **Breaking:** SDK declaration `RepositoryDelivery.directory` removed
+- **Breaking:** SDK declaration `RepositoryDelivery.kind` removed
+- **Breaking:** SDK declaration `RepositoryDelivery.module_path` removed
+- **Breaking:** SDK declaration `RepositoryDelivery.package_name` removed
+- **Breaking:** SDK declaration `RepositoryDelivery.publish_on_merge` removed
+- SDK declaration `RepositoryDelivery.repository` changed
+- **Breaking:** SDK declaration `RepositoryDelivery.state` removed
+- **Breaking:** SDK declaration `RepositoryDeliveryInput.directory` removed
+- **Breaking:** SDK declaration `RepositoryDeliveryInput.kind` removed
+- **Breaking:** SDK declaration `RepositoryDeliveryInput.module_path` removed
+- **Breaking:** SDK declaration `RepositoryDeliveryInput.package_name` removed
+- **Breaking:** SDK declaration `RepositoryDeliveryInput.publish_on_merge` removed
+- SDK declaration `RepositoryDeliveryInput.repository` changed
+- **Breaking:** SDK declaration `RepositoryDeliveryInputRead.directory` removed
+- **Breaking:** SDK declaration `RepositoryDeliveryInputRead.kind` removed
+- **Breaking:** SDK declaration `RepositoryDeliveryInputRead.module_path` removed
+- **Breaking:** SDK declaration `RepositoryDeliveryInputRead.package_name` removed
+- **Breaking:** SDK declaration `RepositoryDeliveryInputRead.publish_on_merge` removed
+- SDK declaration `RepositoryDeliveryInputRead.repository` changed
+- **Breaking:** SDK declaration `RepositoryDeliveryRead.directory` removed
+- **Breaking:** SDK declaration `RepositoryDeliveryRead.kind` removed
+- **Breaking:** SDK declaration `RepositoryDeliveryRead.module_path` removed
+- **Breaking:** SDK declaration `RepositoryDeliveryRead.package_name` removed
+- **Breaking:** SDK declaration `RepositoryDeliveryRead.publish_on_merge` removed
+- SDK declaration `RepositoryDeliveryRead.repository` changed
+- **Breaking:** SDK declaration `RepositoryDeliveryRead.state` removed
+- **Breaking:** SDK declaration `RepositoryEventHealth` removed
+- **Breaking:** SDK declaration `RepositoryEventHealthRead` removed
+- **Breaking:** SDK declaration `RepositoryHealth` removed
+- **Breaking:** SDK declaration `RepositoryHealthIssue` removed
+- **Breaking:** SDK declaration `RepositoryHealthIssueRead` removed
+- **Breaking:** SDK declaration `RepositoryHealthRead` removed
+- **Breaking:** SDK declaration `RepositoryIntegrationHealth` removed
+- **Breaking:** SDK declaration `RepositoryIntegrationHealthRead` removed
+- **Breaking:** SDK declaration `ResolveDraftConflicts` removed
+- **Breaking:** SDK declaration `ResolveDraftConflictsRead` removed
+- SDK declaration `ResponseParseError` changed
+- **Breaking:** SDK declaration `Target.current_version` removed
+- **Breaking:** SDK declaration `Target.definition_id` removed
+- **Breaking:** SDK declaration `Target.edition` removed
+- **Breaking:** SDK declaration `Target.generator` removed
+- **Breaking:** SDK declaration `Target.proposed_version` removed
+- **Breaking:** SDK declaration `Target.proposed_version_source` removed
+- **Breaking:** SDK declaration `Target.state` removed
+- **Breaking:** SDK declaration `Target.version_policy` removed
+- SDK declaration `TargetConfig.cli` changed
+- SDK declaration `TargetConfigRead.cli` changed
+- SDK declaration `TargetConfigResponse.cli` changed
+- SDK declaration `TargetConfigResponseRead.cli` changed
+- **Breaking:** SDK declaration `TargetDependency.kind` removed
+- **Breaking:** SDK declaration `TargetDependencyRead.kind` removed
+- **Breaking:** SDK declaration `TargetDraft` removed
+- **Breaking:** SDK declaration `TargetDraftConflicts` removed
+- **Breaking:** SDK declaration `TargetDraftHistoryRecovery` removed
+- **Breaking:** SDK declaration `TargetDraftRead` removed
+- **Breaking:** SDK declaration `TargetDraftReadiness` removed
+- **Breaking:** SDK declaration `TargetDraftReadinessRead` removed
+- **Breaking:** SDK declaration `TargetDraftResponse` removed
+- **Breaking:** SDK declaration `TargetDraftResponseRead` removed
+- **Breaking:** SDK declaration `TargetDraftSelection` removed
+- **Breaking:** SDK declaration `TargetDraftSelectionRead` removed
+- **Breaking:** SDK declaration `TargetDraftUpdate` removed
+- **Breaking:** SDK declaration `TargetFields` removed
+- **Breaking:** SDK declaration `TargetFieldsRead` removed
+- **Breaking:** SDK declaration `TargetRead.current_version` removed
+- **Breaking:** SDK declaration `TargetRead.definition_id` removed
+- **Breaking:** SDK declaration `TargetRead.edition` removed
+- **Breaking:** SDK declaration `TargetRead.generator` removed
+- **Breaking:** SDK declaration `TargetRead.proposed_version` removed
+- **Breaking:** SDK declaration `TargetRead.proposed_version_source` removed
+- **Breaking:** SDK declaration `TargetRead.state` removed
+- **Breaking:** SDK declaration `TargetRead.version_policy` removed
+- **Breaking:** SDK declaration `TargetRelease` removed
+- **Breaking:** SDK declaration `TargetReleaseId` removed
+- **Breaking:** SDK declaration `TargetReleaseList` removed
+- **Breaking:** SDK declaration `TargetReleaseListRead` removed
+- **Breaking:** SDK declaration `TargetReleaseRead` removed
+- **Breaking:** SDK declaration `TargetReleaseResponse` removed
+- **Breaking:** SDK declaration `TargetReleaseResponseRead` removed
+- **Breaking:** SDK declaration `TargetUpdateRequest.edition` removed
+- **Breaking:** SDK declaration `TargetUpdateRequest.proposed_version` removed
+- **Breaking:** SDK declaration `TargetUpdateRequest.state` removed
+- **Breaking:** SDK declaration `TargetUpdateRequestRead.edition` removed
+- **Breaking:** SDK declaration `TargetUpdateRequestRead.proposed_version` removed
+- **Breaking:** SDK declaration `TargetUpdateRequestRead.state` removed
+- **Breaking:** SDK declaration `TargetWrite.current_version` removed
+- **Breaking:** SDK declaration `TargetWrite.definition_id` removed
+- **Breaking:** SDK declaration `TargetWrite.edition` removed
+- **Breaking:** SDK declaration `TargetWrite.generator` removed
+- **Breaking:** SDK declaration `TargetWrite.proposed_version` removed
+- **Breaking:** SDK declaration `TargetWrite.proposed_version_source` removed
+- **Breaking:** SDK declaration `TargetWrite.state` removed
+- **Breaking:** SDK declaration `TargetWrite.version_policy` removed
+- **Breaking:** SDK declaration `TargetsAdoptReleaseError` removed
+- **Breaking:** SDK declaration `TargetsAdoptReleaseParams` removed
+- SDK declaration `TargetsCreateError` changed
+- SDK declaration `TargetsDeleteError` changed
+- **Breaking:** SDK declaration `TargetsDiscardDraftCustomizationsError` removed
+- **Breaking:** SDK declaration `TargetsListDraftFilesError` removed
+- **Breaking:** SDK declaration `TargetsListDraftFilesParams` removed
+- **Breaking:** SDK declaration `TargetsListReleasesError` removed
+- **Breaking:** SDK declaration `TargetsListReleasesParams` removed
+- **Breaking:** SDK declaration `TargetsRecoverDraftHistoryError` removed
+- **Breaking:** SDK declaration `TargetsRepublishReleaseError` removed
+- **Breaking:** SDK declaration `TargetsRepublishReleaseParams` removed
+- **Breaking:** SDK declaration `TargetsResolveDraftConflictsError` removed
+- **Breaking:** SDK declaration `TargetsResource.adoptRelease` removed
+- **Breaking:** SDK declaration `TargetsResource.create` changed
+- **Breaking:** SDK declaration `TargetsResource.delete` changed
+- **Breaking:** SDK declaration `TargetsResource.discardDraftCustomizations` removed
+- SDK declaration `TargetsResource.list` changed
+- **Breaking:** SDK declaration `TargetsResource.listDraftFiles` removed
+- **Breaking:** SDK declaration `TargetsResource.listReleases` removed
+- **Breaking:** SDK declaration `TargetsResource.recoverDraftHistory` removed
+- **Breaking:** SDK declaration `TargetsResource.republishRelease` removed
+- **Breaking:** SDK declaration `TargetsResource.resolveDraftConflicts` removed
+- **Breaking:** SDK declaration `TargetsResource.retrieve` removed
+- **Breaking:** SDK declaration `TargetsResource.retrieveDelivery` removed
+- **Breaking:** SDK declaration `TargetsResource.retrieveDraft` removed
+- **Breaking:** SDK declaration `TargetsResource.retrieveDraftFileContent` removed
+- **Breaking:** SDK declaration `TargetsResource.retrievePublication` removed
+- **Breaking:** SDK declaration `TargetsResource.retrieveRelease` removed
+- **Breaking:** SDK declaration `TargetsResource.update` changed
+- **Breaking:** SDK declaration `TargetsResource.updateDraft` removed
+- **Breaking:** SDK declaration `TargetsRetrieveDeliveryError` removed
+- **Breaking:** SDK declaration `TargetsRetrieveDraftError` removed
+- **Breaking:** SDK declaration `TargetsRetrieveDraftFileContentError` removed
+- **Breaking:** SDK declaration `TargetsRetrieveDraftFileContentParams` removed
+- **Breaking:** SDK declaration `TargetsRetrieveError` removed
+- **Breaking:** SDK declaration `TargetsRetrievePublicationError` removed
+- **Breaking:** SDK declaration `TargetsRetrieveReleaseError` removed
+- **Breaking:** SDK declaration `TargetsUpdateDraftError` removed
+- **Breaking:** SDK declaration `TargetsUpdateDraftParams` removed
+- SDK declaration `TargetsUpdateError` changed
+- SDK declaration `TransportError` changed
+- SDK declaration `TransportError.new` changed
+- **Breaking:** SDK declaration `TypeshipClient.account` removed
+- **Breaking:** SDK declaration `TypeshipClient.apiKeys.retrieve` removed
+- **Breaking:** SDK declaration `TypeshipClient.apiKeys.revoke` changed
+- **Breaking:** SDK declaration `TypeshipClient.definitionRevisions` removed
+- **Breaking:** SDK declaration `TypeshipClient.definitions` removed
+- **Breaking:** SDK declaration `TypeshipClient.generate.downloadPackage` changed
+- **Breaking:** SDK declaration `TypeshipClient.generate.run` changed
+- **Breaking:** SDK declaration `TypeshipClient.generations.retrieve` removed
+- **Breaking:** SDK declaration `TypeshipClient.generations.retrieveFile` removed
+- **Breaking:** SDK declaration `TypeshipClient.generations.wait` changed
+- **Breaking:** SDK declaration `TypeshipClient.projects.create` changed
+- **Breaking:** SDK declaration `TypeshipClient.projects.delete` changed
+- **Breaking:** SDK declaration `TypeshipClient.projects.generate` changed
+- **Breaking:** SDK declaration `TypeshipClient.projects.listGenerations` removed
+- **Breaking:** SDK declaration `TypeshipClient.projects.refreshDiagnostics` removed
+- **Breaking:** SDK declaration `TypeshipClient.projects.remediateDiagnostics` removed
+- **Breaking:** SDK declaration `TypeshipClient.projects.retrieve` removed
+- **Breaking:** SDK declaration `TypeshipClient.projects.retrieveDiagnostics` removed
+- **Breaking:** SDK declaration `TypeshipClient.projects.retrieveIntegrationHealth` removed
+- **Breaking:** SDK declaration `TypeshipClient.projects.update` changed
+- **Breaking:** SDK declaration `TypeshipClient.targets.adoptRelease` removed
+- **Breaking:** SDK declaration `TypeshipClient.targets.create` changed
+- **Breaking:** SDK declaration `TypeshipClient.targets.delete` changed
+- **Breaking:** SDK declaration `TypeshipClient.targets.discardDraftCustomizations` removed
+- SDK declaration `TypeshipClient.targets.list` changed
+- **Breaking:** SDK declaration `TypeshipClient.targets.listDraftFiles` removed
+- **Breaking:** SDK declaration `TypeshipClient.targets.listReleases` removed
+- **Breaking:** SDK declaration `TypeshipClient.targets.recoverDraftHistory` removed
+- **Breaking:** SDK declaration `TypeshipClient.targets.republishRelease` removed
+- **Breaking:** SDK declaration `TypeshipClient.targets.resolveDraftConflicts` removed
+- **Breaking:** SDK declaration `TypeshipClient.targets.retrieve` removed
+- **Breaking:** SDK declaration `TypeshipClient.targets.retrieveDelivery` removed
+- **Breaking:** SDK declaration `TypeshipClient.targets.retrieveDraft` removed
+- **Breaking:** SDK declaration `TypeshipClient.targets.retrieveDraftFileContent` removed
+- **Breaking:** SDK declaration `TypeshipClient.targets.retrievePublication` removed
+- **Breaking:** SDK declaration `TypeshipClient.targets.retrieveRelease` removed
+- **Breaking:** SDK declaration `TypeshipClient.targets.update` changed
+- **Breaking:** SDK declaration `TypeshipClient.targets.updateDraft` removed
+- **Breaking:** SDK declaration `UpdateProjectRequest.relay_enabled` removed
+- **Breaking:** SDK declaration `UpdateProjectRequestRead.relay_enabled` removed
+- **Breaking:** SDK declaration `UrlDefinitionInput` removed
+- **Breaking:** SDK declaration `UrlDefinitionInputRead` removed
+- **Breaking:** SDK declaration `UrlDefinitionRevisionSource` removed
+- **Breaking:** SDK declaration `UrlDefinitionRevisionSourceRead` removed
+- **Breaking:** SDK declaration `UrlDefinitionSource` removed
+- **Breaking:** SDK declaration `UrlDefinitionSourceInput` removed
+- **Breaking:** SDK declaration `UrlDefinitionSourceInputRead` removed
+- **Breaking:** SDK declaration `UrlDefinitionSourceRead` removed
+- **Breaking:** SDK declaration `UrlDefinitionSourceWrite` removed
+- SDK declaration `ValidationError` changed
+- **Breaking:** SDK declaration `unwrap` removed
+- **Breaking:** SDK declaration `ApiError.code` added
+- SDK declaration `ApiError.requestId` added
+- **Breaking:** SDK declaration `ApiKey.updated_at` added
+- **Breaking:** SDK declaration `ApiKeyRead.updated_at` added
+- SDK declaration `ApiKeysGetError` added
+- SDK declaration `ApiKeysResource.get` added
+- **Breaking:** SDK declaration `ApiResponseError.code` added
+- SDK declaration `ApiResponseError.requestId` added
+- **Breaking:** SDK declaration `BadGatewayError.code` added
+- SDK declaration `BadGatewayError.requestId` added
+- **Breaking:** SDK declaration `BadRequestError.code` added
+- SDK declaration `BadRequestError.requestId` added
+- SDK declaration `CompatibilityApproval` added
+- SDK declaration `CompatibilityApprovalRead` added
+- **Breaking:** SDK declaration `ConflictError.code` added
+- SDK declaration `ConflictError.requestId` added
+- **Breaking:** SDK declaration `CreateProjectRequest.spec` added
+- **Breaking:** SDK declaration `CreateProjectRequestRead.spec` added
+- SDK declaration `DeliveriesGetError` added
+- SDK declaration `DeliveriesListError` added
+- SDK declaration `DeliveriesListParams` added
+- SDK declaration `DeliveriesResource` added
+- SDK declaration `DeliveryList` added
+- SDK declaration `DeliveryListRead` added
+- SDK declaration `DeliveryResponse.hosted_mcp` added
+- SDK declaration `DeliveryResponse.issues` added
+- SDK declaration `DeliveryResponse.last_event` added
+- SDK declaration `DeliveryResponse.required_checks` added
+- **Breaking:** SDK declaration `DeliveryResponse.status` added
+- **Breaking:** SDK declaration `DeliveryResponse.type` added
+- SDK declaration `DeliveryResponseRead.hosted_mcp` added
+- SDK declaration `DeliveryResponseRead.issues` added
+- SDK declaration `DeliveryResponseRead.last_event` added
+- SDK declaration `DeliveryResponseRead.required_checks` added
+- **Breaking:** SDK declaration `DeliveryResponseRead.status` added
+- **Breaking:** SDK declaration `DeliveryResponseRead.type` added
+- **Breaking:** SDK declaration `Diagnostic.blocking` added
+- **Breaking:** SDK declaration `Diagnostic.introduced` added
+- **Breaking:** SDK declaration `Diagnostic.message` added
+- **Breaking:** SDK declaration `Diagnostic.object` added
+- **Breaking:** SDK declaration `DiagnosticFix.type` added
+- **Breaking:** SDK declaration `DiagnosticFixRead.type` added
+- SDK declaration `DiagnosticLocation.file_id` added
+- SDK declaration `DiagnosticLocation.file_path` added
+- **Breaking:** SDK declaration `DiagnosticRead.blocking` added
+- **Breaking:** SDK declaration `DiagnosticRead.introduced` added
+- **Breaking:** SDK declaration `DiagnosticRead.message` added
+- **Breaking:** SDK declaration `DiagnosticRead.object` added
+- **Breaking:** SDK declaration `DiagnosticSummary.baseline_spec_revision_id` added
+- **Breaking:** SDK declaration `DiagnosticSummary.blocking_count` added
+- **Breaking:** SDK declaration `DiagnosticSummary.error_count` added
+- **Breaking:** SDK declaration `DiagnosticSummary.status` added
+- **Breaking:** SDK declaration `DiagnosticSummary.suggestion_count` added
+- **Breaking:** SDK declaration `DiagnosticSummary.warning_count` added
+- SDK declaration `DiagnosticSummaryRead` added
+- SDK declaration `DiagnosticWarning` added
+- SDK declaration `DiagnosticWarningRead` added
+- SDK declaration `Draft` added
+- SDK declaration `DraftActionReason` added
+- SDK declaration `DraftConflicts` added
+- **Breaking:** SDK declaration `DraftFileConflict.type` added
+- **Breaking:** SDK declaration `DraftFileConflictRead.type` added
+- SDK declaration `DraftFileSides` added
+- **Breaking:** SDK declaration `DraftHistoryRecovery.default_sha` added
+- **Breaking:** SDK declaration `DraftHistoryRecovery.head_sha` added
+- SDK declaration `DraftId` added
+- SDK declaration `DraftList` added
+- SDK declaration `DraftListRead` added
+- SDK declaration `DraftRead` added
+- SDK declaration `DraftReadiness` added
+- SDK declaration `DraftReadinessRead` added
+- SDK declaration `DraftRecoverRequest` added
+- SDK declaration `DraftResolveRequest` added
+- SDK declaration `DraftResolveRequestRead` added
+- SDK declaration `DraftResponse` added
+- SDK declaration `DraftResponseRead` added
+- SDK declaration `DraftUpdateRequest` added
+- SDK declaration `DraftsGetError` added
+- SDK declaration `DraftsListError` added
+- SDK declaration `DraftsListFilesError` added
+- SDK declaration `DraftsListFilesParams` added
+- SDK declaration `DraftsListParams` added
+- SDK declaration `DraftsRecoverError` added
+- SDK declaration `DraftsResolveError` added
+- SDK declaration `DraftsResource` added
+- SDK declaration `DraftsUpdateError` added
+- SDK declaration `DraftsUpdateParams` added
+- SDK declaration `FileId` added
+- SDK declaration `FileList` added
+- SDK declaration `FileListRead` added
+- SDK declaration `FileModel` added
+- SDK declaration `FileModelRead` added
+- SDK declaration `FileResponse` added
+- SDK declaration `FileResponseRead` added
+- SDK declaration `FilesGetError` added
+- SDK declaration `FilesGetParams` added
+- SDK declaration `FilesResource` added
+- **Breaking:** SDK declaration `ForbiddenError.code` added
+- SDK declaration `ForbiddenError.requestId` added
+- **Breaking:** SDK declaration `GenerateRequest.spec` added
+- **Breaking:** SDK declaration `GenerateRequestRead.spec` added
+- **Breaking:** SDK declaration `Generation.coverage` added
+- **Breaking:** SDK declaration `Generation.file_count` added
+- **Breaking:** SDK declaration `Generation.name` added
+- **Breaking:** SDK declaration `Generation.runtime_ms` added
+- **Breaking:** SDK declaration `Generation.spec_revision_id` added
+- **Breaking:** SDK declaration `Generation.type` added
+- **Breaking:** SDK declaration `Generation.updated_at` added
+- **Breaking:** SDK declaration `Generation.version` added
+- SDK declaration `GenerationCoverage` added
+- SDK declaration `GenerationCoverageRead` added
+- **Breaking:** SDK declaration `GenerationFailure.type` added
+- **Breaking:** SDK declaration `GenerationFailureRead.type` added
+- **Breaking:** SDK declaration `GenerationRead.coverage` added
+- **Breaking:** SDK declaration `GenerationRead.file_count` added
+- **Breaking:** SDK declaration `GenerationRead.name` added
+- **Breaking:** SDK declaration `GenerationRead.runtime_ms` added
+- **Breaking:** SDK declaration `GenerationRead.spec_revision_id` added
+- **Breaking:** SDK declaration `GenerationRead.type` added
+- **Breaking:** SDK declaration `GenerationRead.updated_at` added
+- **Breaking:** SDK declaration `GenerationRead.version` added
+- **Breaking:** SDK declaration `GenerationResult.coverage` added
+- **Breaking:** SDK declaration `GenerationResultRead.coverage` added
+- SDK declaration `GenerationWarning` added
+- **Breaking:** SDK declaration `GenerationWrite.coverage` added
+- **Breaking:** SDK declaration `GenerationWrite.file_count` added
+- **Breaking:** SDK declaration `GenerationWrite.name` added
+- **Breaking:** SDK declaration `GenerationWrite.runtime_ms` added
+- **Breaking:** SDK declaration `GenerationWrite.spec_revision_id` added
+- **Breaking:** SDK declaration `GenerationWrite.type` added
+- **Breaking:** SDK declaration `GenerationWrite.updated_at` added
+- **Breaking:** SDK declaration `GenerationWrite.version` added
+- SDK declaration `GenerationsGetError` added
+- SDK declaration `GenerationsListError` added
+- SDK declaration `GenerationsListFilesError` added
+- SDK declaration `GenerationsListFilesParams` added
+- SDK declaration `GenerationsListParams` added
+- SDK declaration `GenerationsResource.get` added
+- SDK declaration `GenerationsResource.list` added
+- SDK declaration `GenerationsResource.listFiles` added
+- **Breaking:** SDK declaration `GoSdkDescriptor.spec_digest` added
+- **Breaking:** SDK declaration `HostedMcpDelivery.hosted_mcp` added
+- **Breaking:** SDK declaration `HostedMcpDelivery.status` added
+- **Breaking:** SDK declaration `HostedMcpDelivery.type` added
+- **Breaking:** SDK declaration `HostedMcpDeliveryInput.type` added
+- **Breaking:** SDK declaration `HostedMcpDeliveryInputRead.type` added
+- **Breaking:** SDK declaration `HostedMcpDeliveryRead.hosted_mcp` added
+- **Breaking:** SDK declaration `HostedMcpDeliveryRead.status` added
+- **Breaking:** SDK declaration `HostedMcpDeliveryRead.type` added
+- SDK declaration `HostedMcpDeliverySettings` added
+- SDK declaration `InitialTargetFields.status` added
+- **Breaking:** SDK declaration `InitialTargetFields.type` added
+- SDK declaration `InitialTargetFieldsRead.status` added
+- **Breaking:** SDK declaration `InitialTargetFieldsRead.type` added
+- SDK declaration `InlineSpecInput` added
+- **Breaking:** SDK declaration `InternalServerError.code` added
+- SDK declaration `InternalServerError.requestId` added
+- **Breaking:** SDK declaration `NotFoundError.code` added
+- SDK declaration `NotFoundError.requestId` added
+- SDK declaration `Organization` added
+- SDK declaration `OrganizationGetError` added
+- SDK declaration `OrganizationRead` added
+- SDK declaration `OrganizationResource` added
+- SDK declaration `OrganizationWrite` added
+- **Breaking:** SDK declaration `PackageCheck.commit_sha` added
+- **Breaking:** SDK declaration `PackageCheck.status` added
+- **Breaking:** SDK declaration `PackageCheckRead.commit_sha` added
+- **Breaking:** SDK declaration `PackageCheckRead.status` added
+- **Breaking:** SDK declaration `PayloadTooLargeError.code` added
+- SDK declaration `PayloadTooLargeError.requestId` added
+- **Breaking:** SDK declaration `PaymentRequiredError.code` added
+- SDK declaration `PaymentRequiredError.requestId` added
+- **Breaking:** SDK declaration `PreconditionFailedError.code` added
+- SDK declaration `PreconditionFailedError.requestId` added
+- **Breaking:** SDK declaration `Project.spec_id` added
+- **Breaking:** SDK declaration `ProjectRead.spec_id` added
+- **Breaking:** SDK declaration `ProjectSummary.spec_id` added
+- **Breaking:** SDK declaration `ProjectSummaryRead.spec_id` added
+- **Breaking:** SDK declaration `ProjectWrite.spec_id` added
+- SDK declaration `ProjectsGetError` added
+- SDK declaration `ProjectsResource.get` added
+- **Breaking:** SDK declaration `Publication.created_at` added
+- **Breaking:** SDK declaration `Publication.release_id` added
+- **Breaking:** SDK declaration `Publication.runtime_ms` added
+- **Breaking:** SDK declaration `Publication.status` added
+- SDK declaration `PublicationList` added
+- SDK declaration `PublicationListRead` added
+- **Breaking:** SDK declaration `PublicationRead.created_at` added
+- **Breaking:** SDK declaration `PublicationRead.release_id` added
+- **Breaking:** SDK declaration `PublicationRead.runtime_ms` added
+- **Breaking:** SDK declaration `PublicationRead.status` added
+- SDK declaration `PublicationsGetError` added
+- SDK declaration `PublicationsListError` added
+- SDK declaration `PublicationsListParams` added
+- SDK declaration `PublicationsResource` added
+- **Breaking:** SDK declaration `RateLimitedError.code` added
+- SDK declaration `RateLimitedError.requestId` added
+- SDK declaration `Release` added
+- SDK declaration `ReleaseId` added
+- SDK declaration `ReleaseList` added
+- SDK declaration `ReleaseListRead` added
+- SDK declaration `ReleaseRead` added
+- SDK declaration `ReleaseResponse` added
+- SDK declaration `ReleaseResponseRead` added
+- SDK declaration `ReleasesGetError` added
+- SDK declaration `ReleasesListError` added
+- SDK declaration `ReleasesListParams` added
+- SDK declaration `ReleasesRepublishError` added
+- SDK declaration `ReleasesRepublishParams` added
+- SDK declaration `ReleasesResource` added
+- **Breaking:** SDK declaration `RepositoryDelivery.issues` added
+- **Breaking:** SDK declaration `RepositoryDelivery.last_event` added
+- **Breaking:** SDK declaration `RepositoryDelivery.required_checks` added
+- **Breaking:** SDK declaration `RepositoryDelivery.status` added
+- **Breaking:** SDK declaration `RepositoryDelivery.type` added
+- SDK declaration `RepositoryDeliveryEvent` added
+- SDK declaration `RepositoryDeliveryEventRead` added
+- **Breaking:** SDK declaration `RepositoryDeliveryInput.type` added
+- **Breaking:** SDK declaration `RepositoryDeliveryInputRead.type` added
+- SDK declaration `RepositoryDeliveryIssue` added
+- SDK declaration `RepositoryDeliveryIssueRead` added
+- **Breaking:** SDK declaration `RepositoryDeliveryRead.issues` added
+- **Breaking:** SDK declaration `RepositoryDeliveryRead.last_event` added
+- **Breaking:** SDK declaration `RepositoryDeliveryRead.required_checks` added
+- **Breaking:** SDK declaration `RepositoryDeliveryRead.status` added
+- **Breaking:** SDK declaration `RepositoryDeliveryRead.type` added
+- SDK declaration `RepositoryDeliverySettings` added
+- SDK declaration `RepositoryDeliverySettingsInput` added
+- SDK declaration `RepositoryDeliverySettingsInputRead` added
+- SDK declaration `RepositoryDeliverySettingsRead` added
+- SDK declaration `RepositoryIdentifier` added
+- SDK declaration `RepositoryProvider` added
+- SDK declaration `RepositorySpecRevisionSource` added
+- SDK declaration `RepositorySpecRevisionSourceRead` added
+- SDK declaration `RepositorySpecSource` added
+- SDK declaration `RepositorySpecSourceInput` added
+- SDK declaration `RepositorySpecSourceInputRead` added
+- SDK declaration `RepositorySpecSourceRead` added
+- SDK declaration `RepositorySpecSourceSettings` added
+- SDK declaration `RepositorySpecSourceSettingsInput` added
+- SDK declaration `RepositorySpecSourceSettingsInputRead` added
+- SDK declaration `RepositorySpecSourceSettingsRead` added
+- **Breaking:** SDK declaration `ResponseParseError.code` added
+- SDK declaration `ResponseParseError.requestId` added
+- SDK declaration `SdkError` added
+- SDK declaration `Spec` added
+- SDK declaration `SpecFields` added
+- SDK declaration `SpecFieldsRead` added
+- SDK declaration `SpecId` added
+- SDK declaration `SpecInput` added
+- SDK declaration `SpecInputRead` added
+- SDK declaration `SpecPatch` added
+- SDK declaration `SpecPatchRead` added
+- SDK declaration `SpecPatchResponse` added
+- SDK declaration `SpecPatchResponseRead` added
+- SDK declaration `SpecRead` added
+- SDK declaration `SpecRevision` added
+- SDK declaration `SpecRevisionFile` added
+- SDK declaration `SpecRevisionFileList` added
+- SDK declaration `SpecRevisionFileListRead` added
+- SDK declaration `SpecRevisionFileRead` added
+- SDK declaration `SpecRevisionId` added
+- SDK declaration `SpecRevisionList` added
+- SDK declaration `SpecRevisionListRead` added
+- SDK declaration `SpecRevisionRead` added
+- SDK declaration `SpecRevisionResponse` added
+- SDK declaration `SpecRevisionResponseRead` added
+- SDK declaration `SpecRevisionSource` added
+- SDK declaration `SpecRevisionSourceRead` added
+- SDK declaration `SpecRevisionsGetError` added
+- SDK declaration `SpecRevisionsGetParams` added
+- SDK declaration `SpecRevisionsListError` added
+- SDK declaration `SpecRevisionsListFilesError` added
+- SDK declaration `SpecRevisionsListFilesParams` added
+- SDK declaration `SpecRevisionsListParams` added
+- SDK declaration `SpecRevisionsResource` added
+- SDK declaration `SpecSource` added
+- SDK declaration `SpecSourceInput` added
+- SDK declaration `SpecSourceInputRead` added
+- SDK declaration `SpecSourceRead` added
+- SDK declaration `SpecSourceWrite` added
+- SDK declaration `SpecUpdateRequest` added
+- SDK declaration `SpecUpdateRequestRead` added
+- SDK declaration `SpecWrite` added
+- SDK declaration `SpecsGetError` added
+- SDK declaration `SpecsRefreshError` added
+- SDK declaration `SpecsRefreshParams` added
+- SDK declaration `SpecsResource` added
+- SDK declaration `SpecsUpdateError` added
+- SDK declaration `SpecsUpdateParams` added
+- **Breaking:** SDK declaration `Target.draft_id` added
+- **Breaking:** SDK declaration `Target.spec_id` added
+- **Breaking:** SDK declaration `Target.status` added
+- **Breaking:** SDK declaration `Target.type` added
+- **Breaking:** SDK declaration `Target.version_current` added
+- SDK declaration `TargetCliBehavior` added
+- SDK declaration `TargetCliBehaviorResponse` added
+- SDK declaration `TargetCreateRequest` added
+- SDK declaration `TargetCreateRequestRead` added
+- **Breaking:** SDK declaration `TargetDependency.type` added
+- **Breaking:** SDK declaration `TargetDependencyRead.type` added
+- **Breaking:** SDK declaration `TargetRead.draft_id` added
+- **Breaking:** SDK declaration `TargetRead.spec_id` added
+- **Breaking:** SDK declaration `TargetRead.status` added
+- **Breaking:** SDK declaration `TargetRead.type` added
+- **Breaking:** SDK declaration `TargetRead.version_current` added
+- SDK declaration `TargetUpdateRequest.status` added
+- SDK declaration `TargetUpdateRequestRead.status` added
+- **Breaking:** SDK declaration `TargetWrite.spec_id` added
+- **Breaking:** SDK declaration `TargetWrite.status` added
+- **Breaking:** SDK declaration `TargetWrite.type` added
+- SDK declaration `TargetsAdoptError` added
+- SDK declaration `TargetsAdoptParams` added
+- SDK declaration `TargetsGetError` added
+- SDK declaration `TargetsListParams.projectId` added
+- SDK declaration `TargetsResource.adopt` added
+- SDK declaration `TargetsResource.get` added
+- **Breaking:** SDK declaration `TransportError.body` added
+- **Breaking:** SDK declaration `TransportError.code` added
+- SDK declaration `TransportError.requestId` added
+- SDK declaration `TransportError.response` added
+- **Breaking:** SDK declaration `TransportError.status` added
+- SDK declaration `TypeshipClient.apiKeys.get` added
+- **Breaking:** SDK declaration `TypeshipClient.deliveries` added
+- **Breaking:** SDK declaration `TypeshipClient.drafts` added
+- **Breaking:** SDK declaration `TypeshipClient.files` added
+- SDK declaration `TypeshipClient.generations.get` added
+- SDK declaration `TypeshipClient.generations.list` added
+- SDK declaration `TypeshipClient.generations.listFiles` added
+- **Breaking:** SDK declaration `TypeshipClient.organization` added
+- SDK declaration `TypeshipClient.projects.get` added
+- **Breaking:** SDK declaration `TypeshipClient.publications` added
+- **Breaking:** SDK declaration `TypeshipClient.releases` added
+- **Breaking:** SDK declaration `TypeshipClient.specRevisions` added
+- **Breaking:** SDK declaration `TypeshipClient.specs` added
+- SDK declaration `TypeshipClient.targets.adopt` added
+- SDK declaration `TypeshipClient.targets.get` added
+- **Breaking:** SDK declaration `UnauthorizedError.code` added
+- SDK declaration `UnauthorizedError.requestId` added
+- **Breaking:** SDK declaration `UnexpectedApiError.code` added
+- SDK declaration `UnexpectedApiError.requestId` added
+- **Breaking:** SDK declaration `UnprocessableEntityError.code` added
+- SDK declaration `UnprocessableEntityError.requestId` added
+- SDK declaration `UrlSpecInput` added
+- SDK declaration `UrlSpecInputRead` added
+- SDK declaration `UrlSpecRevisionSource` added
+- SDK declaration `UrlSpecRevisionSourceRead` added
+- SDK declaration `UrlSpecSource` added
+- SDK declaration `UrlSpecSourceInput` added
+- SDK declaration `UrlSpecSourceInputRead` added
+- SDK declaration `UrlSpecSourceRead` added
+- SDK declaration `UrlSpecSourceSettings` added
+- SDK declaration `UrlSpecSourceSettingsInput` added
+- SDK declaration `UrlSpecSourceSettingsInputRead` added
+- SDK declaration `UrlSpecSourceSettingsWrite` added
+- SDK declaration `UrlSpecSourceWrite` added
+- **Breaking:** SDK declaration `ValidationError.body` added
+- **Breaking:** SDK declaration `ValidationError.code` added
+- SDK declaration `ValidationError.requestId` added
+- **Breaking:** SDK declaration `ValidationError.status` added
 ## 0.21.0 (2026-09-24) (1 breaking)
 
 ### Added

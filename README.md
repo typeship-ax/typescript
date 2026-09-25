@@ -5,7 +5,7 @@ TypeScript SDK for typeship. [API reference](./api.md)
 Generated from the OpenAPI spec by [typeship](https://typeship.dev).
 
 - **Zero runtime dependencies** — built on the platform `fetch` (Node 20+, browsers, edge runtimes)
-- **Typed error unions** — every call returns `ApiResult<T, E>` where `E` lists each documented error for that exact operation
+- **Typed errors** — calls resolve to response data and throw per-status API errors or transport, parse, and validation errors
 - **Auto-pagination** — `for await` any list call to stream every item across every page
 - **Retries built in** — idempotent requests retry with exponential backoff and `Retry-After` support
 - **Forward-compatible responses** — request enums stay closed, while response enums and discriminator unions preserve values the server added after this package was generated
@@ -30,7 +30,7 @@ Save the quickstart example below in the package directory. The package import r
 Generation does not publish a package. Before using the registry command below, confirm `name` and `version` in `package.json`, publish under a name you control, and verify that release is available on npm.
 
 ```sh
-npm install @typeship-ax/sdk@0.23.0
+npm install @typeship-ax/sdk@0.24.0
 ```
 
 ## Quickstart
@@ -40,9 +40,8 @@ import { TypeshipClient } from "@typeship-ax/sdk";
 
 const client = new TypeshipClient({ bearerToken: process.env.TYPESHIP_TOKEN! });
 
-const result = await client.account.retrieve();
-if (result.ok) {
-  console.log(result.data);
+for await (const item of client.projects.list()) {
+  console.log(item);
 }
 ```
 
@@ -54,32 +53,33 @@ if (result.ok) {
 
 ## Error handling
 
-Awaiting a call returns a discriminated result instead of throwing on request errors.
-The error side includes the documented HTTP errors for that operation plus `ResponseParseError`, validation, and transport failures:
+Awaiting a call returns the response data. Failures throw typed errors.
+Documented HTTP errors have per-status classes. Parse, validation, and transport failures have distinct classes:
 
 ```ts
-import { ResponseParseError, UnauthorizedError } from "@typeship-ax/sdk";
+import { ResponseParseError, BadRequestError } from "@typeship-ax/sdk";
 
-const result = await client.account.retrieve();
+try {
+  const result = await client.projects.list();
 
-if (!result.ok) {
-  if (result.error instanceof ResponseParseError) {
-    console.error(result.error.body); // malformed successful JSON, preserved as text
+  console.log(result); // typed success payload
+} catch (error) {
+  if (error instanceof ResponseParseError) {
+    console.error(error.body); // malformed successful JSON, preserved as text
   }
-  if (result.error instanceof UnauthorizedError) {
-    // result.error.body is fully typed for this status
+  if (error instanceof BadRequestError) {
+    // error.body is fully typed for this status
   }
-  throw result.error; // every branch is an Error subclass
+  throw error;
 }
 
-result.data; // typed success payload
 ```
 
-Prefer exceptions? `unwrap(result)` returns the data or throws the typed error.
+Every error exposes `code`, `status`, `requestId`, `body`, and an actionable `message`. No non-throwing SDK variant is generated.
 
 ## Pagination
 
-Await a list call to inspect its `ApiResult`, or iterate it for concise lazy pagination. Async iteration throws the same typed API error if any page fails:
+Await a list call for its first `Page`, or iterate it for lazy pagination. Both paths throw the typed error when a page fails:
 
 ```ts
 for await (const item of client.projects.list()) {
@@ -88,15 +88,13 @@ for await (const item of client.projects.list()) {
 
 // or page manually:
 const page = await client.projects.list();
-if (page.ok) {
-  page.data.items;
-  await page.data.getNextPage();
-}
+page.items;
+await page.getNextPage();
 ```
 
 ## Response metadata
 
-Every successful result includes `response.status`, `response.headers`, `response.requestId`, and `response.rawBody`. HTTP and response-parse errors expose the same metadata on `error.response`. A transport failure can still include `result.response` when headers arrived before the body read failed.
+Paginated pages expose `page.response` with status, headers, request id, and raw body. For other successful calls, use `onResponse` to observe HTTP metadata. HTTP and response-parse errors expose response metadata on `error.response`.
 
 ## SDK configuration
 
