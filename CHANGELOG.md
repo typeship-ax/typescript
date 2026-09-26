@@ -4,7 +4,7 @@
 
 
 
-## 0.26.0 (2026-09-26) (115 breaking)
+## 0.26.0 (2026-09-26) (116 breaking)
 
 ### Added
 - `deliveries.create()`: POST `/deliveries`
@@ -37,6 +37,8 @@
   - `error-schema-changed`: error 500.errors\[\].code enum value removed: "plan\_limit\_reached"
   - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
 - `projects.create()`
+  - `body-field-type-changed`: request body.config.auth.credential\_parameters added: Record&lt;string, Record&lt;string, boolean&gt;&gt; \| null \(optional\)
+  - `body-field-type-changed`: request body.config.auth.credential\_variables added: Record&lt;string, string \| \{   username: string;   password: string; \}&gt; \| null \(optional\)
   - **breaking** `return-type-changed`: response type changed: Project -&gt; ProjectResponse
   - `return-type-changed`: response intersection added: Project
   - `return-type-changed`: response intersection added: ResponseMetadata
@@ -109,6 +111,8 @@
   - `error-schema-changed`: error 502.errors\[\].code enum value removed: "plan\_limit\_reached"
   - **breaking** `error-schema-changed`: error 502.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
 - `projects.update()`
+  - `body-field-type-changed`: request body.config.auth.credential\_parameters added: Record&lt;string, Record&lt;string, boolean&gt;&gt; \| null \(optional\)
+  - `body-field-type-changed`: request body.config.auth.credential\_variables added: Record&lt;string, string \| \{   username: string;   password: string; \}&gt; \| null \(optional\)
   - **breaking** `return-type-changed`: response type changed: Project -&gt; ProjectResponse
   - `return-type-changed`: response intersection added: Project
   - `return-type-changed`: response intersection added: ResponseMetadata
@@ -741,8 +745,13 @@
 ### Package contract (breaking)
 - **Breaking:** SDK declaration `ApiKey.revoked` removed
 - **Breaking:** SDK declaration `ApiKeyRead.revoked` removed
+- SDK declaration `ApiKeysGetError` changed
+- SDK declaration `ApiKeysListError` changed
+- SDK declaration `ApiKeysRevokeError` changed
 - **Breaking:** SDK declaration `ConfigResponse` removed
 - **Breaking:** SDK declaration `ConfigResponseRead` removed
+- SDK declaration `DeliveriesGetError` changed
+- SDK declaration `DeliveriesListError` changed
 - SDK declaration `Draft.changes` changed
 - **Breaking:** SDK declaration `Draft.readiness` removed
 - SDK declaration `Draft.status` changed
@@ -752,11 +761,18 @@
 - **Breaking:** SDK declaration `DraftReadiness` removed
 - **Breaking:** SDK declaration `DraftReadinessRead` removed
 - SDK declaration `DraftStatus` changed
+- SDK declaration `DraftsGetError` changed
+- SDK declaration `DraftsListError` changed
+- SDK declaration `DraftsListFilesError` changed
+- SDK declaration `DraftsRecoverError` changed
+- SDK declaration `DraftsResolveError` changed
+- SDK declaration `DraftsUpdateError` changed
 - SDK declaration `ErrorCode` changed
 - SDK declaration `ErrorDetail.code` changed
 - SDK declaration `FailurePhase` changed
 - **Breaking:** SDK declaration `FileStub` removed
 - **Breaking:** SDK declaration `FileStubRead` removed
+- SDK declaration `FilesGetError` changed
 - **Breaking:** SDK declaration `GenerateDownloadPackageError` removed
 - **Breaking:** SDK declaration `GenerateDownloadPackageParams` removed
 - **Breaking:** SDK declaration `GenerateResource` removed
@@ -767,10 +783,14 @@
 - **Breaking:** SDK declaration `GenerationSummary` removed
 - **Breaking:** SDK declaration `GenerationSummaryRead` removed
 - **Breaking:** SDK declaration `GenerationSummaryWrite` removed
+- SDK declaration `GenerationsGetError` changed
+- SDK declaration `GenerationsListError` changed
+- SDK declaration `GenerationsListFilesError` changed
 - SDK declaration `GraphqlSettings.auth` changed
 - SDK declaration `GraphqlSettingsRead.auth` changed
 - SDK declaration `GraphqlSettingsResponse.auth` changed
 - SDK declaration `GraphqlSettingsResponseRead.auth` changed
+- SDK declaration `OrganizationGetError` changed
 - SDK declaration `Project.request_id` changed
 - SDK declaration `ProjectList.data` changed
 - SDK declaration `ProjectListRead.data` changed
@@ -779,7 +799,10 @@
 - **Breaking:** SDK declaration `ProjectSummaryRead` removed
 - SDK declaration `ProjectWrite.request_id` changed
 - SDK declaration `ProjectsCreateError` changed
+- SDK declaration `ProjectsDeleteError` changed
 - SDK declaration `ProjectsGenerateError` changed
+- SDK declaration `ProjectsGetError` changed
+- SDK declaration `ProjectsListError` changed
 - SDK declaration `ProjectsResource.create` changed
 - SDK declaration `ProjectsResource.get` changed
 - SDK declaration `ProjectsResource.list` changed
@@ -806,11 +829,19 @@
 - **Breaking:** SDK declaration `PublicationsResource` removed
 - **Breaking:** SDK declaration `Release.channel` removed
 - **Breaking:** SDK declaration `ReleaseRead.channel` removed
+- SDK declaration `ReleasesGetError` changed
+- SDK declaration `ReleasesListError` changed
 - **Breaking:** SDK declaration `ReleasesRepublishError` removed
 - **Breaking:** SDK declaration `ReleasesRepublishParams` removed
 - **Breaking:** SDK declaration `ReleasesResource.republish` removed
 - **Breaking:** SDK declaration `RepositoryReference` removed
 - **Breaking:** SDK declaration `RepositoryReferenceRead` removed
+- SDK declaration `SpecRevisionsGetError` changed
+- SDK declaration `SpecRevisionsListError` changed
+- SDK declaration `SpecRevisionsListFilesError` changed
+- SDK declaration `SpecsGetError` changed
+- SDK declaration `SpecsRefreshError` changed
+- SDK declaration `SpecsUpdateError` changed
 - SDK declaration `TargetChecks.generated` changed
 - SDK declaration `TargetChecksRead.generated` changed
 - SDK declaration `TargetChecksResponse.generated` changed
@@ -819,7 +850,11 @@
 - **Breaking:** SDK declaration `TargetCreateRequestRead.spec_id` removed
 - **Breaking:** SDK declaration `TargetUpdateRequest.deliveries` removed
 - **Breaking:** SDK declaration `TargetUpdateRequestRead.deliveries` removed
+- SDK declaration `TargetsAdoptError` changed
 - SDK declaration `TargetsCreateError` changed
+- SDK declaration `TargetsDeleteError` changed
+- SDK declaration `TargetsGetError` changed
+- SDK declaration `TargetsListError` changed
 - SDK declaration `TargetsUpdateError` changed
 - **Breaking:** SDK declaration `TypeshipClient.generate` removed
 - SDK declaration `TypeshipClient.projects.create` changed
@@ -828,9 +863,19 @@
 - SDK declaration `TypeshipClient.projects.update` changed
 - **Breaking:** SDK declaration `TypeshipClient.publications` removed
 - **Breaking:** SDK declaration `TypeshipClient.releases.republish` removed
+- SDK declaration `ApiError.rateLimit` added
 - **Breaking:** SDK declaration `ApiKey.status` added
 - **Breaking:** SDK declaration `ApiKeyRead.status` added
 - SDK declaration `ApiKeysListParams.status` added
+- SDK declaration `ApiResponseError.rateLimit` added
+- SDK declaration `AuthenticationConfig.credential_parameters` added
+- SDK declaration `AuthenticationConfig.credential_variables` added
+- SDK declaration `AuthenticationConfigResponse.credential_parameters` added
+- SDK declaration `AuthenticationConfigResponse.credential_variables` added
+- SDK declaration `BadGatewayError.rateLimit` added
+- SDK declaration `BadRequestError.rateLimit` added
+- SDK declaration `ClientOptions.maxRetryWaitMs` added
+- SDK declaration `ConflictError.rateLimit` added
 - SDK declaration `DeletedDelivery` added
 - SDK declaration `DeletedDeliveryRead` added
 - SDK declaration `DeliveriesCreateError` added
@@ -859,21 +904,31 @@
 - **Breaking:** SDK declaration `DraftRead.version` added
 - SDK declaration `DraftVersion` added
 - SDK declaration `DraftVersionRead` added
+- SDK declaration `ForbiddenError.rateLimit` added
 - **Breaking:** SDK declaration `GenerationResult.object` added
 - **Breaking:** SDK declaration `GenerationResultRead.object` added
 - SDK declaration `HostedMcpDeliveryCreateRequest` added
 - SDK declaration `HostedMcpDeliveryCreateRequestRead` added
+- SDK declaration `InternalServerError.rateLimit` added
+- SDK declaration `NotFoundError.rateLimit` added
 - SDK declaration `PackagesDownloadError` added
 - SDK declaration `PackagesDownloadParams` added
 - SDK declaration `PackagesGenerateError` added
 - SDK declaration `PackagesGenerateParams` added
 - SDK declaration `PackagesResource` added
+- SDK declaration `PayloadError` added
+- SDK declaration `PayloadTooLargeError.rateLimit` added
+- SDK declaration `PaymentRequiredError.rateLimit` added
+- SDK declaration `PreconditionFailedError.rateLimit` added
 - SDK declaration `ProjectListWrite` added
 - SDK declaration `ProjectResponse` added
 - SDK declaration `ProjectResponseRead` added
 - SDK declaration `ProjectResponseWrite` added
 - **Breaking:** SDK declaration `Publication.type` added
 - **Breaking:** SDK declaration `PublicationRead.type` added
+- SDK declaration `RateLimitError` added
+- SDK declaration `RateLimitInfo` added
+- SDK declaration `RateLimitedError.rateLimit` added
 - **Breaking:** SDK declaration `Release.release_channel` added
 - **Breaking:** SDK declaration `Release.updated_at` added
 - **Breaking:** SDK declaration `ReleaseRead.release_channel` added
@@ -883,12 +938,21 @@
 - SDK declaration `ReleasesRetryParams` added
 - SDK declaration `RepositoryDeliveryCreateRequest` added
 - SDK declaration `RepositoryDeliveryCreateRequestRead` added
+- SDK declaration `RequestOptions.onResponse` added
+- SDK declaration `ResponseMeta.etag` added
+- SDK declaration `ResponseMeta.lastModified` added
+- SDK declaration `ResponseMeta.notModified` added
+- SDK declaration `ResponseMeta.rateLimit` added
 - SDK declaration `SpecRevisionsGetParams.filter` added
 - SDK declaration `TypeshipClient.deliveries.create` added
 - SDK declaration `TypeshipClient.deliveries.delete` added
 - SDK declaration `TypeshipClient.deliveries.update` added
 - **Breaking:** SDK declaration `TypeshipClient.packages` added
 - SDK declaration `TypeshipClient.releases.retry` added
+- **Breaking:** SDK declaration `TypeshipClient.withCredentials` added
+- SDK declaration `UnauthorizedError.rateLimit` added
+- SDK declaration `UnexpectedApiError.rateLimit` added
+- SDK declaration `UnprocessableEntityError.rateLimit` added
 ## 0.25.0 (2026-09-25) (41 breaking)
 
 ### Changed
