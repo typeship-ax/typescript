@@ -7,10 +7,10 @@
 ## 0.26.0 (2026-09-26) (89 breaking)
 
 ### Added
-- `releases.retry()`: POST `/releases/{release_id}/retry`
 - `deliveries.create()`: POST `/deliveries`
 - `deliveries.delete()`: DELETE `/deliveries/{delivery_id}`
 - `deliveries.update()`: PATCH `/deliveries/{delivery_id}`
+- `releases.retry()`: POST `/releases/{release_id}/retry`
 
 ### Removed (breaking)
 - `releases.republish()`: POST `/releases/{release_id}/republish`
@@ -802,6 +802,7 @@
 - SDK declaration `ErrorDetail.code` changed
 - **Breaking:** SDK declaration `FileStub` removed
 - **Breaking:** SDK declaration `FileStubRead` removed
+- SDK declaration `GenerateRunError` changed
 - **Breaking:** SDK declaration `GenerationFailure` removed
 - **Breaking:** SDK declaration `GenerationFailureRead` removed
 - **Breaking:** SDK declaration `GenerationSummary` removed
@@ -818,10 +819,13 @@
 - **Breaking:** SDK declaration `ProjectSummary` removed
 - **Breaking:** SDK declaration `ProjectSummaryRead` removed
 - SDK declaration `ProjectWrite.request_id` changed
+- SDK declaration `ProjectsCreateError` changed
+- SDK declaration `ProjectsGenerateError` changed
 - SDK declaration `ProjectsResource.create` changed
 - SDK declaration `ProjectsResource.get` changed
 - SDK declaration `ProjectsResource.list` changed
 - SDK declaration `ProjectsResource.update` changed
+- SDK declaration `ProjectsUpdateError` changed
 - **Breaking:** SDK declaration `Publication.destination` removed
 - SDK declaration `Publication.status` changed
 - **Breaking:** SDK declaration `PublicationRead.destination` removed
@@ -841,6 +845,8 @@
 - **Breaking:** SDK declaration `TargetCreateRequestRead.spec_id` removed
 - **Breaking:** SDK declaration `TargetUpdateRequest.deliveries` removed
 - **Breaking:** SDK declaration `TargetUpdateRequestRead.deliveries` removed
+- SDK declaration `TargetsCreateError` changed
+- SDK declaration `TargetsUpdateError` changed
 - SDK declaration `TypeshipClient.projects.create` changed
 - SDK declaration `TypeshipClient.projects.get` changed
 - SDK declaration `TypeshipClient.projects.list` changed
