@@ -152,12 +152,12 @@
         "get"
       ],
       [
-        "generate",
-        "run"
+        "packages",
+        "generate"
       ],
       [
-        "generate",
-        "downloadPackage"
+        "packages",
+        "download"
       ],
       [
         "organization",
@@ -580,24 +580,24 @@
         "path": "/files/{file_id}"
       },
       {
-        "resource": "generate",
-        "method": "run",
+        "resource": "packages",
+        "method": "generate",
         "command": [
-          "generate",
-          "run"
+          "packages",
+          "generate"
         ],
-        "tool": "generate_run",
+        "tool": "packages_generate",
         "httpMethod": "POST",
         "path": "/generate"
       },
       {
-        "resource": "generate",
-        "method": "downloadPackage",
+        "resource": "packages",
+        "method": "download",
         "command": [
-          "generate",
-          "download-package"
+          "packages",
+          "download"
         ],
-        "tool": "generate_download_package",
+        "tool": "packages_download",
         "httpMethod": "GET",
         "path": "/generate/download"
       },
@@ -1973,7 +1973,7 @@
       "method": "PATCH",
       "path": "/projects/{project_id}",
       "summary": "Update a Project",
-      "description": "Omitted fields keep their current values. A supplied config replaces the entire stored object; null or an empty object clears it.\nWith auto_generate enabled, changing shared config queues a Generation for each Target whose effective config changes. A queued or running Target reuses that Generation.\nOmitting If-Match applies the update to the current resource; with If-Match, a stale ETag returns 412 precondition_failed without saving.\n\nA `409 target_busy` means a Target is publishing. Retrieve the Project, wait for publishing to finish, reconcile your update, and retry.\nA `502 follow_up_failed` means the Project was saved, but an obsolete release pull request could not be retired. Retrieve the Project and retry the same update to finish retiring reviews if that update is still desired.\nSee [conditional writes](https://typeship.dev/docs/typeship-api#conditional-writes) for ETag and If-Match.",
+      "description": "Omitted fields keep their current values. A supplied config replaces the entire stored object; null or an empty object clears it.\nWith auto_generate enabled, changing shared config queues a Generation for each Target whose effective config changes. A queued or running Target reuses that Generation.\nOmitting If-Match applies the update to the current resource; with If-Match, a stale ETag returns 412 precondition_failed without saving.\n\nA `409 target_busy` means a Target is publishing. Retrieve the Project, wait for publishing to finish, reconcile your update, and retry.\nA `502 follow_up_failed` means the Project was saved, but an obsolete Draft pull request could not be retired. Retrieve the Project and retry the same update to finish retiring reviews if that update is still desired.\nSee [conditional writes](https://typeship.dev/docs/typeship-api#conditional-writes) for ETag and If-Match.",
       "safety": "write",
       "auth": "required",
       "security": [
@@ -2489,7 +2489,7 @@
       "method": "DELETE",
       "path": "/projects/{project_id}",
       "summary": "Delete a Project",
-      "description": "A `502 repository_unavailable` means the Project was not deleted because its release pull requests could not be retired. Retry deletion to finish retiring the remaining reviews. Repeating a completed deletion returns `404`.\nSee [conditional writes](https://typeship.dev/docs/typeship-api#conditional-writes) for ETag and If-Match.",
+      "description": "A `502 repository_unavailable` means the Project was not deleted because its Draft pull requests could not be retired. Retry deletion to finish retiring the remaining reviews. Repeating a completed deletion returns `404`.\nSee [conditional writes](https://typeship.dev/docs/typeship-api#conditional-writes) for ETag and If-Match.",
       "safety": "destructive",
       "auth": "required",
       "security": [
@@ -8354,7 +8354,7 @@
       "method": "DELETE",
       "path": "/deliveries/{delivery_id}",
       "summary": "Delete a Delivery",
-      "description": "Removes a Delivery from its Target. Removing a repository Delivery retires the Target's open release pull request; removing a hosted MCP Delivery stops serving its URL. Recreating the type later allocates a new ID and, for hosted MCP, a new URL.\n\nA `409 target_busy` means the Target is publishing; wait for it to finish. A `502 follow_up_failed` means the Delivery was removed, but retiring an obsolete review or regenerating the Target failed.\nSee [conditional writes](https://typeship.dev/docs/typeship-api#conditional-writes) for ETag and If-Match.",
+      "description": "Removes a Delivery from its Target. Removing a repository Delivery retires the Target's open Draft pull request; removing a hosted MCP Delivery stops serving its URL. Recreating the type later allocates a new ID and, for hosted MCP, a new URL.\n\nA `409 target_busy` means the Target is publishing; wait for it to finish. A `502 follow_up_failed` means the Delivery was removed, but retiring an obsolete review or regenerating the Target failed.\nSee [conditional writes](https://typeship.dev/docs/typeship-api#conditional-writes) for ETag and If-Match.",
       "safety": "destructive",
       "auth": "required",
       "security": [
@@ -12398,8 +12398,8 @@
       }
     },
     {
-      "operation": "generate.run",
-      "signature": "client.generate.run(body, params)",
+      "operation": "packages.generate",
+      "signature": "client.packages.generate(body, params)",
       "method": "POST",
       "path": "/generate",
       "summary": "Generate a package",
@@ -13360,12 +13360,12 @@
       }
     },
     {
-      "operation": "generate.downloadPackage",
-      "signature": "client.generate.downloadPackage(params)",
+      "operation": "packages.download",
+      "signature": "client.packages.download(params)",
       "method": "GET",
       "path": "/generate/download",
       "summary": "Download a generated package",
-      "description": "Download the complete ZIP referenced by `generate_run`'s `download.url`. Pass the token from that URL. No API key is needed; the token grants access only to that exact package until its replay window expires. Keep the token private.\n\nThe local MCP server saves this binary response to disk. On a hosted MCP connection, download the original URL directly to your workspace. Verify the ZIP against `download.sha256` before extracting it into an empty directory. Expired or invalid tokens return `404`; a new generation creates a new download.",
+      "description": "Download the complete ZIP referenced by `packages_generate`'s `download.url`. Pass the token from that URL. No API key is needed; the token grants access only to that exact package until its replay window expires. Keep the token private.\n\nThe local MCP server saves this binary response to disk. On a hosted MCP connection, download the original URL directly to your workspace. Verify the ZIP against `download.sha256` before extracting it into an empty directory. Expired or invalid tokens return `404`; a new generation creates a new download.",
       "safety": "read",
       "auth": "none",
       "security": [

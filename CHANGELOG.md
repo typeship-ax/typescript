@@ -4,50 +4,24 @@
 
 
 
-## 0.26.0 (2026-09-26) (108 breaking)
+## 0.26.0 (2026-09-26) (115 breaking)
 
 ### Added
 - `deliveries.create()`: POST `/deliveries`
 - `deliveries.update()`: PATCH `/deliveries/{delivery_id}`
 - `deliveries.delete()`: DELETE `/deliveries/{delivery_id}`
 - `releases.retry()`: POST `/releases/{release_id}/retry`
+- `packages.generate()`: POST `/generate`
+- `packages.download()`: GET `/generate/download`
 
 ### Removed (breaking)
+- `generate.run()`: POST `/generate`
+- `generate.downloadPackage()`: GET `/generate/download`
 - `releases.republish()`: POST `/releases/{release_id}/republish`
 - `publications.list()`: GET `/publications`
 - `publications.get()`: GET `/publications/{publication_id}`
 
 ### Changed
-- `generate.run()`
-  - `return-type-changed`: response.object added: "package" \| \(string &amp; \{\}\) \(required\)
-  - `documentation-changed`: summary or description changed
-  - `error-schema-changed`: error 400.errors\[\].code enum value removed: "plan\_limit\_reached"
-  - **breaking** `error-schema-changed`: error 400.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
-  - `error-schema-changed`: error 401.errors\[\].code enum value removed: "plan\_limit\_reached"
-  - **breaking** `error-schema-changed`: error 401.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
-  - `error-schema-changed`: error 403.errors\[\].code enum value removed: "plan\_limit\_reached"
-  - **breaking** `error-schema-changed`: error 403.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
-  - `error-schema-changed`: error 409.errors\[\].code enum value removed: "plan\_limit\_reached"
-  - **breaking** `error-schema-changed`: error 409.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
-  - `error-schema-changed`: error 413.errors\[\].code enum value removed: "plan\_limit\_reached"
-  - **breaking** `error-schema-changed`: error 413.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
-  - `error-schema-changed`: error 422.errors\[\].code enum value removed: "plan\_limit\_reached"
-  - **breaking** `error-schema-changed`: error 422.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
-  - `error-schema-changed`: error 429.errors\[\].code enum value removed: "plan\_limit\_reached"
-  - **breaking** `error-schema-changed`: error 429.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
-  - `error-schema-changed`: error 500.errors\[\].code enum value removed: "plan\_limit\_reached"
-  - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
-  - `error-schema-changed`: error default.errors\[\].code enum value removed: "plan\_limit\_reached"
-  - **breaking** `error-schema-changed`: error default.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
-- `generate.downloadPackage()`
-  - `error-schema-changed`: error 400.errors\[\].code enum value removed: "plan\_limit\_reached"
-  - **breaking** `error-schema-changed`: error 400.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
-  - `error-schema-changed`: error 404.errors\[\].code enum value removed: "plan\_limit\_reached"
-  - **breaking** `error-schema-changed`: error 404.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
-  - `error-schema-changed`: error 429.errors\[\].code enum value removed: "plan\_limit\_reached"
-  - **breaking** `error-schema-changed`: error 429.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
-  - `error-schema-changed`: error 500.errors\[\].code enum value removed: "plan\_limit\_reached"
-  - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
 - `projects.list()`
   - `return-type-changed`: response.data\[\].config added: ProjectConfigResponse \| null \(required\)
   - `return-type-changed`: response.data\[\].request\_id added: RequestId \(optional\)
@@ -783,7 +757,11 @@
 - SDK declaration `FailurePhase` changed
 - **Breaking:** SDK declaration `FileStub` removed
 - **Breaking:** SDK declaration `FileStubRead` removed
-- SDK declaration `GenerateRunError` changed
+- **Breaking:** SDK declaration `GenerateDownloadPackageError` removed
+- **Breaking:** SDK declaration `GenerateDownloadPackageParams` removed
+- **Breaking:** SDK declaration `GenerateResource` removed
+- **Breaking:** SDK declaration `GenerateRunError` removed
+- **Breaking:** SDK declaration `GenerateRunParams` removed
 - **Breaking:** SDK declaration `GenerationFailure` removed
 - **Breaking:** SDK declaration `GenerationFailureRead` removed
 - **Breaking:** SDK declaration `GenerationSummary` removed
@@ -843,6 +821,7 @@
 - **Breaking:** SDK declaration `TargetUpdateRequestRead.deliveries` removed
 - SDK declaration `TargetsCreateError` changed
 - SDK declaration `TargetsUpdateError` changed
+- **Breaking:** SDK declaration `TypeshipClient.generate` removed
 - SDK declaration `TypeshipClient.projects.create` changed
 - SDK declaration `TypeshipClient.projects.get` changed
 - SDK declaration `TypeshipClient.projects.list` changed
@@ -884,6 +863,11 @@
 - **Breaking:** SDK declaration `GenerationResultRead.object` added
 - SDK declaration `HostedMcpDeliveryCreateRequest` added
 - SDK declaration `HostedMcpDeliveryCreateRequestRead` added
+- SDK declaration `PackagesDownloadError` added
+- SDK declaration `PackagesDownloadParams` added
+- SDK declaration `PackagesGenerateError` added
+- SDK declaration `PackagesGenerateParams` added
+- SDK declaration `PackagesResource` added
 - SDK declaration `ProjectListWrite` added
 - SDK declaration `ProjectResponse` added
 - SDK declaration `ProjectResponseRead` added
@@ -903,6 +887,7 @@
 - SDK declaration `TypeshipClient.deliveries.create` added
 - SDK declaration `TypeshipClient.deliveries.delete` added
 - SDK declaration `TypeshipClient.deliveries.update` added
+- **Breaking:** SDK declaration `TypeshipClient.packages` added
 - SDK declaration `TypeshipClient.releases.retry` added
 ## 0.25.0 (2026-09-25) (41 breaking)
 
