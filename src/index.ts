@@ -12,23 +12,22 @@ import {
 } from "./core/http.js";
 import { DEFS, SCHEMAS } from "./schemas.js";
 
-import { GenerateResource } from "./resources/generate.js";
 import { ProjectsResource } from "./resources/projects.js";
 import { SpecsResource } from "./resources/specs.js";
 import { SpecRevisionsResource } from "./resources/spec-revisions.js";
 import { TargetsResource } from "./resources/targets.js";
+import { DeliveriesResource } from "./resources/deliveries.js";
+import { GenerationsResource } from "./resources/generations.js";
 import { DraftsResource } from "./resources/drafts.js";
 import { ReleasesResource } from "./resources/releases.js";
-import { DeliveriesResource } from "./resources/deliveries.js";
-import { PublicationsResource } from "./resources/publications.js";
-import { GenerationsResource } from "./resources/generations.js";
 import { FilesResource } from "./resources/files.js";
+import { PackagesResource } from "./resources/packages.js";
 import { OrganizationResource } from "./resources/organization.js";
 import { ApiKeysResource } from "./resources/api-keys.js";
 
 /** This package's version, also sent as the `User-Agent`. */
-export const VERSION = "0.25.0";
-const USER_AGENT = "@typeship-ax/sdk/0.25.0";
+export const VERSION = "0.26.0";
+const USER_AGENT = "@typeship-ax/sdk/0.26.0";
 
 export interface ClientOptions {
   /** Override the server URL. Default: `https://typeship.dev/api/v1` */
@@ -49,6 +48,11 @@ export interface ClientOptions {
   timeoutMs?: number;
   /** Retries after the first attempt (retryable failures only). Default: 2. */
   maxRetries?: number;
+  /**
+   * The longest wait a server may request (Retry-After, x-ratelimit-reset) that a retry honors; a
+   * longer one fails the call with the reset time. Default: 60000.
+   */
+  maxRetryWaitMs?: number;
   /** Custom fetch implementation (proxies, testing, instrumentation). */
   fetch?: typeof fetch;
   /** Headers sent with every request. */
@@ -83,7 +87,7 @@ export interface ClientOptions {
 }
 
 /**
- * typeship — v0.25.0
+ * typeship — v0.26.0
  *
  * Resolve an OpenAPI or GraphQL Spec, diagnose it, and keep every
  * selected CLI, MCP, and SDK Target current.
@@ -100,21 +104,22 @@ export interface ClientOptions {
  * petstore Spec is a runnable sample.
  */
 export class TypeshipClient {
-  readonly generate: GenerateResource;
   readonly projects: ProjectsResource;
   readonly specs: SpecsResource;
   readonly specRevisions: SpecRevisionsResource;
   readonly targets: TargetsResource;
+  readonly deliveries: DeliveriesResource;
+  readonly generations: GenerationsResource;
   readonly drafts: DraftsResource;
   readonly releases: ReleasesResource;
-  readonly deliveries: DeliveriesResource;
-  readonly publications: PublicationsResource;
-  readonly generations: GenerationsResource;
   readonly files: FilesResource;
+  readonly packages: PackagesResource;
   readonly organization: OrganizationResource;
   readonly apiKeys: ApiKeysResource;
+  private readonly _options: ClientOptions;
 
   constructor(options: ClientOptions = {}) {
+    this._options = options;
     // Identifies this package to the API (ignored by browsers, which
     // control their own User-Agent); override via defaultHeaders.
     const headers: Record<string, AuthValue> = { "User-Agent": USER_AGENT, ...options.defaultHeaders };
@@ -159,6 +164,7 @@ export class TypeshipClient {
       fetch: options.fetch ?? fetch,
       timeoutMs: options.timeoutMs ?? 30_000,
       maxRetries: options.maxRetries ?? 2,
+      maxRetryWaitMs: options.maxRetryWaitMs,
       onRequest: options.onRequest,
       onResponse: options.onResponse,
       onError: options.onError,
@@ -167,19 +173,29 @@ export class TypeshipClient {
       schemas: validate ? SCHEMAS : undefined,
       schemaDefs: validate ? DEFS : undefined,
     });
-    this.generate = new GenerateResource(core);
     this.projects = new ProjectsResource(core);
     this.specs = new SpecsResource(core);
     this.specRevisions = new SpecRevisionsResource(core);
     this.targets = new TargetsResource(core);
+    this.deliveries = new DeliveriesResource(core);
+    this.generations = new GenerationsResource(core);
     this.drafts = new DraftsResource(core);
     this.releases = new ReleasesResource(core);
-    this.deliveries = new DeliveriesResource(core);
-    this.publications = new PublicationsResource(core);
-    this.generations = new GenerationsResource(core);
     this.files = new FilesResource(core);
+    this.packages = new PackagesResource(core);
     this.organization = new OrganizationResource(core);
     this.apiKeys = new ApiKeysResource(core);
+  }
+
+  /**
+   * A client with this client's configuration and only these credentials,
+   * for a server acting on behalf of many users. Nothing is inherited from
+   * this client's credentials. The copy shares the configured fetch.
+   */
+  withCredentials(credentials: Pick<ClientOptions, "bearerToken" | "credentials">): TypeshipClient {
+    const options: Record<string, unknown> = { ...this._options };
+    for (const key of ["bearerToken","credentials"]) delete options[key];
+    return new TypeshipClient({ ...options, ...credentials } as ClientOptions);
   }
 }
 
@@ -195,16 +211,15 @@ export {
 } from "./core/http.js";
 export { Page, PagePromise } from "./core/pagination.js";
 
-export * from "./resources/generate.js";
 export * from "./resources/projects.js";
 export * from "./resources/specs.js";
 export * from "./resources/spec-revisions.js";
 export * from "./resources/targets.js";
+export * from "./resources/deliveries.js";
+export * from "./resources/generations.js";
 export * from "./resources/drafts.js";
 export * from "./resources/releases.js";
-export * from "./resources/deliveries.js";
-export * from "./resources/publications.js";
-export * from "./resources/generations.js";
 export * from "./resources/files.js";
+export * from "./resources/packages.js";
 export * from "./resources/organization.js";
 export * from "./resources/api-keys.js";

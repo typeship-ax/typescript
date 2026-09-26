@@ -4,6 +4,7 @@
 import { HttpCore, type RequestOptions } from "../core/http.js";
 import { paginate, PagePromise } from "../core/pagination.js";
 import {
+  RateLimitError,
   ResponseParseError,
   TransportError,
   UnexpectedApiError,
@@ -31,7 +32,7 @@ import type {
 export class ReleasesResource {
   constructor(private readonly _core: HttpCore) {}
   /**
-   * List releases
+   * List Releases
    *
    * Auto-paginates: `for await (const item of …)` walks every page.
    * `GET /releases`
@@ -68,7 +69,7 @@ export class ReleasesResource {
   }
 
   /**
-   * Get an immutable release
+   * Get a Release
    * `GET /releases/{release_id}`
    */
   async get(releaseId: ReleaseId, options?: RequestOptions): Promise<ReleaseResponseRead> {
@@ -90,25 +91,30 @@ export class ReleasesResource {
   }
 
   /**
-   * Retry publishing an exact release
+   * Retry publishing a Release
    *
-   * Retries publishing the specified release through its repository workflow. Uses that release's
-   * version and accepted commit, even if a newer Draft or release exists.
+   * Queues every failed or queued Publication of the release and starts its repository publishing
+   * workflow again. Publishing uses that release's version and accepted commit, even if a newer
+   * Draft or release exists. Completed Publications are not repeated.
    *
-   * A `502 repository_unavailable` means the repository publishing workflow could not be
-   * dispatched, and nothing was changed.
+   * Returns `202` with the Release. Get the Release until each Publication reaches `completed` or
+   * `failed`.
+   *
+   * A `409 publication_not_retryable` means no Publication is queued or failed. A `502
+   * repository_unavailable` means the repository publishing workflow could not be dispatched, and
+   * nothing was changed.
    *
    * A `Idempotency-Key` UUID is generated per call (stable across retries) unless you pass one.
-   * `POST /releases/{release_id}/republish`
+   * `POST /releases/{release_id}/retry`
    */
-  async republish(
+  async retry(
     releaseId: ReleaseId,
-    params?: ReleasesRepublishParams,
+    params?: ReleasesRetryParams,
     options?: RequestOptions,
   ): Promise<ReleaseResponseRead> {
-    return this._core.requestData<ReleaseResponseRead, ReleasesRepublishError>({
+    return this._core.requestData<ReleaseResponseRead, ReleasesRetryError>({
       method: "POST",
-      path: `/releases/${encodeURIComponent(String(releaseId))}/republish`,
+      path: `/releases/${encodeURIComponent(String(releaseId))}/retry`,
       security: [{"apiKey":[]}],
       headers: {
         "Idempotency-Key": params?.idempotencyKey === undefined ? undefined : String(params?.idempotencyKey),
@@ -124,7 +130,7 @@ export class ReleasesResource {
         "502": BadGatewayError,
       },
       idempotencyKey: "Idempotency-Key",
-      schemaKey: "releases.republish",
+      schemaKey: "releases.retry",
       options,
     });
   }
@@ -158,6 +164,7 @@ export type ReleasesListError =
   | NotFoundError
   | RateLimitedError
   | InternalServerError
+  | RateLimitError
   | UnexpectedApiError
   | ResponseParseError
   | TransportError
@@ -170,12 +177,13 @@ export type ReleasesGetError =
   | NotFoundError
   | RateLimitedError
   | InternalServerError
+  | RateLimitError
   | UnexpectedApiError
   | ResponseParseError
   | TransportError
   | ValidationError;
 
-export interface ReleasesRepublishParams {
+export interface ReleasesRetryParams {
   /**
    * Identifies one logical write for 24 hours. The key is scoped to the authenticated organization
    * and operation; generation without an organization uses a hashed network identity. Retrying the
@@ -185,8 +193,8 @@ export interface ReleasesRepublishParams {
   idempotencyKey?: string;
 }
 
-/** Typed errors `republish` can throw. */
-export type ReleasesRepublishError =
+/** Typed errors `retry` can throw. */
+export type ReleasesRetryError =
   | BadRequestError
   | UnauthorizedError
   | ForbiddenError
@@ -195,6 +203,7 @@ export type ReleasesRepublishError =
   | RateLimitedError
   | InternalServerError
   | BadGatewayError
+  | RateLimitError
   | UnexpectedApiError
   | ResponseParseError
   | TransportError

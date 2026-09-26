@@ -4,6 +4,7 @@
 import { HttpCore, type RequestOptions } from "../core/http.js";
 import { paginate, PagePromise } from "../core/pagination.js";
 import {
+  RateLimitError,
   ResponseParseError,
   TransportError,
   UnexpectedApiError,
@@ -44,6 +45,7 @@ export class ApiKeysResource {
       query: {
         limit: params?.limit,
         cursor: params?.cursor,
+        status: params?.status,
       },
       errors: {
         "400": BadRequestError,
@@ -92,13 +94,14 @@ export class ApiKeysResource {
   /**
    * Revoke an API key
    *
-   * Revokes a key. Repeating the request returns the same result.
+   * Revokes a key immediately. The key stays listed with `status: revoked`. Repeating the request
+   * returns the same result.
    *
    * With OAuth, members can revoke their own keys; organization admins can revoke any key.
    * Organization API keys can revoke any key in their organization.
    * See [conditional writes](https://typeship.dev/docs/typeship-api#conditional-writes) for ETag
    * and If-Match.
-   * `DELETE /api-keys/{api_key_id}`
+   * `POST /api-keys/{api_key_id}/revoke`
    */
   async revoke(
     apiKeyId: string,
@@ -106,8 +109,8 @@ export class ApiKeysResource {
     options?: RequestOptions,
   ): Promise<ApiKeyResponseRead> {
     return this._core.requestData<ApiKeyResponseRead, ApiKeysRevokeError>({
-      method: "DELETE",
-      path: `/api-keys/${encodeURIComponent(String(apiKeyId))}`,
+      method: "POST",
+      path: `/api-keys/${encodeURIComponent(String(apiKeyId))}/revoke`,
       security: [{"apiKey":[]}],
       headers: {
         "If-Match": params?.ifMatch === undefined ? undefined : String(params?.ifMatch),
@@ -121,7 +124,6 @@ export class ApiKeysResource {
         "429": RateLimitedError,
         "500": InternalServerError,
       },
-      idempotent: true,
       schemaKey: "apiKeys.revoke",
       options,
     });
@@ -144,6 +146,8 @@ export interface ApiKeysListParams {
    * change between requests.
    */
   cursor?: string;
+  /** Only keys with this status. */
+  status?: "active" | "revoked";
 }
 
 /** Typed errors `list` can throw. */
@@ -153,6 +157,7 @@ export type ApiKeysListError =
   | ForbiddenError
   | RateLimitedError
   | InternalServerError
+  | RateLimitError
   | UnexpectedApiError
   | ResponseParseError
   | TransportError
@@ -165,6 +170,7 @@ export type ApiKeysGetError =
   | NotFoundError
   | RateLimitedError
   | InternalServerError
+  | RateLimitError
   | UnexpectedApiError
   | ResponseParseError
   | TransportError
@@ -188,6 +194,7 @@ export type ApiKeysRevokeError =
   | PreconditionFailedError
   | RateLimitedError
   | InternalServerError
+  | RateLimitError
   | UnexpectedApiError
   | ResponseParseError
   | TransportError

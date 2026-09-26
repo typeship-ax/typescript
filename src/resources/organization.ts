@@ -3,6 +3,7 @@
 
 import { HttpCore, type RequestOptions } from "../core/http.js";
 import {
+  RateLimitError,
   ResponseParseError,
   TransportError,
   UnexpectedApiError,
@@ -17,7 +18,7 @@ import type { Organization, OrganizationRead } from "../types.js";
 export class OrganizationResource {
   constructor(private readonly _core: HttpCore) {}
   /**
-   * The organization behind the presented credentials
+   * Get the Organization
    *
    * Returns the organization associated with your credential. The Typeship CLI uses this endpoint
    * for `whoami`.
@@ -47,6 +48,7 @@ export type OrganizationGetError =
   | ForbiddenError
   | RateLimitedError
   | InternalServerError
+  | RateLimitError
   | UnexpectedApiError
   | ResponseParseError
   | TransportError
