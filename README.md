@@ -38,7 +38,7 @@ npm install @typeship-ax/sdk@0.26.0
 ```ts
 import { TypeshipClient } from "@typeship-ax/sdk";
 
-const client = new TypeshipClient({ bearerToken: process.env.TYPESHIP_TOKEN! });
+const client = new TypeshipClient({ bearerToken: process.env.TYPESHIP_API_KEY! });
 
 const result = await client.organization.get();
 console.log(result);
