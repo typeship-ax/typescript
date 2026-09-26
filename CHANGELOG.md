@@ -4,7 +4,7 @@
 
 
 
-## 0.26.0 (2026-09-26) (105 breaking)
+## 0.26.0 (2026-09-26) (108 breaking)
 
 ### Added
 - `deliveries.create()`: POST `/deliveries`
@@ -264,6 +264,9 @@
   - `error-schema-changed`: error 502.errors\[\].code enum value removed: "plan\_limit\_reached"
   - **breaking** `error-schema-changed`: error 502.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
 - `specRevisions.list()`
+  - `return-type-changed`: response.data\[\].diagnostics\[\].locations\[\].blocking added: boolean \(required\)
+  - `return-type-changed`: response.data\[\].diagnostics\[\].locations\[\].introduced added: boolean \(required\)
+  - `return-type-changed`: response.data\[\].diagnostics\[\].locations\[\].suppressed added: boolean \(required\)
   - `error-schema-changed`: error 400.errors\[\].code enum value removed: "plan\_limit\_reached"
   - **breaking** `error-schema-changed`: error 400.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
   - `error-schema-changed`: error 401.errors\[\].code enum value removed: "plan\_limit\_reached"
@@ -277,6 +280,11 @@
   - `error-schema-changed`: error 500.errors\[\].code enum value removed: "plan\_limit\_reached"
   - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
 - `specRevisions.get()`
+  - `param-added`: request parameter.filter added: "blocking" \| "introduced" \(optional\)
+  - `return-type-changed`: response.diagnostics\[\].locations\[\].blocking added: boolean \(required\)
+  - `return-type-changed`: response.diagnostics\[\].locations\[\].introduced added: boolean \(required\)
+  - `return-type-changed`: response.diagnostics\[\].locations\[\].suppressed added: boolean \(required\)
+  - `documentation-changed`: summary or description changed
   - `error-schema-changed`: error 400.errors\[\].code enum value removed: "plan\_limit\_reached"
   - **breaking** `error-schema-changed`: error 400.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
   - `error-schema-changed`: error 401.errors\[\].code enum value removed: "plan\_limit\_reached"
@@ -859,6 +867,9 @@
 - SDK declaration `DeliveryCreateRequestRead` added
 - SDK declaration `DeliveryUpdateRequest` added
 - SDK declaration `DeliveryUpdateRequestRead` added
+- **Breaking:** SDK declaration `DiagnosticLocation.blocking` added
+- **Breaking:** SDK declaration `DiagnosticLocation.introduced` added
+- **Breaking:** SDK declaration `DiagnosticLocation.suppressed` added
 - **Breaking:** SDK declaration `Draft.compatibility` added
 - **Breaking:** SDK declaration `Draft.errors` added
 - **Breaking:** SDK declaration `Draft.version` added
@@ -888,6 +899,7 @@
 - SDK declaration `ReleasesRetryParams` added
 - SDK declaration `RepositoryDeliveryCreateRequest` added
 - SDK declaration `RepositoryDeliveryCreateRequestRead` added
+- SDK declaration `SpecRevisionsGetParams.filter` added
 - SDK declaration `TypeshipClient.deliveries.create` added
 - SDK declaration `TypeshipClient.deliveries.delete` added
 - SDK declaration `TypeshipClient.deliveries.update` added
