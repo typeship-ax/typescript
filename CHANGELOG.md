@@ -4,7 +4,7 @@
 
 
 
-## 0.26.0 (2026-09-25) (57 breaking)
+## 0.26.0 (2026-09-26) (57 breaking)
 
 ### Added
 - `releases.retry()`: POST `/releases/{release_id}/retry`
