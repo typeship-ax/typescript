@@ -753,6 +753,8 @@
 - SDK declaration `ApiKeysGetError` changed
 - SDK declaration `ApiKeysListError` changed
 - SDK declaration `ApiKeysRevokeError` changed
+- SDK declaration `AuthValue` changed
+- SDK declaration `ClientOptions.bearerToken` changed
 - **Breaking:** SDK declaration `ConfigResponse` removed
 - **Breaking:** SDK declaration `ConfigResponseRead` removed
 - SDK declaration `DeliveriesGetError` changed
@@ -796,6 +798,7 @@
 - SDK declaration `GraphqlSettingsResponse.auth` changed
 - SDK declaration `GraphqlSettingsResponseRead.auth` changed
 - SDK declaration `OrganizationGetError` changed
+- SDK declaration `Page.new` changed
 - SDK declaration `Project.request_id` changed
 - SDK declaration `ProjectList.data` changed
 - SDK declaration `ProjectListRead.data` changed
@@ -881,6 +884,7 @@
 - SDK declaration `BadRequestError.rateLimit` added
 - SDK declaration `ClientOptions.maxRetryWaitMs` added
 - SDK declaration `ConflictError.rateLimit` added
+- SDK declaration `CredentialContext` added
 - SDK declaration `DeletedDelivery` added
 - SDK declaration `DeletedDeliveryRead` added
 - SDK declaration `DeliveriesCreateError` added
@@ -921,6 +925,7 @@
 - SDK declaration `PackagesGenerateError` added
 - SDK declaration `PackagesGenerateParams` added
 - SDK declaration `PackagesResource` added
+- SDK declaration `Page.nextPageUrl` added
 - SDK declaration `PayloadError` added
 - SDK declaration `PayloadTooLargeError.rateLimit` added
 - SDK declaration `PaymentRequiredError.rateLimit` added
