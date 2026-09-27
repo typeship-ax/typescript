@@ -38,8 +38,12 @@
   - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
 - `projects.create()`
   - `body-field-type-changed`: request body.spec.graphql.auth enum values added: "api\_key\_or\_bearer", "basic\_api\_key"
+  - `body-field-type-changed`: request body.targets\[\].config.exclude added: string\[\] \(optional\)
+  - `body-field-type-changed`: request body.targets\[\].config.include added: string\[\] \(optional\)
   - `body-field-type-changed`: request body.config.auth.credential\_parameters added: Record&lt;string, Record&lt;string, boolean&gt;&gt; \| null \(optional\)
   - `body-field-type-changed`: request body.config.auth.credential\_variables added: Record&lt;string, string \| \{   username: string;   password: string; \}&gt; \| null \(optional\)
+  - `body-field-type-changed`: request body.config.exclude added: string\[\] \(optional\)
+  - `body-field-type-changed`: request body.config.include added: string\[\] \(optional\)
   - **breaking** `return-type-changed`: response type changed: Project -&gt; ProjectResponse
   - `return-type-changed`: response intersection added: Project
   - `return-type-changed`: response intersection added: ResponseMetadata
@@ -114,6 +118,8 @@
 - `projects.update()`
   - `body-field-type-changed`: request body.config.auth.credential\_parameters added: Record&lt;string, Record&lt;string, boolean&gt;&gt; \| null \(optional\)
   - `body-field-type-changed`: request body.config.auth.credential\_variables added: Record&lt;string, string \| \{   username: string;   password: string; \}&gt; \| null \(optional\)
+  - `body-field-type-changed`: request body.config.exclude added: string\[\] \(optional\)
+  - `body-field-type-changed`: request body.config.include added: string\[\] \(optional\)
   - **breaking** `return-type-changed`: response type changed: Project -&gt; ProjectResponse
   - `return-type-changed`: response intersection added: Project
   - `return-type-changed`: response intersection added: ResponseMetadata
@@ -294,6 +300,8 @@
   - `error-schema-changed`: error 500.errors\[\].code enum value removed: "plan\_limit\_reached"
   - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
 - `targets.list()`
+  - `return-type-changed`: response.data\[\].config.exclude added: string\[\] \(optional\)
+  - `return-type-changed`: response.data\[\].config.include added: string\[\] \(optional\)
   - `error-schema-changed`: error 400.errors\[\].code enum value removed: "plan\_limit\_reached"
   - **breaking** `error-schema-changed`: error 400.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
   - `error-schema-changed`: error 401.errors\[\].code enum value removed: "plan\_limit\_reached"
@@ -307,7 +315,11 @@
   - `error-schema-changed`: error 500.errors\[\].code enum value removed: "plan\_limit\_reached"
   - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
 - `targets.create()`
+  - `body-field-type-changed`: request body.config.exclude added: string\[\] \(optional\)
+  - `body-field-type-changed`: request body.config.include added: string\[\] \(optional\)
   - **breaking** `body-field-removed`: request body.spec\_id removed \(was SpecId\)
+  - `return-type-changed`: response.config.exclude added: string\[\] \(optional\)
+  - `return-type-changed`: response.config.include added: string\[\] \(optional\)
   - `documentation-changed`: summary or description changed
   - `error-schema-changed`: error 400.errors\[\].code enum value removed: "plan\_limit\_reached"
   - **breaking** `error-schema-changed`: error 400.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
@@ -328,6 +340,8 @@
   - `error-schema-changed`: error 500.errors\[\].code enum value removed: "plan\_limit\_reached"
   - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
 - `targets.get()`
+  - `return-type-changed`: response.config.exclude added: string\[\] \(optional\)
+  - `return-type-changed`: response.config.include added: string\[\] \(optional\)
   - `error-schema-changed`: error 401.errors\[\].code enum value removed: "plan\_limit\_reached"
   - **breaking** `error-schema-changed`: error 401.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
   - `error-schema-changed`: error 403.errors\[\].code enum value removed: "plan\_limit\_reached"
@@ -357,7 +371,11 @@
   - `error-schema-changed`: error 500.errors\[\].code enum value removed: "plan\_limit\_reached"
   - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
 - `targets.update()`
+  - `body-field-type-changed`: request body.config.exclude added: string\[\] \(optional\)
+  - `body-field-type-changed`: request body.config.include added: string\[\] \(optional\)
   - **breaking** `body-field-removed`: request body.deliveries removed \(was DeliveryInput\[\]\)
+  - `return-type-changed`: response.config.exclude added: string\[\] \(optional\)
+  - `return-type-changed`: response.config.include added: string\[\] \(optional\)
   - `documentation-changed`: summary or description changed
   - `error-schema-changed`: error 400.errors\[\].code enum value removed: "plan\_limit\_reached"
   - **breaking** `error-schema-changed`: error 400.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
@@ -883,6 +901,10 @@
 - SDK declaration `BadGatewayError.rateLimit` added
 - SDK declaration `BadRequestError.rateLimit` added
 - SDK declaration `ClientOptions.maxRetryWaitMs` added
+- SDK declaration `Config.exclude` added
+- SDK declaration `Config.include` added
+- SDK declaration `ConfigRead.exclude` added
+- SDK declaration `ConfigRead.include` added
 - SDK declaration `ConflictError.rateLimit` added
 - SDK declaration `CredentialContext` added
 - SDK declaration `DeletedDelivery` added
@@ -930,6 +952,14 @@
 - SDK declaration `PayloadTooLargeError.rateLimit` added
 - SDK declaration `PaymentRequiredError.rateLimit` added
 - SDK declaration `PreconditionFailedError.rateLimit` added
+- SDK declaration `ProjectConfig.exclude` added
+- SDK declaration `ProjectConfig.include` added
+- SDK declaration `ProjectConfigRead.exclude` added
+- SDK declaration `ProjectConfigRead.include` added
+- SDK declaration `ProjectConfigResponse.exclude` added
+- SDK declaration `ProjectConfigResponse.include` added
+- SDK declaration `ProjectConfigResponseRead.exclude` added
+- SDK declaration `ProjectConfigResponseRead.include` added
 - SDK declaration `ProjectListWrite` added
 - SDK declaration `ProjectResponse` added
 - SDK declaration `ProjectResponseRead` added
@@ -955,6 +985,14 @@
 - SDK declaration `ResponseMeta.notModified` added
 - SDK declaration `ResponseMeta.rateLimit` added
 - SDK declaration `SpecRevisionsGetParams.filter` added
+- SDK declaration `TargetConfig.exclude` added
+- SDK declaration `TargetConfig.include` added
+- SDK declaration `TargetConfigRead.exclude` added
+- SDK declaration `TargetConfigRead.include` added
+- SDK declaration `TargetConfigResponse.exclude` added
+- SDK declaration `TargetConfigResponse.include` added
+- SDK declaration `TargetConfigResponseRead.exclude` added
+- SDK declaration `TargetConfigResponseRead.include` added
 - SDK declaration `TypeshipClient.deliveries.create` added
 - SDK declaration `TypeshipClient.deliveries.delete` added
 - SDK declaration `TypeshipClient.deliveries.update` added
