@@ -4,7 +4,7 @@
 
 
 
-## 0.26.0 (2026-09-26) (116 breaking)
+## 0.26.0 (2026-09-27) (116 breaking)
 
 ### Added
 - `deliveries.create()`: POST `/deliveries`
@@ -949,6 +949,7 @@
 - SDK declaration `RepositoryDeliveryCreateRequest` added
 - SDK declaration `RepositoryDeliveryCreateRequestRead` added
 - SDK declaration `RequestOptions.onResponse` added
+- SDK declaration `RequestOptions.pageUrl` added
 - SDK declaration `ResponseMeta.etag` added
 - SDK declaration `ResponseMeta.lastModified` added
 - SDK declaration `ResponseMeta.notModified` added
