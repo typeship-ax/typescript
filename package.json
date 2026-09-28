@@ -1,7 +1,7 @@
 {
   "name": "@typeship-ax/sdk",
-  "version": "0.25.0",
-  "description": "TypeScript SDK for typeship.",
+  "version": "0.26.0",
+  "description": "TypeScript SDK for Typeship.",
   "keywords": [
     "typeship",
     "api",
@@ -16,6 +16,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/typeship-ax/typescript.git"
+  },
+  "bugs": {
+    "url": "https://github.com/typeship-ax/typescript/issues"
   },
   "license": "MIT",
   "type": "module",
