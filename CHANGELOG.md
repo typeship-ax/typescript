@@ -4,7 +4,7 @@
 
 
 
-## 0.26.0 (2026-09-27) (116 breaking)
+## 0.26.0 (2026-09-28) (158 breaking)
 
 ### Added
 - `deliveries.create()`: POST `/deliveries`
@@ -40,10 +40,12 @@
   - `body-field-type-changed`: request body.spec.graphql.auth enum values added: "api\_key\_or\_bearer", "basic\_api\_key"
   - `body-field-type-changed`: request body.spec.graphql.error\_types added: string\[\] \(optional\)
   - `body-field-type-changed`: request body.spec.graphql.page\_size added: number \(optional\)
+  - `body-field-type-changed`: request body.targets\[\].config.package.title added: string \| null \(optional\)
   - `body-field-type-changed`: request body.targets\[\].config.exclude added: string\[\] \(optional\)
   - `body-field-type-changed`: request body.targets\[\].config.include added: string\[\] \(optional\)
   - `body-field-type-changed`: request body.config.auth.credential\_parameters added: Record&lt;string, Record&lt;string, boolean&gt;&gt; \| null \(optional\)
   - `body-field-type-changed`: request body.config.auth.credential\_variables added: Record&lt;string, string \| \{   username: string;   password: string; \}&gt; \| null \(optional\)
+  - `body-field-type-changed`: request body.config.package.title added: string \| null \(optional\)
   - `body-field-type-changed`: request body.config.exclude added: string\[\] \(optional\)
   - `body-field-type-changed`: request body.config.include added: string\[\] \(optional\)
   - **breaking** `return-type-changed`: response type changed: Project -&gt; ProjectResponse
@@ -120,6 +122,7 @@
 - `projects.update()`
   - `body-field-type-changed`: request body.config.auth.credential\_parameters added: Record&lt;string, Record&lt;string, boolean&gt;&gt; \| null \(optional\)
   - `body-field-type-changed`: request body.config.auth.credential\_variables added: Record&lt;string, string \| \{   username: string;   password: string; \}&gt; \| null \(optional\)
+  - `body-field-type-changed`: request body.config.package.title added: string \| null \(optional\)
   - `body-field-type-changed`: request body.config.exclude added: string\[\] \(optional\)
   - `body-field-type-changed`: request body.config.include added: string\[\] \(optional\)
   - **breaking** `return-type-changed`: response type changed: Project -&gt; ProjectResponse
@@ -310,6 +313,7 @@
   - `error-schema-changed`: error 500.errors\[\].code enum value removed: "plan\_limit\_reached"
   - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
 - `targets.list()`
+  - `return-type-changed`: response.data\[\].config.package.title added: string \| null \(optional\)
   - `return-type-changed`: response.data\[\].config.exclude added: string\[\] \(optional\)
   - `return-type-changed`: response.data\[\].config.include added: string\[\] \(optional\)
   - `error-schema-changed`: error 400.errors\[\].code enum value removed: "plan\_limit\_reached"
@@ -325,9 +329,11 @@
   - `error-schema-changed`: error 500.errors\[\].code enum value removed: "plan\_limit\_reached"
   - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
 - `targets.create()`
+  - `body-field-type-changed`: request body.config.package.title added: string \| null \(optional\)
   - `body-field-type-changed`: request body.config.exclude added: string\[\] \(optional\)
   - `body-field-type-changed`: request body.config.include added: string\[\] \(optional\)
   - **breaking** `body-field-removed`: request body.spec\_id removed \(was SpecId\)
+  - `return-type-changed`: response.config.package.title added: string \| null \(optional\)
   - `return-type-changed`: response.config.exclude added: string\[\] \(optional\)
   - `return-type-changed`: response.config.include added: string\[\] \(optional\)
   - `documentation-changed`: summary or description changed
@@ -350,6 +356,7 @@
   - `error-schema-changed`: error 500.errors\[\].code enum value removed: "plan\_limit\_reached"
   - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
 - `targets.get()`
+  - `return-type-changed`: response.config.package.title added: string \| null \(optional\)
   - `return-type-changed`: response.config.exclude added: string\[\] \(optional\)
   - `return-type-changed`: response.config.include added: string\[\] \(optional\)
   - `error-schema-changed`: error 401.errors\[\].code enum value removed: "plan\_limit\_reached"
@@ -381,9 +388,11 @@
   - `error-schema-changed`: error 500.errors\[\].code enum value removed: "plan\_limit\_reached"
   - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
 - `targets.update()`
+  - `body-field-type-changed`: request body.config.package.title added: string \| null \(optional\)
   - `body-field-type-changed`: request body.config.exclude added: string\[\] \(optional\)
   - `body-field-type-changed`: request body.config.include added: string\[\] \(optional\)
   - **breaking** `body-field-removed`: request body.deliveries removed \(was DeliveryInput\[\]\)
+  - `return-type-changed`: response.config.package.title added: string \| null \(optional\)
   - `return-type-changed`: response.config.exclude added: string\[\] \(optional\)
   - `return-type-changed`: response.config.include added: string\[\] \(optional\)
   - `documentation-changed`: summary or description changed
@@ -776,17 +785,40 @@
   - **breaking** `error-schema-changed`: error 500.errors\[\].code enum values added: "checks\_failed", "delivery\_exists", "draft\_title\_invalid", "feature\_not\_available", "input\_duplicate", "input\_format\_invalid", "input\_missing", "input\_too\_long", "input\_too\_short", "input\_type\_invalid", "input\_unknown", "quota\_exceeded"
 
 ### Package contract (breaking)
+- SDK declaration `ApiError.new` changed
 - **Breaking:** SDK declaration `ApiKey.revoked` removed
 - **Breaking:** SDK declaration `ApiKeyRead.revoked` removed
 - SDK declaration `ApiKeysGetError` changed
 - SDK declaration `ApiKeysListError` changed
 - SDK declaration `ApiKeysRevokeError` changed
 - SDK declaration `AuthValue` changed
+- SDK declaration `BadGatewayError` changed
+- **Breaking:** SDK declaration `BadGatewayError.body` removed
+- **Breaking:** SDK declaration `BadGatewayError.cause` removed
+- **Breaking:** SDK declaration `BadGatewayError.code` removed
+- **Breaking:** SDK declaration `BadGatewayError.message` removed
+- **Breaking:** SDK declaration `BadGatewayError.name` removed
+- **Breaking:** SDK declaration `BadGatewayError.new` removed
+- **Breaking:** SDK declaration `BadGatewayError.requestId` removed
+- **Breaking:** SDK declaration `BadGatewayError.response` removed
+- **Breaking:** SDK declaration `BadGatewayError.stack` removed
+- **Breaking:** SDK declaration `BadGatewayError.static.captureStackTrace` removed
+- **Breaking:** SDK declaration `BadGatewayError.static.prepareStackTrace` removed
+- **Breaking:** SDK declaration `BadGatewayError.static.stackTraceLimit` removed
+- **Breaking:** SDK declaration `BadGatewayError.status` removed
+- SDK declaration `BadRequestError` changed
+- SDK declaration `BadRequestError.body` changed
+- SDK declaration `BadRequestError.new` changed
 - SDK declaration `ClientOptions.bearerToken` changed
 - **Breaking:** SDK declaration `ConfigResponse` removed
 - **Breaking:** SDK declaration `ConfigResponseRead` removed
+- SDK declaration `ConflictError` changed
+- SDK declaration `ConflictError.body` changed
+- SDK declaration `ConflictError.new` changed
 - SDK declaration `DeliveriesGetError` changed
 - SDK declaration `DeliveriesListError` changed
+- SDK declaration `DeliveryInputRead` changed
+- SDK declaration `DeliveryRead` changed
 - SDK declaration `Draft.changes` changed
 - **Breaking:** SDK declaration `Draft.readiness` removed
 - SDK declaration `Draft.status` changed
@@ -808,6 +840,9 @@
 - **Breaking:** SDK declaration `FileStub` removed
 - **Breaking:** SDK declaration `FileStubRead` removed
 - SDK declaration `FilesGetError` changed
+- SDK declaration `ForbiddenError` changed
+- SDK declaration `ForbiddenError.body` changed
+- SDK declaration `ForbiddenError.new` changed
 - **Breaking:** SDK declaration `GenerateDownloadPackageError` removed
 - **Breaking:** SDK declaration `GenerateDownloadPackageParams` removed
 - **Breaking:** SDK declaration `GenerateResource` removed
@@ -825,6 +860,25 @@
 - SDK declaration `GraphqlSettingsRead.auth` changed
 - SDK declaration `GraphqlSettingsResponse.auth` changed
 - SDK declaration `GraphqlSettingsResponseRead.auth` changed
+- **Breaking:** SDK declaration `HostedMcpDeliveryInputRead` removed
+- SDK declaration `HostedMcpDeliveryRead.type` changed
+- SDK declaration `InternalServerError` changed
+- **Breaking:** SDK declaration `InternalServerError.body` removed
+- **Breaking:** SDK declaration `InternalServerError.cause` removed
+- **Breaking:** SDK declaration `InternalServerError.code` removed
+- **Breaking:** SDK declaration `InternalServerError.message` removed
+- **Breaking:** SDK declaration `InternalServerError.name` removed
+- **Breaking:** SDK declaration `InternalServerError.new` removed
+- **Breaking:** SDK declaration `InternalServerError.requestId` removed
+- **Breaking:** SDK declaration `InternalServerError.response` removed
+- **Breaking:** SDK declaration `InternalServerError.stack` removed
+- **Breaking:** SDK declaration `InternalServerError.static.captureStackTrace` removed
+- **Breaking:** SDK declaration `InternalServerError.static.prepareStackTrace` removed
+- **Breaking:** SDK declaration `InternalServerError.static.stackTraceLimit` removed
+- **Breaking:** SDK declaration `InternalServerError.status` removed
+- SDK declaration `NotFoundError` changed
+- SDK declaration `NotFoundError.body` changed
+- SDK declaration `NotFoundError.new` changed
 - SDK declaration `OrganizationGetError` changed
 - SDK declaration `Page.new` changed
 - SDK declaration `Project.request_id` changed
@@ -863,6 +917,20 @@
 - **Breaking:** SDK declaration `PublicationsListError` removed
 - **Breaking:** SDK declaration `PublicationsListParams` removed
 - **Breaking:** SDK declaration `PublicationsResource` removed
+- SDK declaration `RateLimitedError` changed
+- **Breaking:** SDK declaration `RateLimitedError.body` removed
+- **Breaking:** SDK declaration `RateLimitedError.cause` removed
+- **Breaking:** SDK declaration `RateLimitedError.code` removed
+- **Breaking:** SDK declaration `RateLimitedError.message` removed
+- **Breaking:** SDK declaration `RateLimitedError.name` removed
+- **Breaking:** SDK declaration `RateLimitedError.new` removed
+- **Breaking:** SDK declaration `RateLimitedError.requestId` removed
+- **Breaking:** SDK declaration `RateLimitedError.response` removed
+- **Breaking:** SDK declaration `RateLimitedError.stack` removed
+- **Breaking:** SDK declaration `RateLimitedError.static.captureStackTrace` removed
+- **Breaking:** SDK declaration `RateLimitedError.static.prepareStackTrace` removed
+- **Breaking:** SDK declaration `RateLimitedError.static.stackTraceLimit` removed
+- **Breaking:** SDK declaration `RateLimitedError.status` removed
 - **Breaking:** SDK declaration `Release.channel` removed
 - **Breaking:** SDK declaration `ReleaseRead.channel` removed
 - SDK declaration `ReleasesGetError` changed
@@ -870,11 +938,21 @@
 - **Breaking:** SDK declaration `ReleasesRepublishError` removed
 - **Breaking:** SDK declaration `ReleasesRepublishParams` removed
 - **Breaking:** SDK declaration `ReleasesResource.republish` removed
+- SDK declaration `RepositoryDeliveryInputRead.type` changed
+- SDK declaration `RepositoryDeliveryRead.type` changed
 - **Breaking:** SDK declaration `RepositoryReference` removed
 - **Breaking:** SDK declaration `RepositoryReferenceRead` removed
+- SDK declaration `RepositorySpecRevisionSourceRead.type` changed
+- SDK declaration `RepositorySpecSourceInputRead.type` changed
+- SDK declaration `RepositorySpecSourceRead.type` changed
+- SDK declaration `SpecFieldsRead.source` changed
+- SDK declaration `SpecRead.source` changed
+- SDK declaration `SpecRevisionSourceRead` changed
 - SDK declaration `SpecRevisionsGetError` changed
 - SDK declaration `SpecRevisionsListError` changed
 - SDK declaration `SpecRevisionsListFilesError` changed
+- SDK declaration `SpecSourceInputRead` changed
+- SDK declaration `SpecSourceRead` changed
 - SDK declaration `SpecsGetError` changed
 - SDK declaration `SpecsRefreshError` changed
 - SDK declaration `SpecsUpdateError` changed
@@ -892,6 +970,8 @@
 - SDK declaration `TargetsGetError` changed
 - SDK declaration `TargetsListError` changed
 - SDK declaration `TargetsUpdateError` changed
+- SDK declaration `TransportError.code` changed
+- SDK declaration `TransportError.new` changed
 - **Breaking:** SDK declaration `TypeshipClient.generate` removed
 - SDK declaration `TypeshipClient.projects.create` changed
 - SDK declaration `TypeshipClient.projects.get` changed
@@ -899,6 +979,15 @@
 - SDK declaration `TypeshipClient.projects.update` changed
 - **Breaking:** SDK declaration `TypeshipClient.publications` removed
 - **Breaking:** SDK declaration `TypeshipClient.releases.republish` removed
+- SDK declaration `UnauthorizedError` changed
+- SDK declaration `UnauthorizedError.body` changed
+- SDK declaration `UnauthorizedError.new` changed
+- SDK declaration `UnprocessableEntityError` changed
+- SDK declaration `UnprocessableEntityError.body` changed
+- SDK declaration `UnprocessableEntityError.new` changed
+- **Breaking:** SDK declaration `UrlSpecRevisionSourceRead` removed
+- SDK declaration `UrlSpecSourceInputRead.type` changed
+- **Breaking:** SDK declaration `UrlSpecSourceRead` removed
 - SDK declaration `ApiError.rateLimit` added
 - **Breaking:** SDK declaration `ApiKey.status` added
 - **Breaking:** SDK declaration `ApiKeyRead.status` added
@@ -908,7 +997,6 @@
 - SDK declaration `AuthenticationConfig.credential_variables` added
 - SDK declaration `AuthenticationConfigResponse.credential_parameters` added
 - SDK declaration `AuthenticationConfigResponse.credential_variables` added
-- SDK declaration `BadGatewayError.rateLimit` added
 - SDK declaration `BadRequestError.rateLimit` added
 - SDK declaration `ClientOptions.maxRetryWaitMs` added
 - SDK declaration `Config.exclude` added
@@ -957,9 +1045,9 @@
 - SDK declaration `GraphqlSettingsResponseRead.error_types` added
 - SDK declaration `GraphqlSettingsResponseRead.page_size` added
 - SDK declaration `HostedMcpDeliveryCreateRequest` added
-- SDK declaration `HostedMcpDeliveryCreateRequestRead` added
-- SDK declaration `InternalServerError.rateLimit` added
 - SDK declaration `NotFoundError.rateLimit` added
+- SDK declaration `PackageBehavior.title` added
+- SDK declaration `PackageBehaviorResponse.title` added
 - SDK declaration `PackagesDownloadError` added
 - SDK declaration `PackagesDownloadParams` added
 - SDK declaration `PackagesGenerateError` added
@@ -986,7 +1074,6 @@
 - **Breaking:** SDK declaration `PublicationRead.type` added
 - SDK declaration `RateLimitError` added
 - SDK declaration `RateLimitInfo` added
-- SDK declaration `RateLimitedError.rateLimit` added
 - **Breaking:** SDK declaration `Release.release_channel` added
 - **Breaking:** SDK declaration `Release.updated_at` added
 - **Breaking:** SDK declaration `ReleaseRead.release_channel` added
@@ -1002,6 +1089,7 @@
 - SDK declaration `ResponseMeta.lastModified` added
 - SDK declaration `ResponseMeta.notModified` added
 - SDK declaration `ResponseMeta.rateLimit` added
+- SDK declaration `ServerError` added
 - SDK declaration `SpecRevisionsGetParams.filter` added
 - SDK declaration `TargetConfig.exclude` added
 - SDK declaration `TargetConfig.include` added
@@ -1019,6 +1107,8 @@
 - **Breaking:** SDK declaration `TypeshipClient.withCredentials` added
 - SDK declaration `UnauthorizedError.rateLimit` added
 - SDK declaration `UnexpectedApiError.rateLimit` added
+- SDK declaration `UnknownVariant` added
+- SDK declaration `UnknownVariantTag` added
 - SDK declaration `UnprocessableEntityError.rateLimit` added
 ## 0.25.0 (2026-09-25) (41 breaking)
 

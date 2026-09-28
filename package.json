@@ -17,6 +17,9 @@
     "type": "git",
     "url": "git+https://github.com/typeship-ax/typescript.git"
   },
+  "bugs": {
+    "url": "https://github.com/typeship-ax/typescript/issues"
+  },
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",

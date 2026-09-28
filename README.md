@@ -1,37 +1,16 @@
 # @typeship-ax/sdk
 
-TypeScript SDK for typeship. [API reference](./api.md)
+TypeScript SDK for the typeship API. [API reference](./api.md)
 
-Generated from the OpenAPI spec by [typeship](https://typeship.dev).
+Resolve an OpenAPI or GraphQL Spec, diagnose it, and keep every selected CLI, MCP, and SDK Target current.
 
-- **Zero runtime dependencies** — built on the platform `fetch` (Node 20+, browsers, edge runtimes)
-- **Typed errors** — calls resolve to response data and throw per-status API errors or transport, parse, and validation errors
-- **Auto-pagination** — `for await` any list call to stream every item across every page
-- **Retries built in** — idempotent requests retry with exponential backoff and `Retry-After` support
-- **Forward-compatible responses** — request enums stay closed, while response enums and discriminator unions preserve values the server added after this package was generated
-- **Optional runtime validation** — `validate: true` schema-checks request and response bodies against the spec, still zero dependencies
-- **Tree-shakeable SDK** — per-resource modules, `sideEffects: false`
-
-## Build from source
-
-Run these commands in the downloaded or cloned package directory:
-
-```sh
-npm install
-npm run build
-```
-
-Requires Node.js 20+ or a modern browser/edge runtime with `fetch`, `AbortController`, and Web Streams. The package is ESM.
-
-Save the quickstart example below in the package directory. The package import resolves to the local build.
-
-## Install a published package
-
-Generation does not publish a package. Before using the registry command below, confirm `name` and `version` in `package.json`, publish under a name you control, and verify that release is available on npm.
+## Installation
 
 ```sh
 npm install @typeship-ax/sdk@0.26.0
 ```
+
+Requires Node.js 20+ or a modern browser or edge runtime with `fetch`, `AbortController`, and Web Streams. The package is ESM.
 
 ## Quickstart
 
@@ -46,17 +25,17 @@ console.log(result);
 
 ## Authentication
 
-- **Bearer token** — `bearerToken` (a string, or a callback for tokens that expire), sent as `Authorization: Bearer <token>`.
+- **Bearer token**: `bearerToken` (a string, or a callback for tokens that expire), sent as `Authorization: Bearer <token>`.
 
 `defaultHeaders` adds headers to every request (API version headers, tenant ids); `onRequest` can rewrite any request before it is sent.
 
 ## Error handling
 
 Awaiting a call returns the response data. Failures throw typed errors.
-Documented HTTP errors have per-status classes. Parse, validation, and transport failures have distinct classes:
+Every HTTP error is an `ApiError`. Each status family has one class, raised whether or not the operation documents the status: `BadRequestError` (400), `UnauthorizedError` (401), `ForbiddenError` (403), `NotFoundError` (404), `ConflictError` (409), `UnprocessableEntityError` (422), `RateLimitError` (429), and `ServerError` (5xx). Parse, validation, and transport failures have distinct classes:
 
 ```ts
-import { ResponseParseError, UnauthorizedError } from "@typeship-ax/sdk";
+import { ResponseParseError, NotFoundError } from "@typeship-ax/sdk";
 
 try {
   const result = await client.organization.get();
@@ -66,15 +45,15 @@ try {
   if (error instanceof ResponseParseError) {
     console.error(error.body); // malformed successful JSON, preserved as text
   }
-  if (error instanceof UnauthorizedError) {
-    // error.body is fully typed for this status
+  if (error instanceof NotFoundError) {
+    console.error(error.message, error.code); // the API's own message and code
   }
   throw error;
 }
 
 ```
 
-Every error exposes `code`, `status`, `requestId`, `body`, and an actionable `message`. No non-throwing SDK variant is generated.
+Every error exposes `code`, `status`, `requestId`, `body`, and an actionable `message`. Every failure throws; no method returns an error as a value.
 
 ## Pagination
 
@@ -95,7 +74,7 @@ await page.getNextPage();
 
 Paginated pages expose `page.response` with status, headers, request id, and raw body. For other successful calls, use `onResponse` to observe HTTP metadata. HTTP and response-parse errors expose response metadata on `error.response`.
 
-## SDK configuration
+## Configuration
 
 ```ts
 new TypeshipClient({
@@ -108,6 +87,10 @@ new TypeshipClient({
 
 Per-call overrides ride on the last argument: `{ timeoutMs, maxRetries, headers, signal }`.
 
+`validate: true` checks request and response bodies against the spec's schemas at runtime, with no added dependencies.
+
 Timeouts apply to each attempt. By default, the client makes up to two retries for `408`, `429`, `500`, `502`, `503`, and `504`; non-idempotent calls retry only on `429`, when the operation declares an idempotency key, or when explicitly enabled. `Retry-After` takes precedence over exponential backoff.
 
 Use `onRequest`, `onResponse`, and `onError` for instrumentation. `debug` receives one structured event per attempt and never includes headers or bodies.
+
+Generated from the OpenAPI spec by [typeship](https://typeship.dev).
