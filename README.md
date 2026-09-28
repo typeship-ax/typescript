@@ -1,6 +1,6 @@
 # @typeship-ax/sdk
 
-TypeScript SDK for the typeship API. [API reference](./api.md)
+TypeScript SDK for the Typeship API. [API reference](./api.md)
 
 Resolve an OpenAPI or GraphQL Spec, diagnose it, and keep every selected CLI, MCP, and SDK Target current.
 
