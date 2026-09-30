@@ -7,7 +7,7 @@ Resolve an OpenAPI or GraphQL Spec, diagnose it, and keep every selected CLI, MC
 ## Installation
 
 ```sh
-npm install @typeship-ax/sdk@0.26.0
+npm install @typeship-ax/sdk@0.27.0
 ```
 
 Requires Node.js 20+ or a modern browser or edge runtime with `fetch`, `AbortController`, and Web Streams. The package is ESM.
