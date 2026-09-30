@@ -4,6 +4,24 @@
 
 
 
+
+## 0.27.0 (2026-09-30) (7 breaking)
+
+### Package contract (breaking)
+- **Breaking:** SDK declaration `DeliveriesListParams.targetId` removed
+- **Breaking:** SDK declaration `DraftsListParams.targetId` removed
+- **Breaking:** SDK declaration `GenerationsListParams.projectId` removed
+- **Breaking:** SDK declaration `GenerationsListParams.targetId` removed
+- **Breaking:** SDK declaration `ReleasesListParams.targetId` removed
+- **Breaking:** SDK declaration `SpecRevisionsListParams.specId` removed
+- **Breaking:** SDK declaration `TargetsListParams.projectId` removed
+- SDK declaration `DeliveriesListParams.target_id` added
+- SDK declaration `DraftsListParams.target_id` added
+- SDK declaration `GenerationsListParams.project_id` added
+- SDK declaration `GenerationsListParams.target_id` added
+- SDK declaration `ReleasesListParams.target_id` added
+- SDK declaration `SpecRevisionsListParams.spec_id` added
+- SDK declaration `TargetsListParams.project_id` added
 ## 0.26.0 (2026-09-28) (158 breaking)
 
 ### Added
