@@ -5,6 +5,26 @@
 
 
 
+
+## 0.28.0 (2026-10-03)
+
+### Changed
+- `projects.create()`
+  - `body-field-type-changed`: request body.targets\[\].config.cli.unit\_tests added: boolean \(optional\)
+- `targets.create()`
+  - `body-field-type-changed`: request body.config.cli.unit\_tests added: boolean \(optional\)
+  - `return-type-changed`: response.config.cli.unit\_tests added: boolean \(optional\)
+- `targets.list()`
+  - `return-type-changed`: response.data\[\].config.cli.unit\_tests added: boolean \(optional\)
+- `targets.get()`
+  - `return-type-changed`: response.config.cli.unit\_tests added: boolean \(optional\)
+- `targets.update()`
+  - `body-field-type-changed`: request body.config.cli.unit\_tests added: boolean \(optional\)
+  - `return-type-changed`: response.config.cli.unit\_tests added: boolean \(optional\)
+
+### Package contract
+- SDK declaration `TargetCliBehavior.unit_tests` added
+- SDK declaration `TargetCliBehaviorResponse.unit_tests` added
 ## 0.27.0 (2026-09-30) (7 breaking)
 
 ### Package contract (breaking)
